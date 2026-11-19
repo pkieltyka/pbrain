@@ -2,15 +2,27 @@
 
 ## Project
 
-pbrain ("project brain"): a CLI, and a skill that ships with it, that keeps a project's knowledge (notes, decisions, learnings, specs context and imported outside sources) as Markdown with front matter in Git, so agents and people can record it and query it cheaply. Its first users are factory's agent teams (github.com/pkieltyka/factory, local at `../factory`): agents on a tight context budget who need a few short cited results or one item by id, never a dump; and the owner, who adds outside material, confirms decisions and keeps private notes. Factory adopts it opt-in through a recipe and its brief's Notes section; factory must keep working without it.
+pbrain ("project brain"): a general-purpose CLI, and a skill that ships with it, for storing a project's knowledge and querying it to give agents context: design and research ideas, decisions and facts, learnings, competitor notes, design docs, links, transcripts and Slack messages, of mixed quality. Many people feed it; agents are its real readers, on a tight context budget, so it returns a few short cited results or one item by id, never a dump. Its primary consumer is factory, the software factory meta-harness that sparked it (github.com/pkieltyka/factory, local at `../factory`), which adopts it opt-in; factory must keep working without it, and pbrain must not hard-wire factory concepts.
 
-Origin and starting recommendations: https://github.com/pkieltyka/factory/issues/62 (read it with `gh issue view 62 -R pkieltyka/factory --comments`). Owner decision 2026-11-19: one brain per project to start. Prior art to study: factory's notes convention (`../factory/skill/references/notes.md`), qmd (github.com/tobi/qmd), beads (github.com/gastownhall/beads), the Hermes agent's learning and context features.
+Background: https://github.com/pkieltyka/factory/issues/62 (`gh issue view 62 -R pkieltyka/factory --comments`). The approved overview, research and owner decisions are in `specs/projects/pbrain/`.
 
-Stack: not chosen yet; the spec decides it. Principles: keep it small and simple; Markdown files in Git are the source of truth and any index is derived and rebuildable; every word an agent reads costs context.
+Stack: Go, shipped as a single binary; qmd is an optional outside tool. Principles: keep it small and simple; Markdown files in Git are the source of truth and any index is derived and rebuildable; shared by default, with a Git-ignored personal section; every word an agent reads costs context.
 
 ## Tasks
 
-Tasks and bugs are tracked in `TODO.md` at the repo root, one line each: `- [ ] <title> -- <description>`. `## Ready` holds, in the order they will be done, the items the operator may assign without asking the user; only a person puts an item there or reorders it, never the team. Members report discoveries to @pm, who records them in `## Backlog`. An assigned item moves to `## In progress` with its owner at the end of the line, `(@lead-dev)`. Integrated work moves to the top of `## Done` as `- [x]` with its commit. An item's criteria, verdict and next step go on indented lines under it.
+Tasks and bugs are tracked in `TODO.md` at the repo root. Put the title on a checkbox line. When it needs more detail, add four-space `*` description bullets. Use the same bullets for record fields (`owner`, `criteria`, `work`, `verdict`, `next`) as they become known. Indent nested lists eight spaces. Leave exactly one blank line between items in the same section and none inside an item.
+
+```markdown
+- [ ] Title
+    * description
+    * criteria: ...
+    * next: ...
+        1. ...
+
+- [ ] Fix the README typo
+```
+
+`## Ready` holds, in the order they will be done, the items the operator may assign without asking the user; only a person puts an item there or reorders it, never the team. Members report discoveries to @pm, or the operator when there is no @pm, who records them in `## Backlog`. An assigned item moves to `## In progress` with its owner at the end of the checkbox line, `(@lead-dev)`. Integrated work moves to the top of `## Done` as `- [x]` with its commit.
 
 ## Workflow
 
@@ -22,7 +34,7 @@ Tasks and bugs are tracked in `TODO.md` at the repo root, one line each: `- [ ] 
 
 ## Specs
 
-Specifications live in `specs/projects/<project>/` (overview, functional spec, architecture, implementation plan), written with the operator's `/spec` process. Read the active project's spec before a task and follow it; raise a disagreement with the operator instead of departing from it. Check: `ls specs/projects`.
+Specifications live in `specs/projects/<project>/` (overview, functional spec, architecture, implementation plan), written with the operator's `/spec` process: an architect drafts each artifact and research summary, another architect and a lead-dev review it, and the owner approves each step. Read the active project's spec before a task and follow it; raise a disagreement with the operator instead of departing from it. Check: `ls specs/projects`.
 
 ## Notes
 
