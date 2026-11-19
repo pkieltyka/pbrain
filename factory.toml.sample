@@ -1,0 +1,55 @@
+# Your formation: the operator and the members, each on its own harness and model. The operator is the lead
+# agent; you, the user, are the owner who directs it. This file is yours and is not committed;
+# factory.toml.sample is the project's suggestion. All roles are in the skill's roles/.
+# A member needs harness + model; thinking defaults to its role's. Optional per member: role (for numbered
+# names), notes (what it owns here), permissions, args (native flags), worktree (true: its own checkout on
+# branch <user>/<name>; a branch name: that branch). The first member of a role has the role's name; more of
+# that role are -2, -3, ... A name never changes.
+
+# user = "peter"          # the first part of your worktree branches (peter/lead-dev); default: your system user
+#                         # name. A top-level key: it goes here, above [operator]. Leave it out of factory.toml.sample.
+# permissions = "guarded" # default "full": members never stop for approval, which assumes a safe machine.
+#                         # guarded keeps Claude Code and Codex behind their own guard. See Permissions in the factory skill's references/cmd_setup.md.
+# worktree_dir = "../<repo>.worktrees"
+
+[operator]
+# messages = "typed"   # members type into your pane with herdr instead of using the inbox
+name = "operator"   # the operator agent's @name, pane label and herdr agent name; fixed while the team runs
+harness = "claude"
+model = "claude-opus-5-5"
+thinking = "high"
+notes = "Owns architecture decisions, assigns tasks and integrates reviewed work."
+
+[members.architect]
+harness = "claude"
+model = "claude-fable-5-2"
+thinking = "high"
+
+[members.architect-2]
+role = "architect"
+harness = "codex"
+model = "gpt-6.2-astra"
+thinking = "high"
+
+[members.lead-dev]
+harness = "codex"
+model = "gpt-6.2-sol"
+thinking = "high"
+worktree = true
+
+[members.lead-dev-2]
+role = "lead-dev"
+harness = "claude"
+model = "claude-opus-5-5"
+thinking = "high"
+worktree = true
+
+[members.reviewer]
+harness = "codex"
+model = "gpt-6-luna"
+thinking = "high"
+
+[members.pm]
+harness = "codex"
+model = "gpt-6-luna"
+thinking = "high"
