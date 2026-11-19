@@ -5,25 +5,22 @@ TODO
 
 ## In progress
 
-- [ ] factory setup: refresh to the latest factory skill (@operator)
-    * description: refresh the factory setup guidance and portable sample to match the latest factory skill
-    * criteria: update FACTORY.md Tasks, Project, and Specs sections and make `factory.toml.sample` portable
-    * work: changes complete and uncommitted
-    * verdict: implementation complete; commit awaits owner authorization
-    * next: commit when the owner authorizes
-
 - [ ] pbrain spec: functional spec (@architect)
     * description: gather the owner's round-1 answers, then draft the functional spec
-    * criteria: Q&A answers recorded in `specs/projects/pbrain/qa_round1.md`; `specs/projects/pbrain/functional_spec.md` drafted; @architect-2 and @lead-dev review it, with findings in `specs/projects/pbrain/reviews/functional_spec/round1-<name>.md`
-    * work: draft complete and uncommitted; both round-1 reviews complete with 6 blocking, 8 should-fix, and 1 nit from @architect-2, and 6 blocking, 9 should-fix, and 1 nit from @lead-dev
-    * verdict: changes required; @architect is revising for round 2
-    * next: @architect addresses every required fix in both review reports; owner decisions remain pending on Q3 ranking and Q5 secret scan
-        * @architect-2's full findings and fixes: `specs/projects/pbrain/reviews/functional_spec/round1-architect-2.md` (6 blocking, 8 should-fix, 1 nit)
-        * @lead-dev's full findings and fixes: `specs/projects/pbrain/reviews/functional_spec/round1-lead-dev.md` (6 blocking, 9 should-fix, 1 nit)
+    * criteria: Q&A answers recorded in `specs/projects/pbrain/qa_round1.md`; `specs/projects/pbrain/functional_spec.md` drafted; @architect-2 and @lead-dev review it each round, with findings in `specs/projects/pbrain/reviews/functional_spec/roundN-<name>.md`
+    * work: round-3 revision complete; owner ranking decision recorded in `specs/projects/pbrain/qa_round1.md` and applied; @architect-2 and @lead-dev are assigned final review; draft SHA-256 `3b526d45d8a3f1fb339741134d2940b5af462cecc7833ef98d3ca089bb0a30f7`
+    * verdict: round-3 final review pending
+    * next: @architect-2 and @lead-dev review the final draft and record findings in `specs/projects/pbrain/reviews/functional_spec/round3-<name>.md`; then the operator decides
 
 ## Backlog
 
 ## Done
+
+- [x] factory setup: refresh to the latest factory skill (@operator) `9ea029e`
+    * description: refresh the factory setup guidance and portable sample to match the latest factory skill
+    * criteria: update FACTORY.md Tasks, Project, and Specs sections and make `factory.toml.sample` portable
+    * verdict: complete; committed in `9ea029e`
+    * next: none
 
 - [x] pbrain spec: project overview rewrite (@architect) `4f1988e`
     * description: rewrite the brain-dump intro into a clean overview
