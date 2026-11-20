@@ -37,7 +37,7 @@ The quality is mixed. We will have noisy data, correct data and incorrect data, 
 
 ## Who uses it
 
-pbrain is multiplayer: many humans feed data into it and many access it.
+pbrain is multiplayer: many humans, and the agents working for them, feed data into it, and many access it.
 
 Agents are the real consumers. We are not really going to read it manually as humans. We feed it data and give it to our agents (the software factory team, the design team, the architect team), who use it as context to make the best decisions when architecting, programming, implementing, testing, delivering, deploying and so forth.
 

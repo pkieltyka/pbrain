@@ -2,7 +2,7 @@
 
 ## Project
 
-pbrain ("project brain"): a general-purpose CLI, and a skill that ships with it, for storing a project's knowledge and querying it to give agents context: design and research ideas, decisions and facts, learnings, competitor notes, design docs, links, transcripts and Slack messages, of mixed quality. Many people feed it; agents are its real readers, on a tight context budget, so it returns a few short cited results or one item by id, never a dump. Its primary consumer is factory, the software factory meta-harness that sparked it (github.com/pkieltyka/factory, local at `../factory`), which adopts it opt-in; factory must keep working without it, and pbrain must not hard-wire factory concepts.
+pbrain ("project brain"): a general-purpose CLI, and a skill that ships with it, for storing a project's knowledge and querying it to give agents context: design and research ideas, decisions and facts, learnings, competitor notes, design docs, links, transcripts and Slack messages, of mixed quality. People and agents feed it; agents are its main readers, on a tight context budget, so it returns a few short cited results or one item by id, never a dump. Its primary consumer is factory, the software factory meta-harness that sparked it (github.com/pkieltyka/factory, local at `../factory`), which adopts it opt-in; factory must keep working without it, and pbrain must not hard-wire factory concepts.
 
 Background: https://github.com/pkieltyka/factory/issues/62 (`gh issue view 62 -R pkieltyka/factory --comments`). The approved overview, research and owner decisions are in `specs/projects/pbrain/`.
 
