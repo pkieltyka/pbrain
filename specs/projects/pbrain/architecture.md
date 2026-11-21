@@ -63,6 +63,7 @@ All code is under `internal/` except `cmd/pbrain/main.go`, which only calls `cli
 | `check` | Builds the findings of `pbrain check` from items, skipped files and a graph. | `graph`, `item`, `secretscan` |
 | `semantic` | Passages, the per-section vector index, the per-user vector cache and its placement test, the incremental build, its status, and the scores a search asks for. | `search`, `embed`, `outline`, `item`, `gitx`, `sys`, `errs` |
 | `embed` | The `Embedder` seam, the table of supported models, and finding, downloading and verifying a model. It downloads through an interface that `importer/fetch` satisfies. One sub-package per model, holding its adapter, imported only where the registry is built. | `sys`, `errs` |
+| `embed/embedtest` | The test registry of the semantic test plan: small models with fixed vectors, their pinned bytes and a fake downloader. Imported by tests only. | `embed`, `errs` |
 | `importer` | File and link imports, body cleaning, HTML to Markdown. Sub-package `importer/fetch` is the public-fetch client. | `item`, `errs` |
 | `search` | Matching, match classes, ranking, the time window, per-clause counts, passage choice, and the merge of semantic results. Declares the `Corpus` it reads and the `Semantic` source it may ask. | `graph`, `item`, `query`, `outline`, `errs` |
 | `render` | The budgeted document model and its text and JSON printers. | `errs` |
