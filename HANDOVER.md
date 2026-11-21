@@ -25,9 +25,9 @@ Open failures (run `44935115413`):
 
 | | Failure | Status | Owner (old team) |
 |---|---|---|---|
-| A | macOS: `model_path` and tests open paths behind the `/var` → `/private/var` link with the strict `OpenRoot` | Design `47c8b42`; implemented on branch `peter/lead-dev-2` (`8531694`), Actions pending | lead-dev-2 |
-| B | macOS: APFS rejects non-UTF-8 names and normalises `café` — tests that need those names skip there, naming the Mac backlog | Implemented on `peter/lead-dev-2` (`8531694`, probe conditions `[badnames]`, `[casedistinct]`, `[nfdistinct]`), Actions pending | lead-dev-2 |
-| C | macOS: scenario 14 loses the lock race after 0.88 s (not the 30 s wait) | `3a1e60f` makes the real lock error visible in the next macOS log; fix follows | lead-dev-2 |
+| A | macOS: `model_path` and tests open paths behind the `/var` → `/private/var` link with the strict `OpenRoot` | **Fixed** on branch `peter/lead-dev-2` (head `9f1ff90`); macOS CI run 44936780814 confirms the failures are gone | lead-dev-2 |
+| B | macOS: APFS rejects non-UTF-8 names and normalises `café` | **Fixed** on `peter/lead-dev-2`: those cases skip by name, naming the Mac backlog (probe conditions `[badnames]`, `[casedistinct]`, `[nfdistinct]`) | lead-dev-2 |
+| C | macOS: scenario 14's second writer fails after 0.6–1.6 s: `lock …/docs/brain/.pbrain/lock: no such file or directory`, i.e. `openat(O_RDWR\|O_CREAT\|O_NOFOLLOW)` in the open `.pbrain` dir handle returns ENOENT. pbrain never removes `.pbrain`. Suspects: the test's barrier lock wrapper (`scenarioFiles.Lock`, fds 3/4 via ExtraFiles) on darwin, or APFS `openat` behaviour under `-race`. macOS race also fails `TestConcurrentSettingsWriters` (audience_test.go:237), maybe the same cause. | **Open.** Read `9f1ff90`'s macOS logs, fix, then review once Linux and macOS are both green | lead-dev-2 |
 | D | Linux race/release: store `TestMutationFollowsScannedIdentity` (test-fixture flaw: ext4 reuses the freed inode) | **Fixed and merged** (`65a3bac`); Linux CI jobs green on its branch | architect-2 |
 
 GitHub's `macos-latest` runner is a real Mac: push a branch and CI runs on it.
