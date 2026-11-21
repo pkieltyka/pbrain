@@ -25,9 +25,9 @@ Open failures (run `44935115413`):
 
 | | Failure | Status | Owner (old team) |
 |---|---|---|---|
-| A | macOS: `model_path` and tests open paths behind the `/var` → `/private/var` link with the strict `OpenRoot` | Design done (`47c8b42`, architecture §10.3, store.md "Named roots": new `sys.OpenNamed`); implementation pending | lead-dev-2 |
-| B | macOS: APFS rejects non-UTF-8 names and normalises `café` — tests that need those names must skip on darwin, naming the Mac backlog | Pending | lead-dev-2 |
-| C | macOS: scenario 14 loses the lock race ("another pbrain command holds this section's lock") | Cause not yet found; read the runner log | lead-dev-2 |
+| A | macOS: `model_path` and tests open paths behind the `/var` → `/private/var` link with the strict `OpenRoot` | Design `47c8b42`; implemented on branch `peter/lead-dev-2` (`8531694`), Actions pending | lead-dev-2 |
+| B | macOS: APFS rejects non-UTF-8 names and normalises `café` — tests that need those names skip there, naming the Mac backlog | Implemented on `peter/lead-dev-2` (`8531694`, probe conditions `[badnames]`, `[casedistinct]`, `[nfdistinct]`), Actions pending | lead-dev-2 |
+| C | macOS: scenario 14 loses the lock race after 0.88 s (not the 30 s wait) | `3a1e60f` makes the real lock error visible in the next macOS log; fix follows | lead-dev-2 |
 | D | Linux race/release: store `TestMutationFollowsScannedIdentity` (test-fixture flaw: ext4 reuses the freed inode) | Fixed on branch `peter/store-identity` (`b454a5a`, pushed), reviewed locally; merge once its Actions run passes the store test | architect-2 |
 
 GitHub's `macos-latest` runner is a real Mac: push a branch and CI runs on it.
@@ -39,6 +39,7 @@ Everything measured so far is committed in `internal/cli/README.measure.md`, `in
 - **bge-small (default), done:** 5,000 items / 50 MB on 4 Linux CPUs: first index 1 h 41 m (7.99 passages/s, peak 1,351 MiB); one-note reindex 0.77 s; `search --semantic` 302–333 ms warm (298–335 ms with `--bm25`), up to 549 MiB.
 - **EmbeddingGemma 2, owed:** a full-size build was paused at 545 items / 5,251 passages after 1 h 38 m (0.90 passages/s, projected ~15 h total, peak 1.97 GiB), then resumed on the old machine. **That run dies with the old machine.** On the new machine, rerun the full-size gemma build from scratch with `PBRAIN_MEASURE=1` (see `internal/cli/README.measure.md`); a faster machine will give different absolute numbers, so record the hardware.
 - **Final-pin warm check, owed:** warm `search --semantic` on the release binary built from current master (aikit v1.79.1, goinfer v0.4.1), on both models' retained indexes.
+- **Rerun kit:** branch `peter/lead-dev` (`f285545`), `tools/phase28/README.md`: a portable runner (`run-linux.sh init|provision|full|warm|resume`), model provisioning and gemma packing, progress sampler, and the bge and partial gemma raw evidence. Not yet reviewed or on master. Run full gemma from scratch on the new machine; the old checkpoint and cache are not in Git. Use the v0.1.1 candidate commit for the warm check.
 - **When both land:** the architect replaces the remaining EmbeddingGemma projections (spec §16, architecture §8.7/§17, semantic.md, the semantic skill topic, the README).
 
 Model files are not in the repo. `pbrain index` downloads them from Hugging Face at pinned revisions (bge-small ~135 MB; EmbeddingGemma 2 source ~1.52 GB, derived into a 552 MB pack). The adapter tests take the files via `PBRAIN_TEST_BGE_MODEL` and the gemma equivalents (see `internal/embed/*/testdata/README.md`).
@@ -54,7 +55,7 @@ Model files are not in the repo. `pbrain index` downloads them from Hugging Face
 - **Running jobs:** `pbrain-phase28-gemma-resume.service` and `pbrain-phase28-release-warm.service` (systemd user units); logs under `/tmp/pbrain-phase28-release.Oq1j8a/`.
 - **Scratch** under `/tmp`: model files, calibration reports (`/tmp/pbrain-gemma2-gates-IIB5V6xp/`), review archives. The committed READMEs record the results and their SHA-256s.
 - **`factory.toml`** is the owner's formation file and is git-ignored: copy it over, or start from `factory.toml.sample`.
-- **Operator memory** lives in `~/.claude/projects/<project>/memory/` on the old machine (two notes: cap heavy checks at `go test -p 2`; watch GitHub CI after every push).
+- **Operator memory** lives in `~/.claude/projects/<project>/memory/` on the old machine (three notes, all folded into this file: heavy-check limits, the sandbox/signing/go.work gotchas, and watch GitHub CI after every push).
 
 ## Forks
 
@@ -69,6 +70,23 @@ Model files are not in the repo. `pbrain index` downloads them from Hugging Face
 3. Copy `factory.toml`, then `/factory up` from the operator pane (needs herdr). Members get fresh sessions and read `FACTORY.md`.
 4. `go test -p 2 ./...` should pass locally (heavy checks: `-p 2`, race only on changed packages, one fuzz target at a time).
 5. First task for the new team: the CI table above, then the owed measurements, then tag `v0.1.1`.
+
+## Environment gotchas (from the old machine)
+
+- **Heavy checks:** `go test -p 2`; `-race` only on changed packages plus one final full run; one fuzz target at a time with `-parallel 2` and a short `-fuzztime`; the four cross-builds in sequence. Parallel heavy runs once got every agent session OOM-killed on a 62 GB machine.
+- **pbrain index downloads** dial Hugging Face directly; inside Claude Code's sandbox they fail in ~30 ms with `fetch_failed`. Run that one step outside the sandbox.
+- **Signed tags:** the global git config signs tags, so tests that run `git tag` (goinfer's cmd/gate) need `GIT_CONFIG_GLOBAL=/dev/null`.
+- **Pushing from a sandbox** that blocks SSH: `GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential' push https://github.com/pkieltyka/pbrain.git HEAD:refs/heads/<branch>`.
+- **goinfer** builds its sub-modules through an untracked `go.work`: keep the workspace on for goinfer, off for pbrain. Point `GOINFER_TIMING_LOCK_FILE` and `XDG_CACHE_HOME` at scratch when home paths are read-only.
+
+## Architect's open work and method
+
+1. Final EmbeddingGemma figures, in one delta, once its record lands: functional spec §16; architecture §8.7 (the first-index paragraph) and §17 (default-model and EmbeddingGemma risks); semantic.md ("Costs to state wherever this model is offered"); the semantic skill topic and skill.md; the README's semantic section. If the gemma run is redone on the new machine, the bge-small figures in the same texts are from the old machine: redo them there too, or label them by machine.
+2. With that delta: close architecture §8.6's measurement list against `internal/cli/README.measure.md`. The cost of counting lines on a scan stays unmeasured.
+3. After the macOS fix (#1) lands: check it against architecture §10.3 and store.md "Named roots", and record in §17 which macOS cases skip.
+4. Scenario 14's macOS lock failure (C): if the cause is in the lock design (store.md, `Files.Lock`, `Begin`'s 30 s wait), it needs a design answer, not a test change.
+
+Method: the architect edits spec files in the main checkout's working tree and never commits; it reports each file's sha256, and the operator commits on a hash match. The shipped skill core must stay at 400 words or fewer, and the semantic topic must keep the four phrases its test checks. Read the whole function a sentence describes, and read the CI run, before reporting.
 
 ## Conventions the team settled
 
