@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+export GOWORK=off
 
 here=$(cd -- "$(dirname -- "$0")" && pwd -P)
 repo=$(git -C "$here" rev-parse --show-toplevel)
@@ -38,7 +39,7 @@ build() {
 case "$action" in
     init)
         [[ $# -le 1 ]] || usage
-        candidate=$(git -C "$repo" rev-parse "${1:-$harness}")
+        candidate=$(git -C "$repo" rev-parse --verify --end-of-options "${1:-HEAD}^{commit}")
         archive "$baseline" "$work/baseline-src"
         archive "$harness" "$work/harness-src"
         archive "$candidate" "$work/candidate-src"
@@ -65,17 +66,22 @@ PY
             gemma) name=embeddinggemma-2 ;;
             *) usage ;;
         esac
-        mkdir -- "$work/provision-$1"
-        cd -- "$work/provision-$1"
+        provision=$(mktemp -d -- "$work/provision-$1.XXXXXX")
+        cd -- "$provision"
+        unset PBRAIN_DIR
         export PBRAIN_CACHE="$work/download-cache" GOMAXPROCS=4
         "$work/pbrain-baseline" init
         printf 'semantic.model = "%s"\n' "$name" > docs/brain/pbrain.toml
         "$work/pbrain-baseline" add --title 'Provision benchmark model' --body 'One item for model setup.' --author agent:readbench
         taskset -c "$cpus" "$work/pbrain-baseline" index
         shopt -s nullglob
-        dirs=("$PBRAIN_CACHE/models/$name"-*)
-        [[ ${#dirs[@]} -eq 1 && -d ${dirs[0]} ]]
-        printf '%s\n' "${dirs[0]}" | tee "$work/$1-model-path"
+        # embed.FolderName ends in a 16-character digest. Gemma keeps a .source sibling.
+        dirs=("$PBRAIN_CACHE/models/$name"-????????????????/)
+        if [[ ${#dirs[@]} -ne 1 ]]; then
+            printf 'Expected one %s model directory in %s/models, found %s\n' "$name" "$PBRAIN_CACHE" "${#dirs[@]}" >&2
+            exit 1
+        fi
+        printf '%s\n' "${dirs[0]%/}" | tee "$work/$1-model-path"
         ;;
     pack)
         [[ $# -eq 2 && -d $1 ]] || usage

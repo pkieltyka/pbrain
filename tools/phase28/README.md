@@ -1,20 +1,20 @@
 # Phase 28 Linux measurement handover
 
-This branch carries the temporary harness as a repeatable runner. The new machine needs a Linux checkout with Go 1.27.3, Git, Bash, Python 3, `taskset`, and enough local disk for both unpacked models and two fixture copies. Use four available cores, preferably equivalent cores on a hybrid CPU. Keep the two model jobs serial.
+This kit preserves the measurement harness as a repeatable runner. Use a Linux checkout with Go 1.27.3, Git, Bash, Python 3.11 or later, `taskset`, and enough local disk for both unpacked models and two fixture copies. Use four available cores, preferably equivalent cores on a hybrid CPU. Keep the two model jobs serial.
 
 ## Prepare exact binaries and model files
 
-From the repository root on this branch, set `work` to a new absolute directory outside any Git work tree. Set `PHASE28_CPUS` to four CPUs available on the new machine. A candidate commit is optional. `67cf646` is the previously queued candidate with aikit v1.79.1 and goinfer v0.4.1. Use the approved v0.1.1 candidate commit for the final check once it lands.
+From the repository root, set `work` to a new absolute directory outside any Git work tree. Set `PHASE28_CPUS` to four CPUs available on the machine. `init` defaults the candidate to the checkout's `HEAD`. Pass the approved v0.1.1 candidate commit explicitly for the final check once it lands.
 
 ```sh
 work=$(mktemp -d)
 export PHASE28_CPUS=0-3
-tools/phase28/run-linux.sh init "$work" 67cf646
+tools/phase28/run-linux.sh init "$work"
 ```
 
-`init` builds `pbrain-baseline` from `9f53910a980200ff562a5c5f3657f4e2b1db7539` for both full-size builds, and `pbrain-candidate` from the candidate commit for the final warm check. Each uses `CGO_ENABLED=0`, `-trimpath`, and `-p 2`. The original baseline SHA-256 was `f05e084ee8bc73eaf337d061ca3b5977b4e21257873741633ab3082cf6dd92e4` with Go 1.27.3 on Linux amd64. Build logs record the toolchain, module pins, and binary SHA-256. The scratch test harness comes from `67cf646` with the retained-directory setup and the two extra test entry points from `testdata/`.
+`init` builds `pbrain-baseline` from `9f53910a980200ff562a5c5f3657f4e2b1db7539` for both full-size builds, and `pbrain-candidate` from the candidate commit for the final warm check. Each uses `CGO_ENABLED=0`, `GOWORK=off`, `-trimpath`, and `-p 2`. The original baseline SHA-256 was `f05e084ee8bc73eaf337d061ca3b5977b4e21257873741633ab3082cf6dd92e4` with Go 1.27.3 on Linux amd64. Its historical pins are aikit v1.79.0 and goinfer v0.2.0. The candidate should report the current release pins, aikit v1.79.1 and goinfer v0.4.1. Build logs record the toolchain, module pins, and binary SHA-256. The scratch test harness comes from `67cf646` with the retained-directory setup and the two extra test entry points from `testdata/`.
 
-Use existing pinned model directories if available. Otherwise prepare them once, outside the timed runs. `provision` creates a disposable one-item brain and calls baseline `pbrain index` to download and verify the selected model. It records the resulting directory in `$work/bge-model-path` or `$work/gemma-model-path`.
+Use existing pinned model directories if available. Otherwise prepare them once, outside the timed runs. `provision` creates a disposable one-item brain and calls baseline `pbrain index` to download and verify the selected model. It records the resulting directory in `$work/bge-model-path` or `$work/gemma-model-path`. Each invocation creates a fresh brain and reuses `$work/download-cache`, so the same command can be retried after a failed download.
 
 ```sh
 tools/phase28/run-linux.sh provision "$work" bge
