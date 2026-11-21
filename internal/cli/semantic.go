@@ -241,7 +241,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 // progressMessage is the index_progress text: "<section>: <Done> of <Total> item[s]", or the wait.
 func progressMessage(p semantic.Progress) string {
 	if p.Waiting {
-		return sectionName(p.Section) + ": waiting for another pbrain sync"
+		return sectionName(p.Section) + ": waiting for another pbrain command"
 	}
 	return fmt.Sprintf("%s: %d of %s", sectionName(p.Section), p.Done, counted(p.Total, "item", "items"))
 }

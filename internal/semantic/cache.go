@@ -190,6 +190,13 @@ func (c *Cache) dirLocked(rel string, create bool) (sys.Dir, error) {
 	return d, nil
 }
 
+// exists reports whether the cache folder is there and passed its test, opening it without
+// creating it. A catch-up reads and writes the cache only then, so a search never creates it.
+func (c *Cache) exists() bool {
+	_, err := c.dir("", false)
+	return err == nil
+}
+
 // models is <cache>/models/, tested.
 func (c *Cache) models(create bool) (sys.Dir, error) { return c.dir("models", create) }
 

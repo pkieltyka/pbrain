@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,6 +14,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/search"
+	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
 // semanticBrain is a brain whose pbrain.toml names the test model, with the model's files at
@@ -71,8 +75,17 @@ func TestCLISemanticCommands(t *testing.T) {
 	if status != 0 || errOut != "" || !strings.Contains(out, "20261102-000000-beta-b1b1  note  provisional  2026-11-02  semantic\n") {
 		t.Fatalf("a semantic hit: %d %q %q", status, out, errOut)
 	}
-	// A new item not yet indexed: the partial notice counts it.
+	// A new item while another command holds the index lock: the search does not catch it up, and
+	// the partial notice counts it.
 	rb.put("notes/20261103-000000-gamma-c1c1.md", []string{"kind: note", "title: Third", "created: 2026-11-03T00:00:00Z", "author: agent:x"}, "gamma\n")
+	idx, err := sys.OpenDir(filepath.Join(rb.dir, ".pbrain", "index"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	held, err := sys.Native().Lock(context.Background(), idx, "lock")
+	if err != nil {
+		t.Fatal(err)
+	}
 	_, _, errOut = rb.run("search", "zzz", "--semantic")
 	if errOut != "semantic_partial: 1 item is not in the index: run pbrain sync\n" {
 		t.Fatalf("partial: %q", errOut)
@@ -84,6 +97,12 @@ func TestCLISemanticCommands(t *testing.T) {
 	oneJSON(t, errOut, &n)
 	if n.Notice.Code != "semantic_partial" || !strings.HasSuffix(n.Notice.Message, "run pbrain sync --personal") {
 		t.Fatalf("personal hint: %q", errOut)
+	}
+	held.Close()
+	idx.Close()
+	// With the lock free, the next search catches the item up and prints no notice.
+	if _, _, errOut = rb.run("search", "zzz", "--semantic"); errOut != "" {
+		t.Fatalf("after the catch-up: %q", errOut)
 	}
 	// Status JSON, and a stale index after the model changes.
 	var st map[string]any
@@ -126,6 +145,50 @@ func TestCLISemanticCommands(t *testing.T) {
 	if kit.Opens.Load() != opens {
 		t.Fatal("a lexical search opened the model")
 	}
+}
+
+// lockCount counts the TryLock calls a command makes.
+type lockCount struct {
+	sys.Files
+	tries int
+}
+
+func (f *lockCount) TryLock(d sys.Dir, name string) (io.Closer, error) {
+	f.tries++
+	return f.Files.TryLock(d, name)
+}
+
+// Scenario 42 through the command: a search with --semantic catches up one added note, and a
+// search without it loads no model, opens no cache and takes no lock.
+func TestCLISemanticCatchUp(t *testing.T) {
+	rb, kit := semanticBrain(t)
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\n", "sync")
+	rb.put("notes/20261103-000000-gamma-c1c1.md", []string{"kind: note", "title: Third", "created: 2026-11-03T00:00:00Z", "author: agent:x"}, "gamma topics\n")
+	// Without --semantic: no model, no cache, no lock.
+	lc := &lockCount{Files: sys.Native()}
+	rb.env.Files = lc
+	getenv := rb.env.Getenv
+	missing := filepath.Join(t.TempDir(), "no-cache")
+	rb.env.Getenv = func(k string) string {
+		if k == "PBRAIN_CACHE" {
+			return missing
+		}
+		return getenv(k)
+	}
+	opens := kit.Opens.Load()
+	if status, _, errOut := rb.run("search", "gamma"); status != 0 || errOut != "" || kit.Opens.Load() != opens || lc.tries != 0 {
+		t.Fatalf("a lexical search: %d %q, %d opens, %d locks", status, errOut, kit.Opens.Load()-opens, lc.tries)
+	}
+	if _, err := os.Stat(missing); !errors.Is(err, os.ErrNotExist) {
+		t.Fatal("a lexical search created the cache folder")
+	}
+	rb.env.Getenv = getenv
+	// With --semantic: the note is found by meaning with no notice, and a sync then embeds nothing.
+	status, out, errOut := rb.run("search", "gamma", "zzz", "--semantic")
+	if status != 0 || errOut != "" || !strings.Contains(out, "20261103-000000-gamma-c1c1") || lc.tries != 1 {
+		t.Fatalf("the catch-up: %d %q %q, %d locks", status, out, errOut, lc.tries)
+	}
+	expect(t, rb, "shared: 3 items indexed, 0 items removed; 0 passages embedded, 0 reused\n", "sync")
 }
 
 func TestCLIIndexPersonal(t *testing.T) {

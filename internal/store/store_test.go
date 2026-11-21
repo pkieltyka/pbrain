@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"maps"
 	"os"
@@ -354,6 +355,70 @@ func TestLockWaitPolicies(t *testing.T) {
 	if _, err := Begin(ctx, b, item.Shared); code(err) != "io" || time.Since(start) > time.Second {
 		t.Fatalf("a cancelled wait: %v", err)
 	}
+
+	// TryLock makes one attempt and never waits: ErrLocked while another descriptor of this
+	// process or another process holds the lock, the holder when it is free.
+	files := sys.Native()
+	dir, err := sys.OpenDir(t.TempDir())
+	must(t, err)
+	defer dir.Close()
+	held, err := files.Lock(context.Background(), dir, "lock")
+	must(t, err)
+	start = time.Now()
+	if _, err := files.TryLock(dir, "lock"); !errors.Is(err, sys.ErrLocked) || time.Since(start) > time.Second {
+		t.Fatalf("TryLock beside another descriptor: %v", err)
+	}
+	must(t, held.Close())
+	try, err := files.TryLock(dir, "lock")
+	must(t, err)
+	// A later Lock waits for the TryLock holder.
+	wctx, wcancel := context.WithTimeout(context.Background(), 150*time.Millisecond)
+	defer wcancel()
+	if _, err := files.Lock(wctx, dir, "lock"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("Lock beside a TryLock holder: %v", err)
+	}
+	must(t, try.Close())
+	// Another process holds it.
+	path := t.TempDir()
+	child := exec.Command(os.Args[0], "-test.run=^TestLockHolderProcess$")
+	child.Env = append(os.Environ(), "PBRAIN_STORE_LOCK_HOLDER="+path)
+	out, err := child.StdoutPipe()
+	must(t, err)
+	must(t, child.Start())
+	defer func() { child.Process.Kill(); child.Wait() }()
+	line := make([]byte, 7)
+	if _, err := io.ReadFull(out, line); err != nil || string(line) != "locked\n" {
+		t.Fatalf("the holder process: %q %v", line, err)
+	}
+	other, err := sys.OpenDir(path)
+	must(t, err)
+	defer other.Close()
+	start = time.Now()
+	if _, err := files.TryLock(other, "lock"); !errors.Is(err, sys.ErrLocked) || time.Since(start) > time.Second {
+		t.Fatalf("TryLock beside another process: %v", err)
+	}
+	child.Process.Kill()
+	child.Wait()
+	free, err := files.TryLock(other, "lock")
+	must(t, err)
+	must(t, free.Close())
+}
+
+// TestLockHolderProcess is the other process of TestLockWaitPolicies; it does nothing on its own.
+func TestLockHolderProcess(t *testing.T) {
+	path := os.Getenv("PBRAIN_STORE_LOCK_HOLDER")
+	if path == "" {
+		return
+	}
+	dir, err := sys.OpenDir(path)
+	if err != nil {
+		os.Exit(2)
+	}
+	if _, err := sys.Native().Lock(context.Background(), dir, "lock"); err != nil {
+		os.Exit(2)
+	}
+	fmt.Println("locked")
+	time.Sleep(time.Minute) // held until the parent kills this process
 }
 
 func TestExclusivePublish(t *testing.T) {

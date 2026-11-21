@@ -118,3 +118,7 @@ func (f *writeFaults) Lock(ctx context.Context, dir sys.Dir, name string) (io.Cl
 	}
 	return f.Files.Lock(ctx, unwrapped(dir), name)
 }
+
+func (f *writeFaults) TryLock(dir sys.Dir, name string) (io.Closer, error) {
+	return f.Files.TryLock(unwrapped(dir), name)
+}

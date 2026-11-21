@@ -45,8 +45,8 @@ func titleFrame(title string) []byte {
 
 // ContentDigest is the SHA-256 of the title's length in bytes as 8 little-endian bytes, the
 // title's bytes and the body's bytes: everything an item's passages are cut from. The length
-// frames the title, so no title and body can be mistaken for another pair. Only the build calls
-// it, and only for an item it is about to cut.
+// frames the title, so no title and body can be mistaken for another pair. Only a build and a
+// search's catch-up call it, each only for an item it is about to cut.
 func ContentDigest(title string, body []byte) [32]byte {
 	contentCalls.digest.Add(1)
 	h := sha256.New()

@@ -95,6 +95,10 @@ func (f *scenarioFiles) Lock(ctx context.Context, d sys.Dir, n string) (io.Close
 	return f.Files.Lock(ctx, unwrapDir(d), n)
 }
 
+func (f *scenarioFiles) TryLock(d sys.Dir, n string) (io.Closer, error) {
+	return f.Files.TryLock(unwrapDir(d), n)
+}
+
 func killedAdd(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) > 0 {
 		ts.Fatalf("usage: killed-add")

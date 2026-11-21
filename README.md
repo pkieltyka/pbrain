@@ -43,7 +43,8 @@ or `pbrain skill list` for its topics.
 
 Use `pbrain search --semantic 'where is login state kept'` to find related wording.
 Exact hits come first. When the model or index is unavailable, search returns
-the lexical results and a notice. Search never downloads a model or builds an index.
+the lexical results and a notice. Search never downloads a model or builds a first
+index; with an index, it first adds up to 20 new or changed items itself.
 
 **The first index on a machine is a person's step.** Check `pbrain sync --status`,
 then run `pbrain sync` when ready. It downloads the selected model if needed and

@@ -49,6 +49,13 @@ func scenarioCLI(ctx context.Context, e cli.Env) int {
 		panic(err)
 	}
 	e.Models = kit.Registry
+	if d := e.Getenv("PBRAIN_TEST_EMBED_DELAY"); d != "" {
+		delay, err := time.ParseDuration(d)
+		if err != nil {
+			panic(err)
+		}
+		e.Models = slowRegistry{kit.Registry, delay}
+	}
 	n := newScriptNetwork(e.Getenv("PBRAIN_TEST_HTTP"))
 	e.Net.Resolver, e.Net.Dialer = n, n
 	if mode := e.Getenv("PBRAIN_TEST_FAULT"); mode != "" {
@@ -99,6 +106,8 @@ func TestScenarios(t *testing.T) {
 			"ptyskip":       scenarioPTYSkip,
 			"modelpath":     scenarioModelPath,
 			"fsnote":        scenarioFSNote,
+			"holdlock":      scenarioHoldLock,
+			"releaselock":   scenarioReleaseLock,
 		},
 	})
 }

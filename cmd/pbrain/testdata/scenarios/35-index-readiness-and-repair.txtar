@@ -78,24 +78,24 @@ stdout '"id":"mine"'
 
 pbrain-test --personal sync
 stdout -count=2 '0 passages embedded, 0 reused'
+# More new and changed items than a search catches up (scenario 42) wait for pbrain sync. The old
+# vectors cannot cover a hand-edited item of the same name.
 pbrain-test add --title 'Another note' --body 'beta addition' --json
 jsonenv ADDED id
+exec sh -c 'for i in $(seq 1 19); do { echo ---; echo kind: note; echo title: Filler $i; echo author: human:test; echo created: 2026-11-21T10:00:00Z; echo ---; echo; echo filler text $i; } > docs/brain/filler-$i.md; done'
+cp $WORK/updated docs/brain/related.md
 pbrain-test search 'beta sense' --semantic --json
 ids results
-stderr '1 item is not in the index'
+stderr '21 items are not in the index'
+pbrain-test search 'alpha query' --semantic --json
+ids results exact
+stderr '21 items are not in the index'
 pbrain-test sync
-stdout '1 passage embedded'
+stdout '21 passages embedded'
+exec sh -c 'rm docs/brain/filler-*.md'
 pbrain-test search 'beta sense' --semantic --json
 ids results $ADDED
 ! stderr .
-
-# The old vectors cannot cover a hand-edited item of the same name.
-cp $WORK/updated docs/brain/related.md
-pbrain-test search 'alpha query' --semantic --json
-ids results exact
-stderr '1 item is not in the index'
-pbrain-test sync
-stdout '1 passage embedded'
 pbrain-test search 'gamma sense' --semantic --json
 ids results related
 ! stderr .

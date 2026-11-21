@@ -68,6 +68,8 @@ type Files interface {
 	OpenRegular(dir Dir, name string) (RegularFile, error)
 	Flush(w io.WriteCloser) error
 	Lock(ctx context.Context, dir Dir, name string) (io.Closer, error)
+	// TryLock opens the lock as Lock does and makes one attempt: ErrLocked when it is held.
+	TryLock(dir Dir, name string) (io.Closer, error)
 }
 
 // ReadCeiling is Dir.Read's hard limit. Larger trusted files, such as a model, go through
@@ -77,6 +79,8 @@ const ReadCeiling = 5 << 20
 var (
 	// ErrUnsafe: the entry is a link, or not of the type the operation needs.
 	ErrUnsafe = errors.New("sys: a link, or not a regular file or folder")
+	// ErrLocked: TryLock found the lock held by another descriptor.
+	ErrLocked = errors.New("lock is held")
 	// ErrInvalidName: empty, "." or "..", or holding a separator or NUL.
 	ErrInvalidName = errors.New("sys: not a single entry name")
 	// ErrChanged: the file changed while it was read.
