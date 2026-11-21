@@ -1,0 +1,50 @@
+# Functional spec §15, scenario 8.
+pbrain init
+exec git add -f docs/brain/personal/private.md
+guard
+! stdout .
+exec git rm --cached -f docs/brain/personal/private.md
+rm docs/brain/personal/private.md
+cp $WORK/config docs/brain/personal.toml
+mkdir $WORK/private
+pbrain list --personal
+exec git init -q $WORK/private/notes
+guard
+rm $WORK/private/notes/.git
+exec git init -q $WORK/private
+guard
+rm $WORK/private/.git
+mkdir $WORK/outside/private/.pbrain
+exec git init -q $WORK/outside
+cp $WORK/other-config docs/brain/personal.toml
+guard
+cp $WORK/ignore $WORK/outside/.gitignore
+cp $WORK/data $WORK/outside/private/.pbrain/data
+exec git -C $WORK/outside add -f private/.pbrain/data
+guard
+exec git -C $WORK/outside rm --cached -f private/.pbrain/data
+pbrain list --personal
+cp $WORK/config docs/brain/personal.toml
+env PBRAIN_TEST_NO_GIT=1
+status 1 pbrain-test list --json
+stderr '"code":"git_required"'
+
+-- repo/docs/brain/personal/private.md --
+---
+kind: note
+title: Private
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- config --
+path = "../../../private"
+
+-- other-config --
+path = "../../../outside/private"
+
+-- ignore --
+private/
+
+-- data --
+local

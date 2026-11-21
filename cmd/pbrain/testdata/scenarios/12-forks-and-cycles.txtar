@@ -1,0 +1,87 @@
+# Functional spec §15, scenario 12.
+pbrain init
+pbrain get X --history --json
+ids history X
+pbrain list --json
+stdout '"id":"X"'
+stdout '"id":"Y"'
+pbrain get A --json
+stdout '"replacement":\["B","C"\]'
+pbrain search fork --all
+stdout 'replacement: B, C'
+status 1 pbrain check --json
+stdout 'replace_fork'
+cp $WORK/D docs/brain/D.md
+pbrain get A --json
+stdout '"current":\["C","D"\]'
+status 1 pbrain check --json
+stdout 'replace_fork'
+cp $WORK/E docs/brain/E.md
+pbrain get A --json
+stdout '"current":\["E"\]'
+pbrain get E --history --json
+ids history A B C D E
+status 1 pbrain check --json
+! stdout 'replace_fork'
+
+-- repo/docs/brain/A.md --
+---
+kind: note
+title: Fork
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/B.md --
+---
+kind: note
+title: Fork
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [A]
+---
+
+-- repo/docs/brain/C.md --
+---
+kind: note
+title: Fork
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [A]
+---
+
+-- repo/docs/brain/X.md --
+---
+kind: note
+title: cycle
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [Y]
+---
+
+-- repo/docs/brain/Y.md --
+---
+kind: note
+title: cycle
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [X]
+---
+
+-- D --
+---
+kind: note
+title: Fork
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [B]
+---
+
+-- E --
+---
+kind: note
+title: Fork
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [D, C]
+---

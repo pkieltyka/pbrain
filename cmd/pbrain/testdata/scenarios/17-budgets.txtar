@@ -1,0 +1,49 @@
+# Functional spec §15, scenario 17.
+pbrain init
+budgets rules audience
+budgets results search tie
+budgets results list
+budgets items prime
+budgets tags tags
+budgets findings check
+cp $WORK/item docs/brain/A.md
+cp $WORK/item docs/brain/B.md
+pbrain audience set example.test shared
+pbrain audience set other.test personal
+budgets rules audience
+mkdir docs/brain/personal
+cp $WORK/item docs/brain/personal/C.md
+cp $WORK/empty docs/brain/empty.md
+budgets results search --personal tie
+budgets results list --personal
+budgets items prime --personal
+budgets tags tags --personal
+cp $WORK/plain docs/brain/plain.md
+cp $WORK/plain docs/brain/second.md
+budgets findings check --personal
+budgets history get --personal A --history
+budgets outline get --personal A --outline
+budgets body get --personal A
+budgets body get empty
+
+-- item --
+---
+kind: decision
+title: té tie
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+tags: [one, two]
+---
+
+# "é"
+X
+
+-- empty --
+---
+kind: note
+---
+
+-- plain --
+A plain file without front matter.

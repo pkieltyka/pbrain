@@ -1,0 +1,41 @@
+# Functional spec §15, scenario 10.
+pbrain init
+pbrain get old --json
+stdout '"status":"verified"'
+status 1 pbrain add --title Proposed --replaces active --json
+stderr '"code":"invalid"'
+stderr 'target has higher standing'
+pbrain search lifecycle --json
+ids results active handwritten
+status 1 pbrain check --json
+stdout 'replace_invalid'
+
+-- repo/docs/brain/old.md --
+---
+kind: note
+title: lifecycle
+author: human:test
+created: 2026-11-01T00:00:00Z
+status: verified
+verified: person
+---
+
+-- repo/docs/brain/active.md --
+---
+kind: note
+title: lifecycle
+author: human:test
+created: 2026-11-01T00:00:00Z
+status: verified
+verified: person
+replaces: [old]
+---
+
+-- repo/docs/brain/handwritten.md --
+---
+kind: note
+title: lifecycle
+author: human:test
+created: 2026-11-20T00:00:00Z
+replaces: [active]
+---
