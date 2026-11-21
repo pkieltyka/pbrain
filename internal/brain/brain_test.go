@@ -203,6 +203,57 @@ func TestInitAndRepeat(t *testing.T) {
 	}
 }
 
+func TestInitSelectorFromCallerDir(t *testing.T) {
+	for _, tc := range []struct {
+		name, caller, arg, path, selector string
+		absolute, linked                  bool
+	}{
+		{"root", "project", "notes", "notes", "notes", false, false},
+		{"subfolder", "project/src", "notes", "notes", "../notes", false, false},
+		{"caller link", "elsewhere/alias", "notes", "notes", "../notes", false, true},
+		{"absolute inside", "project/src", "project/notes", "notes", "../notes", true, false},
+		{"relative outside", "project/src", "../other", "../other", "../../other", false, false},
+		{"absolute outside", "project/src", "other", "", "", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := newWorld(t)
+			must(t, os.MkdirAll(w.path("project/src"), 0700))
+			w.gitIn("project", "init", "-q")
+			if tc.linked {
+				must(t, os.MkdirAll(w.path("elsewhere"), 0700))
+				must(t, os.Symlink(w.path("project/src"), w.path(tc.caller)))
+			}
+			arg, path, sel := tc.arg, tc.path, tc.selector
+			if tc.absolute {
+				arg = w.path(tc.arg)
+				if tc.path == "" {
+					// Preserve the user's spelling rather than the canonical directory.
+					arg = w.root + "/./" + tc.arg
+					path, sel = arg, arg
+				}
+			}
+			res, err := Init(context.Background(), w.env(tc.caller), InitOptions{Path: arg})
+			if err != nil || !res.NeedsSelector || res.Path != path || res.Selector != sel {
+				t.Fatalf("init %q: %+v, %v; want path %q, selector %q", arg, res, err, path, sel)
+			}
+			if tc.name == "subfolder" {
+				if _, err := w.open(tc.caller, OpenOptions{Brain: "notes"}); code(err) != "no_brain" {
+					t.Fatalf("root-relative value worked from subfolder: %v", err)
+				}
+			}
+			b, err := w.open(tc.caller, OpenOptions{Brain: res.Selector})
+			if err != nil || b.Shared.Dir != res.Dir {
+				t.Fatalf("flag did not open %q: %v", res.Dir, err)
+			}
+			w.vars["PBRAIN_DIR"] = res.Selector
+			b, err = w.open(tc.caller, OpenOptions{})
+			if err != nil || b.Shared.Dir != res.Dir {
+				t.Fatalf("environment did not open %q: %v", res.Dir, err)
+			}
+		})
+	}
+}
+
 func TestInitFindsCustomMarkerInGit(t *testing.T) {
 	w := newWorld(t)
 	must(t, os.MkdirAll(w.path("p"), 0o700))

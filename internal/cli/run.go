@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"runtime/debug"
 	"strings"
 	"time"
@@ -210,8 +211,9 @@ func (in *invocation) useConfig(config brain.Config) {
 }
 
 type initOutput struct {
-	Path string `json:"path"`
-	Hint string `json:"hint,omitempty"`
+	Path     json.RawMessage `json:"path,omitempty"`
+	Selector json.RawMessage `json:"selector,omitempty"`
+	Hint     string          `json:"hint,omitempty"`
 }
 
 func runInit(ctx context.Context, env brain.Env, opt brain.InitOptions, jsonMode bool) outcome {
@@ -222,12 +224,28 @@ func runInit(ctx context.Context, env brain.Env, opt brain.InitOptions, jsonMode
 	if err != nil {
 		return outcome{err: err}
 	}
-	result := initOutput{Path: render.OneLine(init.Path, 0)}
-	output := "initialized " + result.Path + "\n"
-	if init.NeedsSelector {
-		result.Hint = "Outside this folder, use --brain or PBRAIN_DIR."
-		output += result.Hint + "\n"
+	path, encodedPath, ok := render.ExactPath(init.Path)
+	if !ok {
+		path = "?"
 	}
+	result := initOutput{Path: encodedPath}
+	output := "initialized " + path
+	if init.NeedsSelector {
+		selector, encodedSelector, valid := render.ExactPath(init.Selector)
+		switch {
+		case !valid:
+			result.Hint = "selector unavailable (invalid UTF-8)"
+			output += " — " + result.Hint
+		case init.Path == init.Selector:
+			result.Hint = "outside the brain, use --brain or PBRAIN_DIR (from this directory, use this path)"
+			output += " — " + result.Hint
+		default:
+			result.Hint = "outside the brain, use --brain or PBRAIN_DIR (from this directory)"
+			result.Selector = encodedSelector
+			output += "\n" + result.Hint + ": " + selector
+		}
+	}
+	output += "\n"
 	return textOrJSON(jsonMode, output, result)
 }
 
