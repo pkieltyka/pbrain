@@ -7,23 +7,18 @@ TODO
 
 - [ ] Goinfer upstream sync (@lead-dev-2)
     * owner: @lead-dev-2
-    * branch: `pkieltyka/sync-upstream`, with merge `13851908` and parity refresh `2ba9f26`; worktree is clean
-    * next: finish the serialized repository checks and pbrain Gemma parity via scratch replace; report the reviewed branch head
-
-- [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
-    * owner: @lead-dev-2 for BGE; @lead-dev for gate tooling
-    * range/status: tool/fix `d944dae`, `7091a6d` and registry `fb21809` merged; README `e05ff80..2976b3a` and BGE wiring `a278c0c..eebe8b0` pending review; corrected Gemma 0.72 gates passed on tool `9695d1b` (42/47, 30/30 abstention, no losses)
-    * next: @reviewer reviews BGE wiring/README; @operator integrates after approval; @architect-2 completes the Gemma wiring patch with its corrected report
+    * branch: `pkieltyka/sync-upstream`; PR #6 includes `2ba9f26`, worktree clean
+    * next: hold merge/tag v0.3.0 for owner's go-ahead
 
 - [ ] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2)
     * owner: @architect-2 (patch flow)
-    * branch/base: master `05f788e`; adapter merged `2ab7d56`, four-target audit `eb0441f`
-    * next: finish the wiring patch with cutoff 0.72, registry/default resolution/`none`/skill text/tests and corrected report; coordinate with @lead-dev, then request review
+    * range/status: `2edd0d1..2233197` on `peter/gemma-default`, approved by @reviewer; cutoff 0.72, default resolution/`none`, registry and skill changes
+    * next: @operator integrates; Phase 28 release measurements follow
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
     * ranges: harness prep `e62c2b7..ce26bef`, report `ce26bef..eedbe8a` on `peter/lead-dev`
-    * next: @reviewer reviews after base measurement harness; full model timings, Mac runtime and tagged install remain
+    * next: run release measurements after phase 27 integrates; full model timings, Mac runtime and tagged install remain
 
 - [ ] pbrain init selector usable from caller's directory (@architect-2)
     * owner: @architect-2 (patch flow)
@@ -52,7 +47,12 @@ TODO
 
 ## Backlog
 
+- [ ] Update semantic cutoff/model state wording after Phase 27 (@architect)
+
 ## Done
+
+- [x] pbrain phase 25: BGE gates and release wiring (@lead-dev-2) `8f32814`
+    * BGE wiring and corrected README records merged as `8f32814`, `9b27eb9`, `049fe9e`; BGE cutoff 0.65 and model-free/Gemma gates recorded.
 
 - [x] pbrain phase 18: calibration and `--bm25` gates (@lead-dev) `e5aa38a`
     * Approved and merged as `ad2da67`, `48912a6`, `e5aa38a`; both stages rerun after the snippet fix, with evidence reach updated and retrieval/gate counts unchanged.
@@ -61,7 +61,6 @@ TODO
     * Five-topic guidance and the 400-word core pointer are in the approved skill design; committed to master.
 
 - [x] pbrain spec: EmbeddingGemma 2 default model (@architect) `7bdf4b2`
-    * Missing key resolves to embeddinggemma-2; exact `none` disables; empty is invalid; BGE remains selectable; downloads still begin only at `pbrain index`.
 
 - [x] pbrain spec: runtime audit covers all release targets (@architect) `20fd0e6`
 
