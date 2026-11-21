@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/graph"
 	"github.com/pkieltyka/pbrain/internal/item"
@@ -223,5 +224,47 @@ func TestStoredProjectionIsComplete(t *testing.T) {
 	want := "kind title created author source status verified decided replaces relates tags stale_after origin fetched sha256 body"
 	if strings.Join(names, " ") != want {
 		t.Fatalf("fields %q", names)
+	}
+}
+
+// A bad_file_name skip is an error that names the nearest folder whose path can be written, or "?";
+// every Finding.Path is valid UTF-8; ids in messages go through Options.Value.
+func TestCheckBadFileName(t *testing.T) {
+	skipped := []Skipped{
+		{Section: item.Shared, Path: "/b/notes/x\xff.md", Code: "bad_file_name", Reason: "invalid_utf8"},
+		{Section: item.Shared, Path: "/b/a\xfe/deeper/y\xff.md", Code: "bad_file_name", Reason: "invalid_utf8"},
+		{Section: item.Shared, Path: "/b/\xfez.md", Code: "bad_file_name", Reason: "invalid_utf8"},
+		{Section: item.Shared, Path: "/b/odd\xfe/plain.md", Code: "not_an_item"},
+	}
+	one := mk("a\nb", item.Shared, item.Note, nil)
+	two := mk("A\nB", item.Shared, item.Note, nil)
+	two.Path = "/b/other/A\nB.md"
+	quote := func(s string) string { return "<" + s + ">" }
+	fs, errorCount := collect([]*item.Item{one, two}, skipped, Options{Value: quote})
+	bad := find(fs, "bad_file_name")
+	var paths []string
+	for _, f := range bad {
+		if f.Severity != "error" || f.Message != "the file name is not valid UTF-8, so the file has no id; reads skip this file" {
+			t.Fatalf("%+v", f)
+		}
+		paths = append(paths, f.Path)
+	}
+	if want := []string{"?", "?", "notes/"}; !reflect.DeepEqual(paths, want) {
+		t.Fatalf("paths %q", paths)
+	}
+	if p := find(fs, "not_an_item"); len(p) != 1 || p[0].Path != "?" {
+		t.Fatalf("not_an_item under an odd folder: %+v", p)
+	}
+	for _, f := range fs {
+		if !utf8.ValidString(f.Path) {
+			t.Fatalf("invalid path %q", f.Path)
+		}
+	}
+	dups := find(fs, "duplicate_id")
+	if len(dups) != 2 || !strings.Contains(dups[0].Message, "<a\nb>") && !strings.Contains(dups[0].Message, "<A\nB>") {
+		t.Fatalf("duplicate ids without Value: %+v", dups)
+	}
+	if errorCount != 5 {
+		t.Fatalf("%d errors", errorCount)
 	}
 }

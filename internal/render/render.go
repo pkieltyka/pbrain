@@ -739,6 +739,29 @@ func ExactPath(path string) (display string, encoded json.RawMessage, ok bool) {
 	return path, json.RawMessage(tok), true
 }
 
+// ExactValue is the text form of an id, or of any path outside the search location, get's path line
+// and init (render.md "Ids and other paths"): the value bare, or, when it holds a double quote, a
+// backslash or a rune ExactPath escapes, the token ExactPath builds. An ordinary space stays bare.
+// ok is false for input that is not valid UTF-8; the caller prints "?".
+func ExactValue(value string) (text string, ok bool) {
+	tok, _, ok := ExactPath(value)
+	if !ok {
+		return "", false
+	}
+	if strings.ContainsFunc(value, func(r rune) bool { return r == '"' || r == '\\' || needsEscape(r) }) {
+		return tok, true
+	}
+	return value, true
+}
+
+// ValueText is ExactValue's text, or "?" for a value it cannot write.
+func ValueText(value string) string {
+	if t, ok := ExactValue(value); ok {
+		return t
+	}
+	return "?"
+}
+
 func utf16Pair(r rune) (hi, lo rune) {
 	r -= 0x10000
 	return 0xD800 + (r>>10)&0x3FF, 0xDC00 + r&0x3FF

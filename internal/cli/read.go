@@ -62,9 +62,20 @@ func (r *reader) scan(ctx context.Context, keep store.BodyPolicy) error {
 	return nil
 }
 
+// broken is a skipped entry the skipped_files notice counts: a file check reports as an error. A .md
+// file without front matter (not_an_item) is no item, so nothing was skipped (spec 6.3).
+func broken(s store.Skipped) bool {
+	return s.Code == "bad_front_matter" || s.Code == "bad_file_name"
+}
+
 // skipped sends the skipped-files notice of the final scan (cli.md, "Skipped files").
 func (r *reader) skipped() {
-	n := len(r.cat.Skipped())
+	n := 0
+	for _, s := range r.cat.Skipped() {
+		if broken(s) {
+			n++
+		}
+	}
 	if n == 0 {
 		return
 	}
@@ -195,7 +206,11 @@ func ids(items []*item.Item) []string {
 func cappedIDs(row render.Object, field string, list []string) string {
 	shown := list[:min(len(list), idListCap)]
 	row[field] = shown
-	text := strings.Join(shown, ", ")
+	texts := make([]string, len(shown))
+	for i, id := range shown {
+		texts[i] = render.ValueText(id)
+	}
+	text := strings.Join(texts, ", ")
 	if more := len(list) - len(shown); more > 0 {
 		row[field+"_more"] = more
 		text += fmt.Sprintf(" (+%d more)", more)
@@ -216,7 +231,7 @@ func (r *reader) related(it *item.Item) []render.Part {
 			h := &rel.Header
 			row := render.Object{"link": link, "id": rel.ID, "kind": h.Kind.String(), "standing": standingWord(h),
 				"created": instant(h.Created, h.CreatedKnown), "title": render.OneLine(h.Title, titleCut)}
-			fields := []string{rel.ID, h.Kind.String(), standingWord(h), dateText(h), render.OneLine(h.Title, titleCut)}
+			fields := []string{render.ValueText(rel.ID), h.Kind.String(), standingWord(h), dateText(h), render.OneLine(h.Title, titleCut)}
 			if rel.Section == item.Personal {
 				row["personal"] = true
 				fields = append(fields, "personal")
@@ -369,7 +384,8 @@ func (r *reader) hitPart(h search.Hit, block []search.ContextLine) render.Part {
 	row := r.commonRow(it)
 	lay := it.Layout
 
-	first := it.ID + "  " + hd.Kind.String() + "  " + hd.Status.String() + "  " + dateText(hd)
+	id := render.ValueText(it.ID)
+	first := id + "  " + hd.Kind.String() + "  " + hd.Status.String() + "  " + dateText(hd)
 	switch {
 	case h.Semantic:
 		first += "  semantic"
@@ -381,7 +397,7 @@ func (r *reader) hitPart(h search.Hit, block []search.ContextLine) render.Part {
 	for _, m := range r.markers(it) {
 		first += "  " + m
 	}
-	marks := []render.Mark{{Start: 0, End: utf8.RuneCountInString(it.ID), Style: render.Bold}}
+	marks := []render.Mark{{Start: 0, End: utf8.RuneCountInString(id), Style: render.Bold}}
 	lines := []string{first, "  " + titleLine(hd)}
 
 	display, encoded, ok := r.pathOf(it)
@@ -621,6 +637,9 @@ func (r *reader) resolve(id string) (*item.Item, error) {
 	case 0:
 		msg := "no item has that id in this view"
 		if s := r.suggestions(id); len(s) > 0 {
+			for i := range s {
+				s[i] = render.ValueText(s[i])
+			}
 			msg += "; ids that start alike: " + strings.Join(s, ", ")
 		}
 		return nil, &errs.Error{Code: "not_found", Message: msg, Exit: 1}
@@ -632,6 +651,9 @@ func (r *reader) resolve(id string) (*item.Item, error) {
 // suggestions are up to three visible ids that start with the whole folded argument or, when there
 // are none and the argument starts with a valid UTC stamp, with that stamp.
 func (r *reader) suggestions(id string) []string {
+	if !utf8.ValidString(id) {
+		return nil // the fold would read its bad bytes as U+FFFD and suggest another file's id
+	}
 	key := item.Fold(id)
 	pick := func(prefix string) []string {
 		seen := map[string]bool{}
@@ -688,14 +710,15 @@ func (r *reader) historyRow(it *item.Item) render.Part {
 	if reps := ids(r.g.Replaces(it)); len(reps) > 0 {
 		paren = append(paren, "replaces: "+cappedIDs(row, "replaces", reps))
 	}
-	text := it.ID + "  " + h.Kind.String() + "  " + h.Status.String() + "  " + dateText(h) + "  " + render.OneLine(h.Title, titleCut)
+	id := render.ValueText(it.ID)
+	text := id + "  " + h.Kind.String() + "  " + h.Status.String() + "  " + dateText(h) + "  " + render.OneLine(h.Title, titleCut)
 	if len(paren) > 0 {
 		text += " (" + strings.Join(paren, "; ") + ")"
 	}
 	for _, m := range r.markers(it) {
 		text += "  " + m
 	}
-	return render.Part{Text: text, JSON: row, Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(it.ID), Style: render.Bold}}}
+	return render.Part{Text: text, JSON: row, Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(id), Style: render.Bold}}}
 }
 
 func listFoot(one, many string) func(render.State) render.Part {
@@ -714,12 +737,13 @@ func (r *reader) outlineDoc(it *item.Item, body []byte) *render.Doc {
 	secs := outline.Parse(body)
 	bodyChars := utf8.RuneCount(body)
 	off := r.in.page.offset
-	head := it.ID + "\n" + fmt.Sprintf("outline: %s, body %d", counted(len(secs), "section", "sections"), bodyChars)
+	id := render.ValueText(it.ID)
+	head := id + "\n" + fmt.Sprintf("outline: %s, body %d", counted(len(secs), "section", "sections"), bodyChars)
 	d := &render.Doc{
 		Head: []render.Part{{
 			Text:  head,
 			JSON:  render.Envelope{Fields: render.Object{"id": it.ID, "sections": len(secs), "body_chars": bodyChars}, Rows: "outline"},
-			Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(it.ID), Style: render.Bold}},
+			Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(id), Style: render.Bold}},
 		}},
 		Offset: off,
 		Total:  len(secs),
@@ -776,7 +800,8 @@ func (r *reader) getDoc(it *item.Item, body []byte) *render.BodyDoc {
 		"title":   render.OneLine(h.Title, titleCut),
 		"created": instant(h.Created, h.CreatedKnown),
 	}
-	idLen := utf8.RuneCountInString(it.ID)
+	idText := render.ValueText(it.ID)
+	idLen := utf8.RuneCountInString(idText)
 	marks := []render.Mark{{Start: 0, End: idLen, Style: render.Bold}}
 	status := h.Kind.String() + "  " + h.Status.String() + "  " + instant(h.Created, h.CreatedKnown)
 	for _, m := range r.markers(it) {
@@ -794,7 +819,7 @@ func (r *reader) getDoc(it *item.Item, body []byte) *render.BodyDoc {
 	if h.Kind == item.Source {
 		status += "  outside material, reference only"
 	}
-	lines := []string{it.ID, status, "title: " + render.OneLine(h.Title, titleCut)}
+	lines := []string{idText, status, "title: " + render.OneLine(h.Title, titleCut)}
 	var actors []string
 	for _, a := range [][2]string{{"author", h.Author}, {"verified", h.Verified}, {"decided", h.Decided}} {
 		if a[1] != "" {

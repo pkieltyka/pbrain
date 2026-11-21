@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -608,5 +609,49 @@ func TestScannedRoutesAreReleased(t *testing.T) {
 		if _, ok := recall(it); !ok {
 			t.Fatal("a live item lost its route")
 		}
+	}
+}
+
+// TestNameAdmission is store.md's test: a file with front matter whose stem is not valid UTF-8 is a
+// bad_file_name skip, never an item, so it cannot share a key with a stem that really holds U+FFFD.
+func TestNameAdmission(t *testing.T) {
+	w := newWorld(t)
+	w.write("p/docs/brain/notes/x\xff.md", note("Bad name"))
+	w.write("p/docs/brain/notes/x\uFFFD.md", note("Real replacement character"))
+	w.write("p/docs/brain/plain/x\xff.md", "no front matter\n")
+	w.write("p/docs/brain/dup/x\xff.md", "---\nkind: note\nkind: note\n---\n")
+	w.write("p/docs/brain/odd\xfe/good-stem.md", note("Under an odd folder"))
+	w.write("p/docs/brain/notes/a\nb.md", note("Line feed"))
+	c, err := Scan(context.Background(), w.open(), brain.SharedView, KeepAll)
+	must(t, err)
+	got := ids(c)
+	slices.Sort(got)
+	if want := []string{"a\nb", "good-stem", "x\uFFFD"}; !slices.Equal(got, want) {
+		t.Fatalf("items %q, want %q", got, want)
+	}
+	if found := c.Lookup("x\uFFFD"); len(found) != 1 || found[0].ID != "x\uFFFD" {
+		t.Fatalf("lookup of the real U+FFFD stem: %v", found)
+	}
+	if found := c.Lookup("x\xff"); len(found) != 0 {
+		t.Fatalf("lookup of invalid bytes found %v", found)
+	}
+	if found := c.Lookup("A\nB"); len(found) != 1 {
+		t.Fatal("the stem with a line feed is not an item")
+	}
+	reasons := map[string]string{}
+	for _, s := range c.Skipped() {
+		rel, _ := filepath.Rel(w.brainPath(""), s.Path)
+		reasons[filepath.ToSlash(rel)] = s.Code + "/" + s.Reason
+		if s.Line != 0 || s.Column != 0 {
+			t.Fatalf("%q has a position", rel)
+		}
+	}
+	want := map[string]string{
+		"notes/x\xff.md": "bad_file_name/invalid_utf8",
+		"plain/x\xff.md": "not_an_item/",
+		"dup/x\xff.md":   "bad_file_name/invalid_utf8",
+	}
+	if !maps.Equal(reasons, want) {
+		t.Fatalf("skipped %q, want %q", reasons, want)
 	}
 }

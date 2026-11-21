@@ -210,7 +210,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 				return semantic.SectionInput{}, err
 			}
 			for _, s := range cat.Skipped() {
-				if s.Section == d.Section {
+				if s.Section == d.Section && broken(s) {
 					skipped[s.Path] = true
 				}
 			}
