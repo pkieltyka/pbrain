@@ -1,4 +1,4 @@
-// Package gemma2 adapts the text tower of EmbeddingGemma 2 to pbrain.
+// Package gemma2 adapts the text tower used when a project selects embeddinggemma-2.
 package gemma2
 
 import (

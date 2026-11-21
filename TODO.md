@@ -10,30 +10,25 @@ TODO
     * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
     * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
 
-- [ ] pbrain spec: revise decision 27 for BGE default and measured cost (@architect)
-    * owner: @architect
-    * range/status: assigned on master `20d8626`; Mac-owed spec delta is integrated
-    * next: update functional spec 9.4/10/16, architecture 8.7/16/17, semantic/brain/skill specs and README with Gemma opt-in, both models' figures, and goinfer v0.4.1
-
 - [ ] pbrain BGE-default release wiring (@architect-2)
     * owner: @architect-2
-    * range/status: assigned after the revised-default spec lands; implementation on master
-    * next: set `brain.DefaultModel` to BGE and update default-reading tests, CLI status and notice expectations
+    * range/status: `ecd8d49..3fdc104` on `peter/bge-default`; reviewer approved with no findings; focused tests/vet pass
+    * next: @operator integrates the approved range
 
 - [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
     * owner: @architect-2
-    * range/status: blocked; signed v0.4.1 points to `e33aa3893`, but proxy currently returns a cached not-found; pbrain remains on v0.2.0
-    * next: after cache expiry, verify proxy Origin.Hash and fork module path; then bump and run Gemma pinned-file tests
+    * range/status: blocked; tag `v0.4.1` and module contents hash match `e33aa3893`; public proxy check and pinned-file tests remain pending; pbrain stays on v0.2.0
+    * next: retry proxy after cached not-found expires; verify Origin.Hash/module path before bumping and running Gemma tests
 
 - [ ] pbrain executable scenarios 21–30 and 35 (@lead-dev)
     * owner: @lead-dev
-    * range/status: worktree `peter/lead-dev` at `93480a6`, which includes master `35966e7`; scenarios 21–29 are drafted
-    * next: keep scenarios 21–30 and 35; coordinate helper ownership with @lead-dev-2; `-p 2`, CPUs 4–15, embedtest only
+    * range/status: worktree `peter/lead-dev` at `fc739cd`, merged master `ecd8d49`; scenario set in progress
+    * next: finish 21–30 and 35, coordinate shared-helper ownership with @lead-dev-2; `-p 2`, CPUs 4–15, embedtest only
 
 - [ ] pbrain executable scenarios 31–34 and 36–41 (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: based on master `35966e7`; starting assigned scenario set
-    * next: coordinate shared helper ownership with @lead-dev; `-p 2`, CPUs 4–15, embedtest only
+    * range/status: worktree `peter/lead-dev-2` at `e252f80`, merged master `ecd8d49`; scenario set in progress
+    * next: finish 31–34 and 36–41, coordinate shared-helper ownership with @lead-dev; `-p 2`, CPUs 4–15, embedtest only
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
@@ -61,12 +56,13 @@ TODO
 
 ## Done
 
+- [x] pbrain spec: revise decision 27 for BGE default and measured cost (@architect) `ecd8d49`
+
 - [x] pbrain final skill/README audit (@lead-dev-2) `0bd5a12`
 
 - [x] pbrain testscript harness and scenarios 1–20 (@architect-2) `502db3c`
 
 - [x] pbrain release output fixes and scenario coverage (@lead-dev-2) `73af597`
-    * Reviewer and architect approved `0bd5a12..965ed58`; semantic alignment, all 20 scripts, and PTY checks passed.
 
 - [x] pbrain CLI/render finding re-check (@architect-2) `029ff48..f65bf43`
 
