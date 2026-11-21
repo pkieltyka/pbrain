@@ -1,4 +1,4 @@
-// Package audience: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package audience selects the section for incoming material from flags, sources and local rules.
 package audience
 
 type Destination string
@@ -18,10 +18,6 @@ type Key struct {
 	Segments []string // ordered, no terminal empty segment
 }
 
-func (k Key) String() string                     { panic("not implemented") }
-func Canon(raw string, rule bool) (Key, error)   { panic("not implemented") }
-func ValidateRules(rules []Rule) ([]Rule, error) { panic("not implemented") }
-
 type Acquisition uint8
 
 const (
@@ -39,7 +35,3 @@ type Decision struct {
 	Dest    Destination
 	Matched string // canonical rule key, empty for explicit flag or default
 }
-
-func Decide(rules []Rule, req Request) (Decision, error)             { panic("not implemented") }
-func Set(rules []Rule, match string, to Destination) ([]Rule, error) { panic("not implemented") }
-func Unset(rules []Rule, match string) ([]Rule, error)               { panic("not implemented") }

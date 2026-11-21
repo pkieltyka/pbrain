@@ -7,6 +7,7 @@ type Error struct {
 	Exit    int // 1, or 2 for usage
 }
 
-func (e *Error) Error() string { panic("not implemented") } // so *Error is an ordinary Go error; cli finds it with errors.As
+// Error returns the safe diagnostic message. CLI uses Code separately.
+func (e *Error) Error() string { return e.Message }
 
 type Notice struct{ Code, Message string }

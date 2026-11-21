@@ -1,0 +1,3 @@
+Use your authorized artifact tool to save the actual artifact page or its files. A reader may display a summary while exporting the real document; inspect the saved file and import the source itself. Use pbrain import <file> --source <artifact-url>. Determine the audience using pbrain skill import.
+
+For a multi-file artifact import each file separately. Append #<path> to the artifact URL for each extra file, preserving the original artifact identity and its audience rule. When you hold only a reference, use --link-only. If the link opens a Claude Doc, export it as Markdown and import that file with its document URL.
