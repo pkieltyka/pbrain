@@ -7,28 +7,43 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Gemma full-size index active; latest sample 1,030 passages at 0.895/s, ~15 h projected, 1.89 GiB peak so far; BGE queued after Gemma
-    * next: finish Gemma then same-size BGE; final read-only pass before first release tag; skill/README audit at `6dee71e` needs rerun after `d010e0e`
-
-- [ ] pbrain measured-cost and path-safety spec updates (@architect)
-    * owner: @architect
-    * range/status: on `d010e0e`; qualify 15 h/2 GB as projected/observed, say resume from saved checkpoint, and specify UTF-8 admission plus exact-path escaping in spec/designs/scenario 39
-    * next: send hashes to @operator; lead-dev-2 implements dependent safety fixes after spec lands
+    * range/status: Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE queued after Gemma
+    * next: finish Gemma then same-size BGE; first tag waits for timings and final read-only pass; skill/README audit stale after `789b506`
 
 - [ ] pbrain release output fixes and scenario coverage (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: branch `peter/lead-dev-2` at `3c3206c`; P1 ExactPath/UTF-8 waits for spec; assigned overflow, JSON context, skip notices, empty-color fit, singular counts, linear page sizing; tests 39/40/41, semantic CRLF/BOM/text, hybrid all tiers
-    * next: implement independent fixes now; finish dependent fixes after spec; use `-p 2`, no model/index, request reviewer and architect-2 recheck
+    * range/status: `029ff48..f65bf43` on `peter/lead-dev-2`; output fixes, `FuzzFit` and tests ready for review; full vet/tests, race, CGO-disabled build and Darwin/arm64 vet reported pass
+    * next: @reviewer reviews and @architect-2 rechecks findings; no model/index runs
+
+- [ ] pbrain final skill/README audit (@lead-dev-2)
+    * owner: @lead-dev-2
+    * range/status: changes required; read-only audit of master `029ff48` plus branch `f65bf43` found README and skill omit how to pass token IDs or shell-quote IDs with spaces
+    * next: @architect adds one-line guidance; coordinate identical shipped skill bytes with @lead-dev-2, then recheck
+
+- [ ] pbrain ID token guidance in README and skill (@architect)
+    * owner: @architect
+    * range/status: assigned on master `029ff48`; add the JSON-token decoding and shell-quoting hint beside README's “Copy the ID”
+    * next: add matching text to import topic or core if it fits; send hash and coordinate with @lead-dev-2
 
 - [ ] pbrain final CLI/render finding re-check (@architect-2)
     * owner: @architect-2
-    * range/status: final pass on master `7cf8ced` found P1/P2/P3 issues; waiting for lead-dev-2's fix range
-    * next: re-check own findings after implementation and report to @operator
+    * range/status: prior P1–P3 findings on `7cf8ced`; recheck target `029ff48..f65bf43` is ready
+    * next: recheck findings against this exact range and report to @operator
+
+- [ ] pbrain testscript harness and scenarios 1–20 (@architect-2)
+    * owner: @architect-2
+    * range/status: assigned against current master `029ff48`; worktree `peter/architect-2` remains at `790a1ea`; main uses `cmd/pbrain.run()` plus embedtest
+    * next: add `TestStrayOutputDiscarded`, `TestReleaseBinaryOutput`, cross-dir/stdin/delete-stream cases and scenarios 1–20 incl. child-process 14/15; `-p 2`, no model/index
+
+- [ ] pbrain executable scenarios 21–41 (@lead-dev)
+    * owner: @lead-dev
+    * range/status: mapped to spec §15, including scenario 35 damaged-passage and shared-view checks; waiting for harness; no files changed
+    * next: merge master after harness; cover Factory, offline HTML/source, Slack C1/D, TestDamagedPassageIsRepaired and 39–41; `-p 2`, CPUs 4–15, no model/index
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
-    * range/status: read-only audit against functional_spec assigned on master; code unchanged by `d010e0e`
-    * next: report scenarios without tests or with mismatches to @operator and @pm
+    * range/status: initial audit at `d010e0e` returned changes required and was triaged; now reviewing `029ff48..f65bf43`
+    * next: review harness/scenario ranges 1–20 and 21–41 as they arrive
 
 ## Backlog
 
@@ -38,23 +53,28 @@ TODO
 
 - [ ] Hide unused global `--brain` and `--personal` options from `pbrain skill --help`
 
-- [ ] Repeat skill/README binary audit after first-index text update `d010e0e`
-
 ## Decisions
 
 - @operator (2026-11-21): retain `embeddinggemma-2` as default despite the ~15 h projection for 5,000 token-heavy items/50 MB; compare same-size BGE after Gemma and hold the first release tag for full-size timings and the final read-only pass.
 - @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
+- @operator (2026-11-21): use `ExactValue` for control/quote/backslash IDs and paths (spaces remain bare); reject invalid-UTF-8 lookup IDs; use `bad_file_name`; map invalid-name findings to the nearest printable ancestor or `?`; omit invalid-UTF-8 JSON paths.
+- @operator (2026-11-21): count only error-severity skipped files in `skipped_files`; informational `not_an_item` files do not trigger the notice.
+- @operator (2026-11-21): do not touch goinfer tags; the imported v0.4.0 tag is under owner review, and the next fork release awaits approval.
 
 ## Done
 
+- [x] pbrain architecture/semantic documentation catch-up (@architect) `789b506`
+    * Records first-index costs, admission/output rules, 41 scenarios, runtime facts and current test names.
+
+- [x] pbrain measured-cost and path-safety spec updates (@architect) `4f936a7`
+    * Records the observed rate, invalid-UTF-8 admission, ExactValue contract and skipped-file notice scope.
+
 - [x] pbrain pre-release skill/README audit (@lead-dev-2) `6dee71e`
-    * No mismatch against shipped skill, model guidance or quick start; rerun needed because README/topic changed in `d010e0e`.
+    * No mismatch at the audited commit; a final repeat is tracked because later docs changed.
 
 - [x] pbrain release pipeline (@lead-dev-2) `7cf8ced`
-    * Reviewer approved; GoReleaser builds four CGO-disabled targets and publishes a draft on tag push. No tag pushed; first workflow run remains untested.
 
 - [x] Goinfer fork documentation follow-up (@architect-2) `e33aa3893`
-    * PR #8 approved and merged; v0.4.0 tag waits for owner approval.
 
 - [x] pbrain README for phase 28 (@architect-2) `676bf6e`
 

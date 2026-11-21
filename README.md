@@ -32,6 +32,8 @@ pbrain search sessions Redis
 ```
 
 Copy the ID from the search result into `pbrain get <id>` to read the decision.
+An ID shown in double quotes is a JSON string: decode it, or take `id` from `--json`.
+Quote an ID that has spaces in the shell.
 Plain search reads the Markdown directly, so a new item is searchable immediately.
 Use `--json` for machine-readable results. Run `pbrain skill` for the agent guide
 or `pbrain skill list` for its topics.
