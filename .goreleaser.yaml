@@ -1,0 +1,62 @@
+# GoReleaser configuration for pbrain's release binaries (architecture section 16, decision 10):
+# Linux and macOS on amd64 and arm64, built with CGO_ENABLED=0 and no build tags, with SHA-256
+# checksums. .github/workflows/release.yml runs it when a v* tag is pushed. Local check:
+#   goreleaser check && goreleaser release --snapshot --clean --skip=publish --parallelism 1
+version: 2
+
+project_name: pbrain
+
+before:
+  hooks:
+    - go mod verify
+
+builds:
+  - id: pbrain
+    main: ./cmd/pbrain
+    binary: pbrain
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    # --version prints the tag, as go install at that tag would; a snapshot prints its own version.
+    ldflags:
+      - -s -w -X github.com/pkieltyka/pbrain/internal/cli.version={{ if .IsSnapshot }}{{ .Version }}{{ else }}{{ .Tag }}{{ end }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: pbrain
+    ids:
+      - pbrain
+    formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-snapshot+{{ .ShortCommit }}"
+
+changelog:
+  use: git
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge "
+
+release:
+  github:
+    owner: pkieltyka
+    name: pbrain
+  # A person publishes the release after reading the draft.
+  draft: true
