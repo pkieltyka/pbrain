@@ -155,8 +155,42 @@ exec sh -c 'printf "corrupt" > "$WORK/test-model-packed/keywords.txt"'
 status 1 pbrain-test index --json
 stderr '"code":"invalid_config"'
 
+# Exercise two fresh builds with the same verified offline BGE fixture, one
+# with the model key omitted and one explicitly naming the release default.
+testmodel bge-small-en-v1.5
+cp docs/brain/pbrain.toml $WORK/named-default
+cp $WORK/no-model-key docs/brain/pbrain.toml
+rm -r docs/brain/.pbrain/index
+env PBRAIN_CACHE=$WORK/default-cache
+pbrain-test index --status --json
+stdout '"model":"bge-small-en-v1\.5"'
+stdout '"model_present":true'
+cp stdout $WORK/unnamed-status
+pbrain-test index --json
+stdout '"model":"bge-small-en-v1\.5"'
+stdout '"passages_embedded":3'
+cp stdout $WORK/unnamed-build
+pbrain-test search 'gamma sense' --semantic --json
+ids results related
+stdout '"semantic":true'
+! stderr .
+cp stdout $WORK/unnamed-search
+
+cp $WORK/named-default docs/brain/pbrain.toml
+rm -r docs/brain/.pbrain/index
+env PBRAIN_CACHE=$WORK/named-cache
+pbrain-test index --status --json
+cmp stdout $WORK/unnamed-status
+pbrain-test index --json
+cmp stdout $WORK/unnamed-build
+pbrain-test search 'gamma sense' --semantic --json
+cmp stdout $WORK/unnamed-search
+! stderr .
+
 -- off --
 semantic.model = "none"
+-- no-model-key --
+# No semantic model setting.
 -- empty-name --
 semantic.model = ""
 -- unknown-name --

@@ -10,23 +10,23 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/rogpeppe/go-internal/testscript"
 )
 
 func scenarioModelKit(path string) (*embedtest.Kit, error) {
-	if path == "" {
-		return embedtest.New(nil), nil
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, err
-	}
 	var table map[string][]float32
-	if err := json.Unmarshal(data, &table); err != nil {
-		return nil, err
+	if path != "" {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(data, &table); err != nil {
+			return nil, err
+		}
 	}
-	return embedtest.New(table), nil
+	return embedtest.New(table, brain.DefaultModel), nil
 }
 
 // testmodel selects a local model for either the default embedtest keyword
