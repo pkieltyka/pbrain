@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	measureBGEName      = "bge-small-en-v1.5"
-	measureGemmaName    = "embeddinggemma-2"
-	measurePartialQuery = "readbenchrare readbenchsignpost readbenchlease readbenchwork readbenchrenew readbenchabsent"
+	measureBGEName       = "bge-small-en-v1.5"
+	measureGemmaName     = "embeddinggemma-2"
+	measurePartialQuery  = "readbenchrare readbenchsignpost readbenchlease readbenchwork readbenchrenew readbenchabsent"
+	measureSemanticBody  = "Login state is kept in the local session store. The session cookie preserves the login state.\n"
+	measureSemanticQuery = "where is login state kept"
 )
 
 type measureModelOptions struct {
@@ -69,16 +71,12 @@ func (h readMeasureHarness) measureModel(t *testing.T, f readMeasureFixture, mod
 	h.timeIndex(t, f, model, false)
 	h.checkMeasuredIndex(t, f, model, true)
 
-	rows := []readMeasureCase{
-		{"search semantic with exact hit", []string{"search", "readbenchrare", "--semantic", "--json"}, f.id},
-		{"search semantic paraphrase", []string{"search", "The worker extends its lease after confirming a retry", "--semantic", "--json"}, ""},
+	if f.personal > 0 {
+		shared := f
+		shared.id, shared.personal = f.sharedID, 0
+		h.timeModelReads(t, shared, model.path, bm25)
 	}
-	if bm25 {
-		rows = append(rows, readMeasureCase{
-			"search semantic and BM25", []string{"search", measurePartialQuery, "--semantic", "--bm25", "--json"}, `"results":`,
-		})
-	}
-	h.timeReads(t, f, rows, model.path)
+	h.timeModelReads(t, f, model.path, bm25)
 
 	// Keep the search measurements at exactly 5,000 items. Add one unique,
 	// short note afterwards and time just the rebuild, without chilling.
@@ -93,6 +91,117 @@ func (h readMeasureHarness) measureModel(t *testing.T, f readMeasureFixture, mod
 	}
 	h.timeIndex(t, f, model, true)
 	h.checkMeasuredIndex(t, f, model, true)
+}
+
+func (h readMeasureHarness) timeModelReads(t *testing.T, f readMeasureFixture, modelPath string, bm25 bool) {
+	t.Helper()
+	if f.semanticID == "" {
+		t.Fatal("missing semantic control item")
+	}
+	strict := runMeasureCommand(t, h.bin, f.dir, h.env, f.viewArgs([]string{"search", measureSemanticQuery, "--json"})...)
+	if err := checkMeasuredHit(strict, f.semanticID, false); err != nil {
+		t.Fatal(err)
+	}
+	view := "shared"
+	if f.personal > 0 {
+		view = "personal"
+	}
+	t.Logf("%s model search: %d visible items", view, f.shared+f.personal)
+	rows := []readMeasureCase{{name: "search semantic with exact hit", args: []string{"search", "readbenchrare", "--semantic", "--json"}, want: f.id}}
+	rows = append(rows, measuredSemanticRows(f.semanticID, bm25)...)
+	h.timeReads(t, f, rows, modelPath)
+}
+
+func measuredSemanticRows(id string, bm25 bool) []readMeasureCase {
+	rows := []readMeasureCase{{name: "search semantic paraphrase", args: []string{"search", measureSemanticQuery, "--semantic", "--json"}, semanticID: id}}
+	if bm25 {
+		rows = append(rows, readMeasureCase{name: "search semantic and BM25", args: []string{"search", measureSemanticQuery, "--semantic", "--bm25", "--json"}, semanticID: id})
+	}
+	return rows
+}
+
+func checkMeasuredHit(out []byte, id string, semantic bool) error {
+	var page struct {
+		Results []struct {
+			ID       string `json:"id"`
+			Semantic bool   `json:"semantic"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(out, &page); err != nil {
+		return fmt.Errorf("decode search results: %w", err)
+	}
+	for _, hit := range page.Results {
+		if hit.ID != id {
+			continue
+		}
+		if !semantic {
+			return fmt.Errorf("strict search unexpectedly found %s", id)
+		}
+		if !hit.Semantic {
+			return fmt.Errorf("hit %s lacks the semantic marker", id)
+		}
+		return nil
+	}
+	if semantic {
+		return fmt.Errorf("search did not return semantic hit %s", id)
+	}
+	return nil
+}
+
+func TestMeasureSemanticRowsRejectStrippedFlag(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "wrapper")
+	// The stand-in release returns a semantic or lexical hit according to argv.
+	// Wrap it by removing the flag on every invocation or on the combined path.
+	const wrapper = `#!/bin/sh
+combined=false
+for arg do
+    if [ "$arg" = --bm25 ]; then combined=true; fi
+done
+for arg do
+    shift
+    if [ "$arg" = --semantic ] && { [ "$STRIP" = all ] || { [ "$STRIP" = combined ] && "$combined"; }; }; then
+        continue
+    fi
+    set -- "$@" "$arg"
+done
+exec "$RELEASE" "$@"
+`
+	const release = `#!/bin/sh
+for arg do
+    if [ "$arg" = --semantic ]; then
+        printf '%s\n' '{"results":[{"id":"control","semantic":true}]}'
+        exit 0
+    fi
+done
+printf '%s\n' '{"results":[{"id":"control"}]}'
+`
+	for name, script := range map[string]string{bin: wrapper, filepath.Join(dir, "release"): release} {
+		if err := os.WriteFile(name, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		strip string
+		fails [2]bool
+	}{
+		{"none", [2]bool{false, false}},
+		{"all", [2]bool{true, true}},
+		{"combined", [2]bool{false, true}},
+	} {
+		t.Run(tc.strip, func(t *testing.T) {
+			h := readMeasureHarness{bin: bin, gitLog: filepath.Join(dir, "git-count"),
+				env: []string{"STRIP=" + tc.strip, "RELEASE=" + filepath.Join(dir, "release")}}
+			for i, row := range measuredSemanticRows("control", true) {
+				_, err := h.measureRead(t, readMeasureFixture{dir: dir}, row, row.args)
+				if (err != nil) != tc.fails[i] {
+					t.Errorf("%s: got error %v, want failure %t", row.name, err, tc.fails[i])
+				} else if err != nil && err.Error() != "hit control lacks the semantic marker" {
+					t.Errorf("%s failed for the wrong reason: %v", row.name, err)
+				}
+			}
+		})
+	}
 }
 
 func writeMeasureTOML(t *testing.T, path string, config any) {
