@@ -1,30 +1,42 @@
-// Package sys: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package sys is pbrain's seam to the file system: open folder handles that never follow a link,
+// bounded reads, exclusive publishing and advisory locks (architecture 10.3, components/store.md).
+// Every operation names a single entry of an open folder; nothing is looked up by path again.
 package sys
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/fs"
 	"time"
 )
 
+// Identity names a file system object independently of its path.
 type Identity struct{ Device, Inode uint64 }
+
+// FileInfo is what pbrain reads of an entry, without following a final link.
 type FileInfo struct {
 	Identity Identity
 	Mode     fs.FileMode
 	Size     int64
 	ModTime  time.Time
 }
+
+// Entry is one name of a folder with its information.
 type Entry struct {
 	Name string
 	Info FileInfo
 }
+
+// ResolvedPath is a path after the native symlink resolution.
 type ResolvedPath struct {
 	Path      string // absolute path after symlink resolution
 	Exists    bool
 	Info      FileInfo   // valid when Exists
 	Ancestors []Identity // directory identities, root first, parent last
 }
+
+// RegularFile is an open regular file.
 type RegularFile interface {
 	io.Reader
 	io.ReaderAt
@@ -33,17 +45,19 @@ type RegularFile interface {
 	Stat() (FileInfo, error)
 }
 
+// Dir is one open folder. Every method names a single entry of it and never follows a link.
 type Dir interface {
-	Sub(name string, create bool) (Dir, error)
-	Read(name string) ([]byte, FileInfo, error)
+	Sub(name string, create bool) (Dir, error)  // open a child folder; a link is an error
+	Read(name string) ([]byte, FileInfo, error) // a regular file only, at most ReadCeiling bytes
 	CreateTemp() (name string, w io.WriteCloser, err error)
-	LinkNew(temp, name string) error
-	Replace(temp, name string) error
+	LinkNew(temp, name string) error // give temp a second name; fails with fs.ErrExist if name exists
+	Replace(temp, name string) error // rename temp over name
 	Remove(name string) error
 	Sync() error
 	Close() error
 }
 
+// Files opens folder handles and locks. Native is the real one; tests replace it to inject failures.
 type Files interface {
 	Resolve(path string, allowMissing bool) (ResolvedPath, error)
 	OpenRoot(path string, create bool) (Dir, error)
@@ -55,5 +69,25 @@ type Files interface {
 	Lock(ctx context.Context, dir Dir, name string) (io.Closer, error)
 }
 
-func Native() Files                    { panic("not implemented") }
-func OpenDir(path string) (Dir, error) { panic("not implemented") }
+// ReadCeiling is Dir.Read's hard limit. Larger trusted files, such as a model, go through
+// OpenRegular and the caller's own streaming and digest checks.
+const ReadCeiling = 5 << 20
+
+var (
+	// ErrUnsafe: the entry is a link, or not of the type the operation needs.
+	ErrUnsafe = errors.New("sys: a link, or not a regular file or folder")
+	// ErrInvalidName: empty, "." or "..", or holding a separator or NUL.
+	ErrInvalidName = errors.New("sys: not a single entry name")
+	// ErrChanged: the file changed while it was read.
+	ErrChanged = errors.New("sys: the file changed while it was read")
+	// ErrTooLarge: the file is over ReadCeiling.
+	ErrTooLarge = errors.New("sys: the file is too large")
+	// ErrForeign: a Dir that this Files did not open.
+	ErrForeign = errors.New("sys: a folder handle from another implementation")
+)
+
+// Native returns the operating system's Files.
+func Native() Files { return native{} }
+
+// OpenDir opens an already resolved folder with the native Files.
+func OpenDir(path string) (Dir, error) { return native{}.OpenRoot(path, false) }
