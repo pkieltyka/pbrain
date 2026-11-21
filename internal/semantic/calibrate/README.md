@@ -1,0 +1,66 @@
+# Retrieval calibration
+
+Run from the repository root. The tool copies the fixture to a temporary
+brain and uses a fixed UTC clock and the release's default JSON budgets.
+The phase 18 tool runs the model-free arms.
+
+```sh
+go run ./internal/semantic/calibrate -stage calibration internal/semantic/calibrate/testdata/retrieval
+go run ./internal/semantic/calibrate -stage check internal/semantic/calibrate/testdata/retrieval
+```
+
+Both commands print a JSON report. Exit 1 means the partial gate failed.
+The calibration stage uses only calibration negatives. Run the check on the
+held-out negatives only after choosing and freezing the candidate rule.
+Each stage checks that adding personal items changes no shared response or
+diagnostic and that the private controls open in the personal view.
+
+The count and BM25 controls use identical candidates. The separate stemming
+control uses English suffix rules on unquoted words. The heading control
+adds a second count for occurrences in recognized heading titles.
+
+## Phase 18 gate
+
+The frozen questions have SHA-256
+`af4054bbb01300f9f3097b3b414f4a4a5f05d246fa62b2cd48ea906358b5c041`.
+Each trial compiled the three constants in `internal/search/partial.go` into
+the calibration tool and ran the real CLI's partial tier. The calibration
+grid used minimum matches 2 and 3, document frequency divisors 4, 5, 6 and
+8, and share divisors 1 and 2. A second pass tested minimums 4, 5 and 6
+with frequency divisors 4, 6 and 8 and share divisor 2. None of the 25
+trials used held-out negatives to choose its rule.
+
+| Calibration candidates | Empty of 30 | Expected IDs on first page, of 47 | Outcome |
+|---|---:|---:|---|
+| Starting rule, 2 / 4 / 2 | 26 | 22 | Failed abstention, including regression `u029` |
+| Minimum 2 or 3, share divisor 1 | 30 | 16 | No gain |
+| Minimum 2 or 3, share divisor 2 | 26–27 | 22 | Failed abstention |
+| Minimum 4, share divisor 2 | 26–28 | 22 | Failed abstention |
+| **5 / 4 / 2** | **29** | **22** | Passed, highest gain among passing rules |
+| 5 / 6 / 2 and 5 / 8 / 2 | 29 | 21 | Passed |
+| Minimum 6, share divisor 2 | 30 | 20 | Passed |
+
+Only the frozen 5 / 4 / 2 rule was checked on held-out negatives.
+
+| Arm | Expected IDs on first page, of 47 | Empty of 30 held-out | Long-source item retrieved, of 6 | Evidence reached, of 6 |
+|---|---:|---:|---:|---:|
+| Strict | 16 | 30 | 0 | 0 |
+| Guided retry | 18 | 25 | 1 | 1 |
+| Any clause by count | 35 | 0 | 6 | 3 |
+| Any clause by BM25 | 42 | 0 | 6 | 3 |
+| BM25 with stemming | 41 | 0 | 6 | 4 |
+| BM25 with heading weights | 42 | 0 | 6 | 3 |
+| Partial tier | 22 | 30 | 4 | 4 |
+
+The partial tier passed every held-out regression and preserved all 16
+strict first-page answers. The shared replay matched byte for byte and
+all eight personal controls opened in the personal view. This enables
+`--bm25` for the release without a model. A release that lists bge-small
+still needs the combined gate in phase 25.
+
+The architecture §8.6 harness also timed the enabled flag on Linux/amd64
+with four CPUs and three warm samples per case. At 5,000 items and 50 MB,
+shared medians were 175–223 ms and personal-view medians were 153–213 ms.
+The slowest warm sample was 267 ms. These harness queries measure the
+scanning and term-frequency cost. The six-clause scenario tests the
+admitted rows separately.

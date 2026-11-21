@@ -16,6 +16,11 @@ import (
 
 func withBM25(req *Request) { req.BM25 = true }
 
+const (
+	partialQuery = "queue retry timeout backoff worker lease"
+	fiveMatches  = "queue retry backoff worker lease"
+)
+
 func filler(f *fixture, count int) {
 	for i := range count {
 		f.put(fmt.Sprintf("filler-%02d", i), "unrelated", "")
@@ -24,14 +29,14 @@ func filler(f *fixture, count int) {
 
 func TestPartialAdmission(t *testing.T) {
 	f := newFixture()
-	f.put("with-timeout", "queue timeout", "")
-	f.put("with-retry", "queue retry", "")
-	f.put("queue-only", "queue", "")
+	f.put("with-timeout", "queue timeout backoff worker lease", "")
+	f.put("with-retry", fiveMatches, "")
+	f.put("four-only", "queue backoff worker lease", "")
 	filler(f, 17)
-	r := f.search(t, "queue retry timeout", withBM25)
+	r := f.search(t, partialQuery, withBM25)
 	assertRows(t, r, "with-retry", "with-timeout")
 	for _, h := range r.Hits {
-		if !h.Partial || h.Matched != 2 || h.Clauses != 3 || h.Class != 0 || h.Semantic {
+		if !h.Partial || h.Matched != 5 || h.Clauses != 6 || h.Class != 0 || h.Semantic {
 			t.Fatalf("unexpected partial hit %+v", h)
 		}
 	}
@@ -39,8 +44,9 @@ func TestPartialAdmission(t *testing.T) {
 		t.Fatal("partial rows suppress empty-match diagnostics")
 	}
 
-	assertRows(t, f.search(t, "queue retry tim*", withBM25), "with-timeout")
-	for _, text := range []string{`"retry timeout" queue missing`, "queue retry futile*", "queue retry", "absent", "queue absent absent2 absent3 absent4"} {
+	assertRows(t, f.search(t, fiveMatches+" tim*", withBM25), "with-timeout")
+	for _, text := range []string{`"retry timeout" queue backoff worker lease missing`, fiveMatches + " futile*",
+		"queue retry", "absent", "queue retry timeout backoff worker", "queue absent absent2 absent3 absent4"} {
 		r := f.search(t, text, withBM25)
 		if text == "queue retry" {
 			assertRows(t, r, "with-retry")
@@ -54,14 +60,14 @@ func TestPartialAdmission(t *testing.T) {
 	for i := range 6 {
 		f.put(fmt.Sprintf("common-%d", i), "queue", "")
 	}
-	if got := f.search(t, "queue retry timeout", withBM25); got.Total != 0 {
+	if got := f.search(t, partialQuery, withBM25); got.Total != 0 {
 		t.Fatal("a common word counted as informative")
 	}
 
 	small := newFixture()
-	small.put("candidate", "queue retry", "")
+	small.put("candidate", fiveMatches, "")
 	filler(small, 2)
-	if got := small.search(t, "queue retry timeout", withBM25); got.Total != 0 {
+	if got := small.search(t, partialQuery, withBM25); got.Total != 0 {
 		t.Fatal("N < 4 admitted a partial candidate")
 	}
 }
@@ -92,45 +98,47 @@ func TestPartialScoreAndOrder(t *testing.T) {
 	if got := s.score(&records[0]); math.Float64bits(got) != math.Float64bits(part+part) {
 		t.Errorf("score %.20g, want %.20g", got, part+part)
 	}
-	assertRows(t, f.search(t, "queue retry timeout", withBM25), "a", "b")
+	a.Header.Title += strings.Repeat(" backoff worker lease", 3)
+	f.items[1].Header.Title = fiveMatches
+	assertRows(t, f.search(t, partialQuery, withBM25), "a", "b")
 
 	replacer := f.put("replacement", "other", "")
 	replacer.Header.Replaces = []string{"a"}
-	assertRows(t, f.search(t, "queue retry timeout", withBM25, func(r *Request) { r.Filters.All = true }), "b", "a")
+	assertRows(t, f.search(t, partialQuery, withBM25, func(r *Request) { r.Filters.All = true }), "b", "a")
 
 	// Same score: known creation first, then folded id and path.
 	b := f.items[1]
 	tied := f.put("z", b.Header.Title, "")
 	tied.Header.Created = now.AddDate(0, 0, 1)
-	assertRows(t, f.search(t, "queue retry timeout", withBM25), "z", "b")
+	assertRows(t, f.search(t, partialQuery, withBM25), "z", "b")
 }
 
 func TestPartialQuotedWord(t *testing.T) {
 	f := newFixture()
-	f.put("a", "queue retry", "")
+	f.put("a", fiveMatches, "")
 	filler(f, 8)
-	assertRows(t, f.search(t, "durable queue retry", withBM25), "a")
-	assertRows(t, f.search(t, `"durable" queue retry`, withBM25))
-	bare := f.search(t, "durable queue retry")
-	quoted := f.search(t, `"durable" queue retry`)
-	if len(bare.Alone) != 3 || len(quoted.Alone) != 3 || bare.Alone[0].Count != quoted.Alone[0].Count {
+	assertRows(t, f.search(t, "durable "+fiveMatches, withBM25), "a")
+	assertRows(t, f.search(t, `"durable" `+fiveMatches, withBM25))
+	bare := f.search(t, "durable "+fiveMatches)
+	quoted := f.search(t, `"durable" `+fiveMatches)
+	if len(bare.Alone) != 6 || len(quoted.Alone) != 6 || bare.Alone[0].Count != quoted.Alone[0].Count {
 		t.Fatal("quoting a word changed exact clause counts")
 	}
 }
 
 func TestPartialStatisticsIgnoreOtherGroups(t *testing.T) {
 	f := newFixture()
-	f.put("candidate", "queue retry", "")
+	f.put("candidate", fiveMatches, "")
 	f.put("other-group", "related only by meaning", "")
 	filler(f, 2)
-	req := Request{Clauses: clauses(t, "queue retry timeout"), BM25: true}
+	req := Request{Clauses: clauses(t, partialQuery), BM25: true}
 	records := collect(f.items, graph.Build(f.items), &req.Filters)
 	p := plan(req.Clauses)
 	if err := matchAll(context.Background(), f, &p, records, true); err != nil {
 		t.Fatal(err)
 	}
 	s := stats(records, len(req.Clauses))
-	if s.n != 4 || !reflect.DeepEqual(s.rare, []bool{true, true, true}) {
+	if s.n != 4 || !reflect.DeepEqual(s.rare, []bool{true, true, true, true, true, true}) {
 		t.Fatalf("stats for the full eligible corpus: %+v", s)
 	}
 	ranked := rankPartial(records, req.Clauses)
@@ -145,15 +153,15 @@ func TestPartialStatisticsIgnoreOtherGroups(t *testing.T) {
 
 func TestPartialCorpusIsTheView(t *testing.T) {
 	f := newFixture()
-	f.put("a", "queue retry", "")
+	f.put("a", fiveMatches, "")
 	filler(f, 3)
-	want := f.search(t, "queue retry timeout", withBM25)
+	want := f.search(t, partialQuery, withBM25)
 	assertRows(t, want, "a")
 	shared := slices.Clone(f.items)
-	personal := f.put("personal", "queue retry", "")
+	personal := f.put("personal", fiveMatches, "")
 	personal.Section, personal.Header.Kind = item.Personal, item.Observation
-	assertRows(t, f.search(t, "queue retry timeout", withBM25))
-	assertRows(t, f.search(t, "queue retry timeout", withBM25, func(req *Request) {
+	assertRows(t, f.search(t, partialQuery, withBM25))
+	assertRows(t, f.search(t, partialQuery, withBM25, func(req *Request) {
 		req.Filters.Kinds = []item.Kind{item.Note}
 	}), "a")
 	personal.Header.Created = now.AddDate(-1, 0, 0)
@@ -161,31 +169,31 @@ func TestPartialCorpusIsTheView(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertRows(t, f.search(t, "queue retry timeout", withBM25, func(req *Request) {
+	assertRows(t, f.search(t, partialQuery, withBM25, func(req *Request) {
 		req.Filters.Window = window
 	}), "a")
 	f.items = shared
-	if got := f.search(t, "queue retry timeout", withBM25); !reflect.DeepEqual(got, want) {
+	if got := f.search(t, partialQuery, withBM25); !reflect.DeepEqual(got, want) {
 		t.Fatal("the shared result changed although the personal item was outside the corpus")
 	}
 }
 
 func TestMergedListExactAndPartial(t *testing.T) {
 	f := newFixture()
-	exact := f.put("exact", "queue retry timeout", "")
+	exact := f.put("exact", partialQuery, "")
 	exact.Header.Replaces = []string{"old"}
-	f.put("old", "queue retry timeout", "")
-	f.put("partial", "queue retry", "")
+	f.put("old", partialQuery, "")
+	f.put("partial", fiveMatches, "")
 	filler(f, 17)
-	strict := f.search(t, "queue retry timeout")
+	strict := f.search(t, partialQuery)
 	assertRows(t, strict, "exact")
-	with := f.search(t, "queue retry timeout", withBM25)
+	with := f.search(t, partialQuery, withBM25)
 	assertRows(t, with, "exact", "partial")
 	if !reflect.DeepEqual(with.Hits[0], strict.Hits[0]) || with.Replaced != strict.Replaced || with.Outside != strict.Outside {
 		t.Fatal("the partial tier changed exact rows or counts")
 	}
 	for i, id := range []string{"exact", "partial"} {
-		r := f.search(t, "queue retry timeout", withBM25, func(req *Request) { req.Offset, req.Limit = i, 1 })
+		r := f.search(t, partialQuery, withBM25, func(req *Request) { req.Offset, req.Limit = i, 1 })
 		assertRows(t, r, id)
 		if r.Total != 2 {
 			t.Errorf("paged total %d, want 2", r.Total)
