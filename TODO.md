@@ -3,225 +3,284 @@ TODO
 
 ## Ready
 
-- [ ] pbrain phase 4: `graph` and `secretscan` (@lead-dev)
-    * description: **4. `graph` and `secretscan`.** @lead-dev. After 1; beside 5. `graph.md`, `writes.md`.
-    * criteria: run the test plan in components/graph.md and writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 1
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 5: `brain` (@lead-dev-2)
-    * description: **5. `brain`.** @lead-dev-2. After 1, 2 and 3; beside 4 and 6. `brain.md`: discovery, configuration, views, the exposure guard.
-    * criteria: run the test plan in components/brain.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 1, 2 and 3
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 6: `query` and `search`, lexical (@lead-dev)
-    * description: **6. `query` and `search`, lexical.** @lead-dev. After 4; beside 5, 7 and 8. `search.md`: matching, order, window, counts, snippet with its line, occurrences, context lines, and the partial tier behind `Features.BM25`.
-    * criteria: run the test plan in components/search.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 4
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 7: `store` (@lead-dev-2)
-    * description: **7. `store`.** @lead-dev-2. After 5; beside 6 and 9. `store.md`: the scan, guarded input, the write primitives.
-    * criteria: run the test plan in components/store.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 5
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 9: `cli` core (@lead-dev)
-    * description: **9. `cli` core.** @lead-dev. After 5; beside 7 and 8. `cli.md`: dispatch, flags, streams, exit codes, `RunWith`, `init`.
-    * criteria: run the test plan in components/cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 5
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 11: Reading commands I: `search` and `get` (@lead-dev-2)
-    * description: **11. Reading commands I: `search` and `get`.** @lead-dev-2. After 6, 7, 8 and 9; beside 13. `render.md`, `cli.md`: `search`, and `get` with `--history` and `--outline`. First whole commands: their scenarios, and the measurements of architecture 8.6 on the generated 5,000-item brain.
-    * criteria: run the test plan in components/render.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 6, 7, 8 and 9
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 12: Reading commands II: `list`, `prime`, `tags`, `check` (@lead-dev-2)
-    * description: **12. Reading commands II: `list`, `prime`, `tags`, `check`.** @lead-dev-2. After 11; beside 13 and 14. `render.md`, `cli.md`.
-    * criteria: run the test plan in components/render.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 11
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 13: Writing commands (@lead-dev)
-    * description: **13. Writing commands.** @lead-dev. After 3, 7 and 9; beside 11 and 12. `writes.md`: `add`, `verify`, `delete`.
-    * criteria: run the test plan in components/writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phases 3, 7 and 9
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 14: The `audience` command (@lead-dev)
-    * description: **14. The `audience` command.** @lead-dev. After 13; beside 15. `audience.md`: listing and editing the rules.
-    * criteria: run the test plan in components/audience.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 13
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 15: `importer`: files and linked items (@lead-dev-2)
-    * description: **15. `importer`: files and linked items.** @lead-dev-2. After 13; beside 14. `importer.md`.
-    * criteria: run the test plan in components/importer.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 13
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+## In progress
 
 - [ ] pbrain phase 18: The calibration tool without a model, and the `--bm25` gates (@lead-dev)
     * description: **18. The calibration tool without a model, and the `--bm25` gates.** @lead-dev. After 11 and 17; beside 19 to 22. The model-free arms and the "reaching the evidence" reader (`semantic.md`); the partial tier's own gates (architecture 8.8). A pass lets `--bm25` ship in a release that lists no model; `Release.BM25` is set in the change that records it.
     * criteria: run the test plan in components/semantic.md “Calibration” and architecture.md §8.8 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; keep Release.BM25 off until the gate result is recorded
     * owner lane: @lead-dev
     * after: phases 11 and 17
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+    * work: @operator decided to accept calibrated `minInformative=5, dfDivisor=4, shareDivisor=2` for releases without a model. The frozen rule passed held-out (30/30 empty; first-page expected IDs 16/47 to 22/47, none lost); minimum 2 failed calibration (26/30 empty, regression u029). @lead-dev submitted tool range `686e877..39cdb75` and release/skill/report range `c76082f..e39fe31` on `peter/lead-dev`; the branch includes master `2606da2` and phase 11 handlers. The committed report reproduces both gate stages, shared-output/privacy checks, and 5,000-item BM25 medians (153–223 ms; max warm sample 267 ms). Author reports gofmt, full vet/plain/CGO-disabled tests, focused race, calibration runs and cross-builds; no non-Linux runtime measurement.
+    * verdict: review pending; operator accepted the calibrated constants and enabled `Release.BM25` for a no-model release
+    * next: @reviewer proceeds with both Phase 18 ranges; @operator integrates after approval. When the Phase 23 fix arrives, @reviewer takes it first. Init selector review follows Phase 18. Phase 25 runs combined BGE gates before any release listing both model and `--bm25`.
 
-- [ ] pbrain phase 19: Semantic (a): the merge (@lead-dev)
-    * description: **19. Semantic (a): the merge.** @lead-dev. After 11; beside 20 and 21. `search.md` section 6 and its rendering, against a fake source.
-    * criteria: run the test plan in components/search.md §6 and render.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 11
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 20: Semantic (b1): passages and the index database (@lead-dev-2)
-    * description: **20. Semantic (b1): passages and the index database.** @lead-dev-2. After 7; beside 19 and 21. `semantic.md`: fingerprints, passages, the database and the scoring query.
-    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+- [ ] pbrain phase 23: Semantic (b3): source and commands (@lead-dev-2)
+    * description: **23. Semantic (b3): source and commands.** Source/status/score lifecycle, model and index readiness, coverage, semantic search notices, index and status commands (`semantic.md`, `cli.md`). Model registry wiring is deliberately deferred to phase 25 until its gates pass.
+    * criteria: run the test plan in components/semantic.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
     * owner lane: @lead-dev-2
-    * after: phase 7
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+    * after: phases 16, 18, 19, 20, 21 and 22
+    * work: submitted base range `3bd8614..33b9e17` (commits `7590969` and `33b9e17`, with master merge `ab54b43`; report identifies head `0106ebb` with master `17734d4`). Test-only fix `a278c0c`, exact range `f36a28a..a278c0c`, adds source-level and CLI `TestPassageAlignment`: repeated Setup headings under different parents, fenced pseudo-heading, multibyte text, outline section/start correspondence, passage text correspondence, semantic snippet offset/line and `get --offset`. Author reports gofmt, full vet/tests, semantic/CLI race and CGO-disabled tests, Darwin/arm64 vet; no macOS runtime. The worktree also has separate uncommitted Phase 25 BGE wiring/model changes outside this review range.
+    * verdict: changes required on `3bd8614..33b9e17`; finding 1 withdrawn by @operator because `semantic.md` specifies omitting `model_present` when false. Finding 2's test fix is submitted; re-review pending.
+    * next: @reviewer re-reviews `f36a28a..a278c0c`; Phase 25's BGE run/wiring waits for Phase 23 approval.
 
-- [ ] pbrain phase 21: `embed`: the model table and provisioning (@lead-dev)
-    * description: **21. `embed`: the model table and provisioning.** @lead-dev. After 2; beside 19 and 20. `semantic.md`: the registry, find, verify, download through the `Downloader` interface, and pack, with the test model and a fake downloader.
-    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+- [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
+    * description: **25. BGE gates.** Calibrate bge-small, run its individual and combined gates with `--bm25`, wire the release registry and run the semantic end-to-end gate. A combined-only failure withholds `--bm25` while a qualifying model may ship.
+    * criteria: run the calibration, source and release test plans in components/semantic.md and architecture.md §§8.7, 8.8, 14 and the applicable scenarios in functional_spec.md §15; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; list only individually qualifying models and enable combined release flags only when the combined gate passes for every listed model
+    * owner lane: @lead-dev-2 for real BGE gates and registry wiring; @lead-dev for gate tooling
+    * after: phases 18, 23 and 24
+    * work: gate-tool commit `8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, exact range `f66c2685a5402a36d7d688530e37015695cafba2..8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, on `peter/lead-dev`; built on Phase 18 and Phase 23 at `33b9e17`. It adds scratch-index calibration, production-score negative cutoff selection, standalone/combined gates on rendered CLI JSON, incomplete-view abort, RRF comparison and private overlay search/get checks. Author reports gofmt, diff, mod verify, full vet/plain/CGO-disabled suites, focused race tests and serial Linux/Darwin amd64/arm64 CGO-disabled tool builds, including targeted cutoff/held-out/combined-rejection cases. The real BGE run and registry wiring remain @lead-dev-2's work.
+    * verdict: gate-tool portion submitted for review after phase 18; BGE run and release wiring wait for Phase 23 approval
+    * next: @reviewer reviews `f66c268..8ecfb9e` after Phase 18; @lead-dev-2 starts the real BGE fixture and registry/end-to-end wiring only after Phase 23 is approved.
+
+- [ ] pbrain implementation: init selector usable from caller's directory (@architect-2)
+    * description: `init` reports the brain's project-root-relative location and, when different, the selector that works from the caller's resolved directory; the selector is an argument value, not a shell command.
+    * criteria: follow components/brain.md Init and functional_spec.md §§6.2, 9.2, scenario 27; compute both values after symlink resolution; use `render.ExactPath`; withhold invalid UTF-8 selectors; cover root, subdirectory, symlinked cwd, absolute/relative targets, invalid UTF-8 and exact text/JSON forms; run gofmt, vet and tests; obtain reviewer approval
+    * owner: @architect-2 (patch flow)
+    * decision: @operator approved root-relative location plus a selector usable from the caller's directory; root prints one line, absolute outside target is echoed unchanged, and no derived absolute path is emitted
+    * work: patch SHA-256 `6f51bdd574cd30d5ff0a67764ef00ce150bf9f30634e457f2de911d39c807845` on base `2606da2`; committed on `peter/init-selector` as `5a4c806` plus spec/brain clarifications `9ed8766`, exact range `db929d2..9ed8766`. Covers relative selector resolution from the physical caller directory, exact text/JSON output, raw path rendering and invalid UTF-8. Author reports gofmt, full vet/plain/CGO-disabled tests and brain/CLI race tests pass; no macOS run.
+    * verdict: review pending after phase 18
+    * next: @reviewer reviews `db929d2..9ed8766` after phase 18; @operator integrates on approval.
+
+- [ ] aikit fork documentation follow-up (@architect-2)
+    * description: update active fork pin examples and release instructions to aikit v1.79.0 / GPU v0.36.x, preserving upstream measurements as history.
+    * criteria: address @reviewer's post-merge findings and stale example module versions/nested module claims against fork main; preserve license attribution and historical context; obtain @reviewer review and @operator merge after green CI
+    * owner: @architect-2 (patch flow)
+    * work: PR #4 `pkieltyka/docs-pins`, range `0b1b868..1f7bd74` (original `0f8fd988` plus follow-up `1f7bd74`). Follow-up patch SHA-256 `a70a2be614d14b4466313e10c597a7e06ff4dc40f937024b21f451d23044a80b`; fixes stale example module versions/nested module release claims. Author reports gpupins for all four backends, 58 device-script tests, shell syntax, release assets (31 at each tag) and metadata checks (29 checksums). PR open; no fork CI result recorded.
+    * verdict: PR submitted; reviewer verdict pending
+    * next: @reviewer reviews PR #4 when there is a gap after priority pbrain reviews; @operator merges after green CI.
+
+- [ ] goinfer fork documentation follow-up (@architect-2)
+    * description: point active goinfer user/release documentation to github.com/pkieltyka/goinfer; remove unsupported instructions and preserve attribution/history.
+    * criteria: address @reviewer's post-merge findings in README.md, RELEASING.md, demo/chat/README.md and docs/ARCHITECTURE.md; ensure regenerated workspace has no stale checksum; obtain @reviewer review and @operator merge after green CI
+    * owner: @architect-2 (patch flow)
+    * work: PR #5 `pkieltyka/fork-docs-v0.2`, range `a759890b..93adb19f3`; rebased/final patch SHA-256 `a43f4d172765ef322cb2aa9b1ee2663042e8c13d9c3b60a7393732d5cab19443`. Release/download/attestation/live tooling steps point to the fork; unsupported issue directions removed; release checkout instructions distinguish root tags from nested modules. Workspace regenerated without stale checksum. Separate ignored local cleanup patch SHA-256 `49f47c085733969d9f91a719fe297f8d179067681aa343aa23ec1f602b638e6d` remains out of PR. PR open.
+    * verdict: PR submitted; reviewer verdict pending
+    * next: @reviewer reviews PR #5 when there is a gap after priority pbrain reviews; @operator merges after green CI.
+
+- [ ] pbrain architecture: audience-rule host matching (@architect-2)
+    * description: verify exact audience-rule keys preserve non-default ports while mixed-host classification uses canonical DNS host names.
+    * criteria: test both directions of :8443 rule/source matching and default-port non-matches; retain existing table-side mixed-host tests
+    * owner: @architect-2
+    * work: test-only commit `790a1ea` on top of adapter commit `0ed1330`, exact range `0ed1330..790a1ea`; covers exact-port match/non-match in both directions and explicit :443 default. Audience tests pass per author. Reviewer will take it with phase 27 after phase 16.
+    * verdict: review pending
+    * next: @reviewer reviews `0ed1330..790a1ea` with phase 27; close when merged.
+
+- [ ] pbrain phase 28: Measurement before a release (@lead-dev)
+    * description: **28. Measurement before a release.** Extend the repeatable built-binary harness for release cases: semantic search with BGE, index build, `--bm25` beside the model and personal view; measure on arm64 Mac and Linux, including model rule 3, first index, one-note update and peak memory. Build four targets with `CGO_ENABLED=0`, test `go install` from a tagged version and publish results; repeat for releases adding modes/models.
+    * criteria: run architecture.md §§8.6, 8.7, 14 and applicable functional scenarios; extend `internal/cli/measure_test.go` to required cases, then run it after Phase 25 registry wiring; run gofmt, vet, tests and obtain reviewer approval; complete arm64 Mac measurement before release
     * owner lane: @lead-dev
-    * after: phase 2
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+    * after: phase 25 registry wiring and the other phases included in each release
+    * work: reassigned by @operator from @lead-dev-2 because @lead-dev owns the existing harness. No Phase 28 code change has been reported yet; current lead-dev worktree tip is `8ecfb9e` with Phase 25 gate tool.
+    * verdict: in progress; harness extension not yet reported
+    * next: @lead-dev extends `measure_test.go` with the release cases, then runs them as soon as Phase 25 registry wiring lands.
 
-- [ ] pbrain phase 22: Semantic (b2): the build (@lead-dev-2)
+- [ ] pbrain phase 15: `importer`: files and linked items (@architect-2)
+    * description: **15. `importer`: files and linked items.** @architect-2. After 13; beside 14. `importer.md`.
+    * criteria: run the test plan in components/importer.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @architect-2
+    * after: phase 13
+    * work: patch `/tmp/pbrain-import-zsGH78u2/phase15-files-links.patch`, SHA-256 `40192244b37d3e51bc93796e38b5c463a5cfc1f2c3fa8cfc1cd0852f756bd7b0`, was applied unchanged on peter/architect-2 after master merge `f3dfbcb`; commit `b4a40a5`, exact review range `f3dfbcb..b4a40a5`. Implements file and linked-item import through phase 13 transactions. Author reports gofmt, tidy-diff, mod verify, full vet/plain/CGO-disabled tests, CLI/importer race tests and release-binary checks all pass.
+    * verdict: reviewer verdict pending; pbrain reviews have priority, docs PRs may be taken in a gap
+    * next: @reviewer reviews `f3dfbcb..b4a40a5` against importer.md when the current pbrain review queue permits; then phase 16 part 2 (`698dfab..57c7694`) follows.
+
+- [ ] pbrain phase 27: The EmbeddingGemma 2 adapter and its gates (@architect-2)
+    * description: **27. The EmbeddingGemma 2 adapter and its gates.** @architect-2. After 25 and 26. `embed/gemma2`: the pack and its derive step, the adapter, parity, rule 3; then its cut-off, its abstention and gain gates, and the combined gate with `--bm25` again for this model, with the same outcome on a combined-only failure.
+    * criteria: run the test plan in components/semantic.md and architecture.md §§8.7, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; run the combined gate for every listed model; on a combined-only failure hold back --bm25 while a qualifying model may ship
+    * owner lane: @architect-2 (patch flow)
+    * after: phases 25 and 26
+    * work: adapter patch `/tmp/pbrain-gemma2-QrgwC0u7/phase27-adapter.patch`, SHA-256 `5d9fea65fefdc667be5fd0a0ab7c28e9e7640a2b7864523a439f8b9529208349`, committed by @operator as `0ed1330`; exact review range `57c7694..0ed1330`. It adds the goinfer v0.2.0 byte-backed gemma2 adapter, tests/reference vectors and buildcheck row. Author reports gofmt, tidy-diff, mod verify, full vet/plain/CGO-disabled tests, adapter/buildcheck race tests, Linux/macOS amd64/arm64 CGO-disabled test-binary builds, and real-checkpoint parity/speed checks (255–376 ms warm open/query, peak RSS about 1.12 GiB). Test-only audience port regression commit `790a1ea` follows, exact range `0ed1330..790a1ea`; it covers exact `:8443` match/non-match in both directions. Separate audit-both patch `/tmp/pbrain-gemma2-QrgwC0u7/audit-both.patch`, SHA-256 `f1a7fb102b2d8be4324b978bbc901fcfa21e49a28e922a24e5060c682058357b`, is to apply after phase 24 and this adapter merge. Cutoff/release calibration waits for phase 25; arm64 Mac timing is phase 28.
+    * verdict: implementation and audience-port test submitted; reviewer verdict pending after phase 16 part 2
+    * next: @reviewer reviews `57c7694..0ed1330` and `0ed1330..790a1ea` after phase 16 part 2; @operator applies audit-both after phases 24 and 27 merge.
+
+- [ ] pbrain phase 16: importer/fetch and URL imports (@architect-2)
+    * description: **16. importer/fetch and URL imports.** Fetch client with Download is already merged; `import <url>` belongs to @architect-2 after phase 15. Released only when scenario 20 passes.
+    * criteria: run the test plan in components/importer.md and architecture.md §8.7 (Downloader) and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; confirm the URL-import release gate, scenario 20
+    * owner lane: @architect-2 (URL imports; fetch client done)
+    * after: phase 15 for URL imports
+    * work: fetch-client patch SHA-256 a2cebcaf7735905984d41075aa4ccbae1bdbf99a1ed23d808b045771450420d9 applied at fcd6d01; reviewer approved range 46ef800..fcd6d01 with no findings. gofmt, diff check, vet and plain/race/CGO-disabled fetch tests passed. @operator merged fetch client to master and pushed ff09776. URL-import patch `/tmp/pbrain-import-zsGH78u2/phase16-url.patch`, SHA-256 `b6f7f1187afecdd7b53a1dcdd6af4739132e08b6ee00e8386d4f0e8dda476812`, applied on top of phase 15 commit `b4a40a5` after master merge `698dfab`; commit `57c7694`, exact review range `698dfab..57c7694`. Uses the existing fetch client, resolves article links from the final URL, and preserves requested locator/original. Author reports scenario 20 through the real command with controlled DNS and local HTTP, failure/no-publication cases, gofmt, full vet/tests, race and CGO-disabled suites, and release build; no public service or macOS run.
+    * verdict: fetch-client part approved and merged; URL-import implementation submitted, reviewer verdict pending after phase 15; overall phase remains open for scenario 20 release gate
+    * next: @reviewer reviews `698dfab..57c7694` against importer.md and scenario 20 after phase 15; phase 23 also uses the merged fetch client.
+
+## Backlog
+
+## Done
+
+- [x] pbrain architecture: deterministic ordering for same-line check findings
+    * description: check findings have deterministic tie-breaking on identical lines.
+    * work: phase 12 `internal/check/check.go` sorts severity, path, code, field, line, column and message; reviewer approved the phase and @operator merged it at `db929d2`.
+    * verdict: met and integrated
+    * next: none
+
+- [x] pbrain architecture: anchor printed paths
+    * description: printed item paths use the brain's display-path anchor.
+    * work: functional spec §6.2/scenario 27 and architecture §4.5; `Brain.DisplayPath` in `internal/brain/brain.go` emits project-root-relative or personal-relative paths, used by write/delete, search/get and check. `TestIgnoreAndDisplayUseLiteralPaths` passed for Git, outside Git, external personal items and rejected out-of-section paths. @architect-2 confirmed; @operator accepted closure.
+    * verdict: met
+    * next: none
+
+- [x] pbrain architecture: avoid duplicate brain on bare init
+    * description: bare init refuses to create a second brain when a custom brain marker exists in the project.
+    * work: functional spec §9.2/scenario 27 and architecture §6.5; `brain.Init` and `gitx.BrainMarkers` search tracked/untracked, unignored markers. `TestInitFindsCustomMarkerInGit`, `TestBrainMarkers` and a built-CLI subdirectory smoke passed; @architect-2 confirmed and @operator accepted closure.
+    * verdict: met
+    * next: none
+
+- [x] pbrain phase 12: Reading commands II: `list`, `prime`, `tags`, `check` (@lead-dev-2) `db929d2`
+    * description: **12. Reading commands II: `list`, `prime`, `tags`, `check`.** Implements check collection and list/prime/tags/check commands from render.md and cli.md.
+    * criteria: run the design tests and applicable functional scenarios; run gofmt, vet and tests; obtain reviewer approval
+    * owner lane: @lead-dev-2
+    * work: reviewer approved `3df529b..9f450c2` plus fix `af21dc3..08a93e4`. Shared `check.Stored.Fields` projection is used by check and `warnNewItem`; regression tests cover secret-shaped raw kind/status and the full projection. Reviewer ran gofmt, full vet/tests, check/CLI race and CGO-disabled tests, diff check; no macOS run. @operator merged and pushed master at `db929d2`; master go vet and `go test -p 2 ./...` pass.
+    * verdict: approved by @reviewer; merged and pushed to master as `db929d2`
+    * next: none
+
+- [x] pbrain phase 19: Semantic (a): the merge (@lead-dev-2) `f8b21a0`
+    * description: **19. Semantic (a): the merge.** Merge semantic candidates into lexical results, preserving lexical rows and ordering meaning/partial rows, counts, paging, snippets and semantic status.
+    * criteria: run the search.md §6 test plan and applicable scenarios; run gofmt, vet and tests; obtain reviewer approval
+    * owner lane: @lead-dev-2
+    * work: reviewer approved `18bdeeb..3bd8614` plus test-only follow-up `5b2b2bd`, with no findings. Full vet/tests, search/CLI race and CGO-disabled tests, calibrated-minimum regression and diff checks passed; no macOS run. @operator merged and pushed master at `f8b21a0`; master go vet and `go test -p 2 ./...` pass.
+    * verdict: approved by @reviewer; merged and pushed to master as `f8b21a0`
+    * next: none
+
+- [x] pbrain phase 11: Reading commands I: `search` and `get` (@lead-dev-2) `1d44e76`
+    * description: **11. Reading commands I: `search` and `get`.** Includes history/outline, rendering and architecture §8.6 measurements.
+    * criteria: run render.md and cli.md test plans and applicable scenarios; run gofmt, vet and tests; obtain reviewer approval
+    * owner lane: @lead-dev-2
+    * work: reviewer approved `3b49660..3df529b` with no findings. Search/get, history/outline, paging, path/offset/context alignment, privacy and notices met. Reviewer ran full vet/tests, CLI race and CGO-disabled suite; no macOS run. @operator merged and pushed master at `1d44e76`.
+    * verdict: approved by @reviewer; merged and pushed to master as `1d44e76`
+    * next: none
+
+- [x] pbrain phase 22: Semantic (b2): the build (@lead-dev-2) `1cc81c4`
     * description: **22. Semantic (b2): the build.** @lead-dev-2. After 20 and 21; beside 24. The incremental build, publication, the vector cache, model recovery and their failure tests.
     * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
     * owner lane: @lead-dev-2
     * after: phases 20 and 21
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+    * work: implementation range `936077b..34ac5fd`; process-test follow-up `b8aae53..18bdeeb`, cherry-picked by @operator as `1cc81c4`. Reviewer approved child-process `TestIndexTouchesNoFile`, SIGKILL recovery `TestBuildKilled`, and staggered A/B `TestBuildStaggered`. Focused semantic plain/race/CGO-disabled tests, full vet and diff/gofmt checks passed; author reports full suite and Darwin/arm64 vet. @operator merged implementation (`ffbe2fb`) and follow-up (`1cc81c4`) to master; master full vet and `go test -p 2 ./...` passed.
+    * verdict: approved by @reviewer; merged and pushed to master as `1cc81c4`
+    * next: none
 
-- [ ] pbrain phase 23: Semantic (b3): the source and the commands (@lead-dev-2)
-    * description: **23. Semantic (b3): the source and the commands.** @lead-dev-2. After 19, 22 and the fetch client of 16; beside 24. Readiness, scoring, the status (it asks `embed` whether the model is there), `pbrain index` with `--status`, `search --semantic`, their notices; scenarios 33 to 37 with the test model. Here `cli` hands the real `fetch.Client` to `index` as its downloader.
-    * criteria: run the test plan in components/semantic.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 19, 22 and fetch client from phase 16
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 24: The bge-small adapter (@lead-dev)
+- [x] pbrain phase 24: The bge-small adapter (@lead-dev) `17734d4`
     * description: **24. The bge-small adapter.** @lead-dev. After 21; beside 22 and 23. `embed/bge` on aikit v1.79.0, with its parity and runtime tests.
     * criteria: run the test plan in components/semantic.md “The bge-small adapter” and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
     * owner lane: @lead-dev
     * after: phase 21
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+    * work: reviewer approved `e9c808f81a94b49e127c484cf58319c3488a99df..f7b2da89c5a9f2c0521886432579a5ed8d7deb31` with no findings; full tests/vet, real-checkpoint parity/race and silent-runtime checks passed; no macOS/arm64 execution. @operator merged and pushed master at `17734d4`; go mod verify, go vet and `go test -p 2 ./...` passed.
+    * verdict: approved by @reviewer; merged and pushed to master as `17734d4`
+    * next: none; Phase 25 is unblocked after Phase 23.
 
-- [ ] pbrain phase 25: bge-small's gates (@lead-dev and @lead-dev-2)
-    * description: **25. bge-small's gates.** @lead-dev with @lead-dev-2. After 18, 23 and 24. The model arms of the tool; the cut-off from the calibration half; the abstention and gain gates; the combined gate with `--bm25`; the evidence figures; time and memory of `search --semantic` and `index`. The model enters the table only when its own gates pass. If only the combined gate fails, with every tested admission rule, the model ships and `--bm25` is held back from that release (spec 16).
-    * criteria: run the test plan in components/semantic.md “Calibration” and architecture.md §§8.7, 8.8, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; run the combined gate for every listed model; on a combined-only failure hold back --bm25 while a qualifying model may ship
-    * owner lane: @lead-dev and @lead-dev-2
-    * after: phases 18, 23 and 24
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
+- [x] pbrain phase 14: The `audience` command (@architect-2) `bc89d99`
+    * description: **14. The `audience` command.** @architect-2. After 13; beside 15. `audience.md`: listing and editing the rules.
+    * criteria: run the test plan in components/audience.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @architect-2
+    * after: phase 13
+    * work: @reviewer approved exact range 5f2e410..886220b with no findings; audience listing, edits, budget/paging and scenarios 17/24 met. Reviewer ran gofmt/diff check, full vet/plain/CGO-disabled tests and CLI race tests. @operator merged and pushed master at `bc89d99`; full go vet and `go test -p 2 ./...` passed.
+    * verdict: approved by @reviewer; merged and pushed to master as `bc89d99`
+    * next: none
 
-- [ ] pbrain phase 27: The EmbeddingGemma 2 adapter and its gates (@lead-dev)
-    * description: **27. The EmbeddingGemma 2 adapter and its gates.** @lead-dev. After 25 and 26. `embed/gemma2`: the pack and its derive step, the adapter, parity, rule 3; then its cut-off, its abstention and gain gates, and the combined gate with `--bm25` again for this model, with the same outcome on a combined-only failure.
-    * criteria: run the test plan in components/semantic.md and architecture.md §§8.7, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; run the combined gate for every listed model; on a combined-only failure hold back --bm25 while a qualifying model may ship
-    * owner lane: @lead-dev
-    * after: phases 25 and 26
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-- [ ] pbrain phase 28: Measurement before a release (@lead-dev-2)
-    * description: **28. Measurement before a release.** @lead-dev-2. After the phases a release ships. The built binary on an arm64 Mac and on Linux: the speed targets of spec 16, and for each model rule 3, a first index, an index after one note, and peak memory (architecture 8.6, 8.7, 14). The four targets built with `CGO_ENABLED=0`; `go install` of a tagged version; results published. Repeated for each release that adds a search mode or a model.
-    * criteria: run the test plan in architecture.md §§8.6, 8.7, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; measure the built binary on an arm64 Mac before each release
-    * owner lane: @lead-dev-2
-    * after: the phases included in each release
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
-## In progress
-
-- [ ] pbrain phase 1: outline and item (@lead-dev)
-    * description: **1. outline and item.** @lead-dev. After 0; beside 2 and 3. item.md; architecture 4.1, 7.4.
-    * criteria: run the test plan in components/item.md; architecture.md §§4.1, 7.4 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 0
-    * work: branch peter/lead-dev, range 46ef8005f642b0295877b29e38d9550c7e409235..21db1167158d3067f1b251f757793994433d994f; commits 1c88613 (outline) and 21db116 (item). Includes master 46ef800; branch reported clean. Covers architecture §§4.1/7.4, components/item.md tests and scenarios 16, 21 and 39 at package level. Flow-scalar writer quotes ? in list entries after a pinned-scanner regression.
-    * verdict: implementation complete; review requested, reviewer verdict pending
-    * next: @reviewer reviews phase 1 after phase 8; then @operator performs integration review.
-
-- [ ] pbrain phase 2: sys and gitx (@lead-dev-2)
-    * description: **2. sys and gitx.** @lead-dev-2. After 0; beside 1 and 3. store.md, brain.md; architecture 6.3, 10.3.
-    * criteria: run the test plan in components/store.md and brain.md; architecture.md §§6.3, 10.3 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 0
-    * work: branch peter/lead-dev-2, approved range dae47b2..713936a (13073fc plus lock fix 713936a), with master 46ef800 merged. Reviewer verified owner-only mode on pre-existing lock files; TestLockTightensPermissiveFile covers 0666, FIFO and new lock. Targeted sys tests passed plain/race/CGO-disabled, vet passed native and Darwin/arm64, and diff check passed. macOS runtime not exercised.
-    * verdict: approved by @reviewer; ready for integration
-    * next: @operator integrates phase 2 together with phase 8 once phase 8 is approved.
-
-- [ ] pbrain phase 8: render (@lead-dev-2)
-    * description: **8. render.** @lead-dev-2. After 0; beside anything. render.md.
-    * criteria: run the test plan in components/render.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 0
-    * work: branch peter/lead-dev-2, range 86bab2d..7ce83fd, one commit; render.md Interfaces/Fitting and architecture §9. Resubmitted for review after the restart.
-    * verdict: review requested; reviewer verdict pending
-    * next: @reviewer reviews 86bab2d..7ce83fd next; after approval @operator integrates it with phase 2.
-
-- [ ] pbrain phase 10: `skill` (@architect-2)
+- [x] pbrain phase 10: `skill` (@architect-2) `06b452a`
     * description: **10. `skill`.** Third lane, else @lead-dev. The texts and their tests after 0; the command after 9. `skill.md`.
     * criteria: run the test plan in components/skill.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
     * owner lane: @architect-2
     * after: phase 0 for texts/tests; phase 9 for command
-    * work: skill texts/package commit `46ef800` merged to master and pushed; @reviewer approved range `6ec6bac..46ef800`, including byte-for-byte resource text, 400-word core and package behavior. CLI command integration remains after phase 9.
-    * verdict: part 1 approved and merged; phase remains open for the command part after phase 9
-    * next: after phase 9 merges, @architect-2 wires the skill command, tests text/JSON dispatch, no-brain release binary and parser integration, then requests review.
+    * work: Part 1 (`46ef800`) was merged and approved. Reviewer approved part 2 range `05c93171..a35918f32181b667fd2fbcebec3634c9f6910116` with no findings; exact-archive tests, vet, CGO-disabled suite, CLI race and no-brain binary checks passed. @operator merged the command to master at `06b452a`.
+    * verdict: both parts approved; merged and pushed to master as `06b452a`
+    * next: none
 
-- [ ] pbrain phase 16: importer/fetch and URL imports (@architect-2 (fetch client); @lead-dev-2 (URL imports))
-    * description: **16. importer/fetch and URL imports.** The fetch client, with its Download: third lane, else @lead-dev-2, after 0. import <url>: @lead-dev-2, after 15. Released only when scenario 20 passes.
-    * criteria: run the test plan in components/importer.md and architecture.md §8.7 (Downloader) and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; confirm the URL-import release gate, scenario 20
-    * owner lane: @architect-2 (fetch client); @lead-dev-2 (URL imports)
-    * after: phase 0 for fetch client; phase 15 for URL imports
-    * work: fetch-client patch SHA-256 a2cebcaf7735905984d41075aa4ccbae1bdbf99a1ed23d808b045771450420d9 applied on peter/architect-2 at fcd6d01; review range 46ef800..fcd6d01, one commit. URL imports remain assigned to @lead-dev-2 after phase 15. Fetch tests cover redirects, per-hop DNS/TLS/Host checks, proxy independence, decoded/raw limits, content types, deadlines, cancellation and partial sink failure; no public service contacted.
-    * verdict: fetch-client part in review; URL imports not started
-    * next: @reviewer reviews the fetch-client range after phases 2, 8 and 1; @lead-dev-2 starts URL imports after phase 15; phase 23 requires the fetch client merged.
+- [x] pbrain phase 13: Writing commands (@lead-dev) `96c6516`
+    * description: **13. Writing commands.** @lead-dev. After 3, 7 and 9; beside 11 and 12. `writes.md`: `add`, `verify`, `delete`.
+    * criteria: run the test plan in components/writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev
+    * after: phases 3, 7 and 9
+    * work: reviewer approved range `6d870c6af021c3c4c6f0c12646bf19d7b6bc77dc..e9c808f81a94b49e127c484cf58319c3488a99df` with no findings. Exact-archive checks: gofmt/diff clean, full vet/plain/CGO-disabled tests, CLI/store race tests and four serial cross-builds. Reviewer did not run macOS or terminal smoke; author reports a real-terminal smoke passed. @operator merged the phase to master at `96c6516`.
+    * verdict: approved by @reviewer; merged and pushed to master as `96c6516`
+    * next: none
 
-## Backlog
+- [x] pbrain phase 9: `cli` core (@lead-dev) `05c9317`
+    * description: **9. `cli` core.** @lead-dev. After 5; beside 7 and 8. `cli.md`: dispatch, flags, streams, exit codes, `RunWith`, `init`.
+    * criteria: run the test plan in components/cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev
+    * after: phase 5
+    * work: @reviewer approved the exact phase range `7ad8a028..2828b83f` with no findings. CLI parsing, lifecycle, outputs and scenarios met; full tests/vet, focused race/cgo-disabled checks, four cross-builds and scratch binary checks passed. @operator integrated to master at `05c9317`, resolving go.sum by union plus `go mod tidy` and buildcheck's cmd/pbrain dependency row. Phase 13 later merged separately at `96c6516`.
+    * verdict: approved by @reviewer; merged and pushed to master as `05c9317`
+    * next: none
 
-- [ ] aikit fork documentation follow-up (@lead-dev-2)
-    * description: update active README, architecture and release instructions to the owner fork's current aikit v1.79.0 and GPU v0.36.x pin series; preserve dated history
-    * criteria: address @reviewer post-merge P2 findings; retain LICENSE/NOTICE attribution and historical records; run fork checks and request @reviewer review before @operator merges on green CI
-    * work: local branch `pkieltyka/docs-pins`, commit `0f8fd988`; not pushed. @reviewer found stale active references to aikit v1.75.0 / gpu v0.35.x in README.md, docs/architecture.md and RELEASING.md.
-    * next: rebase or verify against current main, open the fork PR, request @reviewer review, and wait for @operator to merge on green CI
+- [x] pbrain phase 20: Semantic (b1): passages and the index database (@lead-dev-2) `c6641ee`
+    * description: **20. Semantic (b1): passages and the index database.** @lead-dev-2. After 7; beside 19 and 21. semantic.md: fingerprints, passages, the database and the scoring query.
+    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phase 7
+    * work: reviewer approved full range 9e66477..936077b. Fix 936077b aligns ATX recognition with outline so `#foo\n====\n` yields the title-only passage, and makes fence indentation/closer suffix parsing match outline (only spaces after close); regressions cover both findings. The rows.Err() handling from ac3aa9e remains; its exact error path lacks direct injection coverage. Focused diff check, semantic tests and vet passed; author-reported broader tests passed, and lock-held repair, real 2 GiB build and TestIndexTouchesNoFile were deferred to phase 22. @operator merged phases 20 and 21 together and pushed master at `c6641ee`.
+    * verdict: approved by @reviewer; merged and pushed to master as `c6641ee`
+    * next: none
 
-- [ ] goinfer fork documentation follow-up (@lead-dev-2)
-    * description: point active user and release instructions to github.com/pkieltyka/goinfer, remove unsupported directions, and clear the stale workspace checksum
-    * criteria: address @reviewer post-merge P2 findings in README.md, RELEASING.md, demo/chat/README.md and docs/ARCHITECTURE.md; preserve valid attribution/history/changelog references; run fork checks and request @reviewer review before @operator merges on green CI
-    * work: local branch `pkieltyka/fork-docs`, commit `4fccdb46`, based on the pre-merge head and requiring rebase; `go.work.sum` is gitignored/untracked, so regenerate or remove the stale townsendmerino v0.22.0 entry if present rather than commit it.
-    * next: rebase on owner-fork main, open the fork PR, request @reviewer review, and wait for @operator to merge on green CI
+- [x] pbrain phase 21: `embed`: the model table and provisioning (@lead-dev-2) `c6641ee`
+    * description: **21. `embed`: the model table and provisioning.** @lead-dev-2. After 2; beside 19 and 20. `semantic.md`: the registry, find, verify, download through the `Downloader` interface, and pack, with the test model and a fake downloader.
+    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phase 2; implemented on top of phase 20 per operator assignment
+    * work: reviewer approved range ac3aa9e..9d485ed with no findings. Registry ordering, artifact ownership, folder framing, Find/Verify/Download/Pack, embedtest and buildcheck criteria passed. Diff check, targeted plain/race/CGO-disabled tests and vet passed; author reported full-suite tests and Darwin/arm64 vet. @architect confirmed `.source` layout. Merged with phase 20 and pushed to master at `c6641ee`.
+    * verdict: approved by @reviewer; merged and pushed to master as `c6641ee`
+    * next: none
 
-- [ ] pbrain implementation: deterministic ordering for same-line check findings
-    * description: @lead-dev notes that check findings on the same line need deterministic tie-breaking
-    * next: define and apply a stable tie-break rule during implementation
+- [x] pbrain phase 6: `query` and `search`, lexical (@lead-dev) `14f35cc`
+    * description: **6. `query` and `search`, lexical.** @lead-dev. After 4; beside 5, 7 and 8. `search.md`: matching, order, window, counts, snippet with its line, occurrences, context lines, and the partial tier behind `Features.BM25`.
+    * criteria: run the test plan in components/search.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev
+    * after: phase 4
+    * work: reviewer approved `c2f3107c..45a685c748fe58d99c95f6ce221f476c2d617335` with no findings. Query grammar, Unicode offsets, time windows, search ranking/BM25 and named scenarios were met. Diff check, targeted vet/plain/race/CGO-disabled tests passed; author-reported full suite and four cross-builds were not repeated by reviewer. @operator merged and pushed master at `14f35cc`. Worktree has moved on to phase 9; current uncommitted go.mod/go.sum/cli options are outside this phase.
+    * verdict: approved by @reviewer; merged and pushed to master as `14f35cc`
+    * next: none; semantic result rows remain for phase 19.
 
-- [ ] pbrain architecture: audience-rule host matching
-    * description: architecture note from @lead-dev for mixed-audience hosts
-    * criteria: classify hosts by canonical DNS hostname; preserve non-default ports in exact rule keys
-    * next: carry this rule into architecture design
+- [x] pbrain phase 7: store (@lead-dev-2) `9e66477`
+    * description: **7. store.** @lead-dev-2. After 5; beside 6 and 9. store.md: the scan, guarded input, the write primitives.
+    * criteria: run the test plan in components/store.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phase 5
+    * work: phase range 9970c2c..9e66477 on peter/lead-dev-2, merged and pushed to master at 9e66477. Fix 1648d51 covers scanned-route identity checks, ReplaceSettings temp cleanup and PutOriginal sync errors; 9e66477 releases route entries through weak.Pointer and runtime.AddCleanup. @reviewer approved the full range after the retention P2 was fixed. `git diff --check`, targeted store vet and ordinary/race/CGO-disabled store tests pass. Full suite was author-reported, not rerun in review due to separate uncommitted phase 20 changes; macOS not run.
+    * verdict: approved by @reviewer; merged and pushed to master as `9e66477`
+    * next: none
 
-- [ ] pbrain architecture: anchor printed paths
-    * description: architecture note from @operator; printed paths need an anchor
-    * next: define and apply the path anchor in architecture and output design
+- [x] pbrain phase 5: brain (@lead-dev-2) `c2f3107`
+    * description: **5. brain.** @lead-dev-2. After 1, 2 and 3; beside 4 and 6. brain.md: discovery, configuration, views, the exposure guard.
+    * criteria: run the test plan in components/brain.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phases 1, 2 and 3
+    * work: base range 31acdb7..9970c2c had P2 at internal/brain/guard.go:97-100. Fix ef69d85 changed checkShape/nearestExisting to fail closed with personal_exposed except on fs.ErrNotExist; TestGuardFailsClosedOnUnreadableParent covers unreadable parent/ancestor and missing parent. Reviewer approved fix-only range 4a2d377..ef69d85; diff-check, plain/race/CGO-disabled brain tests and vet passed. @operator merged the fix into master at c2f3107; branch integration merge is 4ee0cb3. macOS not run.
+    * verdict: approved by @reviewer; merged to master and pushed by @operator
+    * next: none
 
-- [ ] pbrain architecture: avoid duplicate brain on bare init
-    * description: a project whose only brain is outside `docs/brain` can acquire a second brain from a bare `init`
-    * next: define how initialization detects an existing external brain before choosing a default target
+- [x] pbrain phase 4: graph and secretscan (@lead-dev) `991e646`
+    * description: **4. graph and secretscan.** @lead-dev. After 1; beside 5. graph.md, writes.md.
+    * criteria: run the test plan in components/graph.md and writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev
+    * after: phase 1
+    * work: reviewed range ff09776e4234b90efec782cf66f46945fe724be5..224b0390e2f9813ee240e22159ec28e46dc22650 on peter/lead-dev, commits a08bc35 and 224b039. Reviewer found no issues. Diff-check, targeted plain/CGO-disabled tests, vet, race tests, 3-second fuzz and named graph/secret criteria passed; macOS runtime not tested. @operator integrated and pushed master at 991e646.
+    * verdict: approved by @reviewer; merged to master and pushed by @operator
+    * next: none
 
-## Done
+- [x] pbrain phase 1: outline and item (@lead-dev) 31acdb7
+    * description: **1. outline and item.** @lead-dev. After 0; beside 2 and 3. item.md; architecture 4.1, 7.4.
+    * criteria: run the test plan in components/item.md; architecture.md §§4.1, 7.4 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev
+    * after: phase 0
+    * work: commits 1c88613 and 21db116, range 46ef800..21db116 on peter/lead-dev; @reviewer approved with no findings after master merge 31acdb7. Targeted item/outline vet and plain/race/CGO-disabled tests passed; serialized full vet/test passed. Five fuzz targets and four Linux/Darwin amd64/arm64 cross-builds were reported by @lead-dev, not rerun in review. @operator integrated and pushed master at 31acdb7.
+    * verdict: approved by @reviewer; merged to master and pushed by @operator
+    * next: none
+
+- [x] pbrain phase 8: render (@lead-dev-2) e2a5d01
+    * description: **8. render.** @lead-dev-2. After 0; beside anything. render.md.
+    * criteria: run the test plan in components/render.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phase 0
+    * work: approved range 86bab2d..7ce83fd on peter/lead-dev-2. Reviewer found no issues; gofmt, diff check, render vet, plain/race/CGO-disabled package tests passed. @operator integrated phases 2 and 8 together to master at e2a5d01 and pushed.
+    * verdict: approved by @reviewer; phases 2 and 8 merged to master and pushed
+    * next: none; macOS runtime was not exercised.
+
+- [x] pbrain phase 2: sys and gitx (@lead-dev-2) e2a5d01
+    * description: **2. sys and gitx.** @lead-dev-2. After 0; beside 1 and 3. store.md, brain.md; architecture 6.3, 10.3.
+    * criteria: run the test plan in components/store.md and brain.md; architecture.md §§6.3, 10.3 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
+    * owner lane: @lead-dev-2
+    * after: phase 0
+    * work: approved phase 2 range dae47b2..713936a (13073fc plus lock fix 713936a), with master 46ef800 merged. Reviewer verified owner-only mode on pre-existing locks; TestLockTightensPermissiveFile covers 0666, FIFO and new lock. Targeted sys tests passed plain/race/CGO-disabled, vet passed native and Darwin/arm64, and diff check passed. @operator integrated phases 2 and 8 together to master at e2a5d01 and pushed.
+    * verdict: approved by @reviewer; phases 2 and 8 merged to master and pushed
+    * next: none; macOS runtime was not exercised.
 
 - [x] pbrain phase 26: goinfer for EmbeddingGemma 2 (@architect (scratch patch; operator applies/PRs))
     * description: **26. goinfer for EmbeddingGemma 2.** @architect, in github.com/pkieltyka/goinfer. Independent of every pbrain phase; beside anything. The loader from bytes, the encoder constructor from a built model, tokenizer and prompts, and what the text-only pack needs (architecture 8.7; semantic.md, The EmbeddingGemma 2 adapter).
@@ -265,7 +324,7 @@ TODO
     * after: none; all other phases wait for it
     * work: @reviewer approved branch range `76d16b3..86bab2d` (skeleton commit `38a5ac2`, parser fix `86bab2d`); @operator fast-forwarded it to master and pushed `86bab2d`. gofmt clean; vet, plain/race/CGO-disabled tests, four CGO-disabled cross-builds and planted-violation guard checks passed.
     * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: phase 2 is approved and waits with phase 8 for joint integration; phase 8 is in review, then phases 1 and 16 fetch client; phase 10 command waits for phase 9
+    * next: phases 1, 2 and 8 are merged; phases 4, 5, 7 and 20 are active; phase 16 fetch client is integrated; phase 10 command waits for phase 9
 
 - [x] pbrain implementation plan (@architect) `76d16b3`
     * description: turn the approved architecture build order into 29 reviewable implementation phases with dependencies, owner lanes and release gates
@@ -277,7 +336,7 @@ TODO
 - [x] pbrain owner-fork module renames and runtime pins (@lead-dev-2) `aikit 0b1b868e; goinfer bdf9daf9`
     * description: rename aikit and goinfer to the owner module paths, preserve attribution, pin aikit from goinfer and publish the owner-selected tags
     * criteria: module/import paths and license attribution preserved; requested repository checks run; aikit v1.79.0 and goinfer v0.1.0 tags published to owner-fork origin only
-    * work: aikit main merged at `0b1b868e`, tag v1.79.0; goinfer main merged at `bdf9daf9`, annotated v0.1.0 tag pushed to owner-fork origin. @reviewer confirmed the reviewed goinfer head tree matches the merge. Remaining P2 active-document findings are separated into the two fork documentation follow-ups in Backlog.
+    * work: aikit main merged at `0b1b868e`, tag v1.79.0; goinfer main merged at `bdf9daf9`, annotated v0.1.0 tag pushed to owner-fork origin. @reviewer confirmed the reviewed goinfer head tree matches the merge. Remaining P2 active-document findings are tracked in the two fork documentation follow-ups above.
     * verdict: complete; owner accepted the P2 documentation findings as separate follow-ups
     * next: none
 
