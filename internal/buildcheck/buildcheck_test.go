@@ -91,10 +91,10 @@ func TestDirectivesFindsBothForms(t *testing.T) {
 }
 
 // allowed is the import table of architecture section 3: for each package, the pbrain packages it
-// may import. cli may import all of them; cmd/pbrain imports cli only.
+// may import. cli may import all of them. cmd/pbrain also wires native process inputs.
 var allowed = map[string][]string{
-	"internal/cli":             nil, // may import every package
-	"cmd/pbrain":               {"internal/cli"},
+	"internal/cli":             nil,                    // may import every package
+	"cmd/pbrain":               {"cli", "gitx", "sys"}, // process adapter in cli.md §1
 	"internal/check":           {"graph", "item", "secretscan"},
 	"internal/semantic":        {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
 	"internal/embed":           {"sys", "errs"},
