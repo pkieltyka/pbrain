@@ -15,14 +15,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// TestMain lets the test binary run as pbrain itself in a child process.
-func TestMain(m *testing.M) {
-	if os.Getenv("PBRAIN_TEST_AS_MAIN") == "1" {
-		os.Exit(run())
-	}
-	os.Exit(m.Run())
-}
-
 // openPTY opens a pseudo-terminal with output translation off, so a line feed reaches the reader
 // as written; it skips the test where none can be opened.
 func openPTY(t *testing.T) (master, slave *os.File) {
@@ -61,7 +53,8 @@ func openPTY(t *testing.T) (master, slave *os.File) {
 func pbrain(t *testing.T, tty bool, args ...string) []byte {
 	t.Helper()
 	cmd := exec.Command(os.Args[0], args...)
-	cmd.Env = append(os.Environ(), "PBRAIN_TEST_AS_MAIN=1", "TERM=xterm-256color", "CLICOLOR_FORCE=1", "FORCE_COLOR=1")
+	cmd.Args[0] = "pbrain" // registered by testscript.Main in scenario_test.go
+	cmd.Env = append(os.Environ(), "TERM=xterm-256color", "CLICOLOR_FORCE=1", "FORCE_COLOR=1")
 	var diag bytes.Buffer
 	cmd.Stderr = &diag
 	if !tty {
