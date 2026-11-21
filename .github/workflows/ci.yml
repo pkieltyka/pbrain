@@ -7,13 +7,16 @@ on:
 permissions:
   contents: read
 
+# Two jobs, run side by side. macOS test jobs are off: the project targets Linux for now and Mac
+# work is on the Backlog (#1, #9). To restore them, add a macos-latest job running `go test ./...`.
+
 jobs:
-  lint:
-    name: gofmt, vet and go.mod
+  check:
+    name: lint, test, build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
       - name: gofmt
@@ -22,49 +25,28 @@ jobs:
           if [ -n "$unformatted" ]; then echo "gofmt needed on:"; echo "$unformatted"; exit 1; fi
       - name: go vet
         run: go vet ./...
-      - name: go.mod has no replace or exclude directive (architecture 15)
-        run: go test ./internal/buildcheck -run 'TestGoModHasNoReplaceOrExclude' -count=1
-
-  test:
-    name: test (${{ matrix.os }}, ${{ matrix.mode }})
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        mode: [race, release]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: the suite under the race detector (cgo on)
-        if: matrix.mode == 'race'
-        env:
-          CGO_ENABLED: "1"
-        run: go test -race ./...
-      - name: the suite in the release configuration
-        if: matrix.mode == 'release'
+      - name: the suite in the release configuration (includes the go.mod check, architecture 15)
         env:
           CGO_ENABLED: "0"
         run: go test ./...
-
-  build:
-    name: build ${{ matrix.goos }}/${{ matrix.goarch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        goos: [linux, darwin]
-        goarch: [amd64, arm64]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - name: CGO_ENABLED=0 go build ./cmd/pbrain
+      - name: cross-build linux and darwin, amd64 and arm64
         env:
           CGO_ENABLED: "0"
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-        run: go build -o /dev/null ./cmd/pbrain
+        run: |
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64; do
+            echo "build $target"
+            GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/pbrain
+          done
+
+  race:
+    name: test (race)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: the suite under the race detector (cgo on)
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race ./...

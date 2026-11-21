@@ -15,6 +15,9 @@
 [operator]
 # messages = "typed"   # members type into your pane with herdr instead of using the inbox
 name = "operator"   # the operator agent's @name, pane label and herdr agent name; fixed while the team runs
+harness = "claude"
+model = "claude-opus-5-5"
+thinking = "high"
 notes = "Owns architecture decisions, assigns tasks and integrates reviewed work."
 
 [members.architect]
