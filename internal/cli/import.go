@@ -6,14 +6,16 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/audience"
 	"github.com/pkieltyka/pbrain/internal/importer"
+	"github.com/pkieltyka/pbrain/internal/importer/fetch"
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/store"
 )
 
-func runImportCommand(ctx context.Context, in *invocation, wc writeContext) outcome {
+func runImportCommand(ctx context.Context, in *invocation, wc writeContext, net fetch.Net) outcome {
 	fields, err := in.writeFields()
 	if err != nil {
 		return outcome{err: err}
@@ -30,7 +32,7 @@ func runImportCommand(ctx context.Context, in *invocation, wc writeContext) outc
 	if in.boolean("link-only") {
 		req.Method, req.Source = audience.LinkedURL, input
 	} else if isWebSource(input) {
-		return notImplemented()
+		req.Method, req.Source = audience.FetchedURL, input
 	}
 	route, err := routeWrite(wc, req)
 	if err != nil {
@@ -52,11 +54,7 @@ func runImportCommand(ctx context.Context, in *invocation, wc writeContext) outc
 		p, err = importer.Link(input, title, summary)
 	} else {
 		route.destinationNotice(wc, " A copy of the original stays in local data.")
-		raw, e := store.OpenInput(wc.Brain, route.plan.Dest, input)
-		if e != nil {
-			return outcome{err: e}
-		}
-		p, err = importer.FromFile(filepath.Base(input), source, title, raw)
+		p, err = prepareCopiedImport(ctx, wc, route, input, source, title, net)
 	}
 	if err != nil {
 		return outcome{err: err}
@@ -77,4 +75,23 @@ func runImportCommand(ctx context.Context, in *invocation, wc writeContext) outc
 	}
 	r, err := publishNew(ctx, wc, newItemInput{route: route, draft: draft, body: []byte(p.Body), original: original})
 	return writeOutcome(in.json, r, err)
+}
+
+// prepareCopiedImport runs outside the section lock and after the destination notice.
+func prepareCopiedImport(ctx context.Context, wc writeContext, route writeRoute, input, source, title string, net fetch.Net) (importer.Prepared, error) {
+	if route.request.Method == audience.FetchedURL {
+		if !utf8.ValidString(input) || utf8.RuneCountInString(input) > 2000 {
+			return importer.Prepared{}, invalidWrite("source: expected a UTF-8 URL of at most 2,000 characters")
+		}
+		page, err := fetch.New(net).Get(ctx, input)
+		if err != nil {
+			return importer.Prepared{}, err
+		}
+		return importer.FromPage(input, title, page)
+	}
+	raw, err := store.OpenInput(wc.Brain, route.plan.Dest, input)
+	if err != nil {
+		return importer.Prepared{}, err
+	}
+	return importer.FromFile(filepath.Base(input), source, title, raw)
 }

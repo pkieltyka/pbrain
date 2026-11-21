@@ -48,7 +48,14 @@ func FromFile(name, source, title string, raw []byte) (Prepared, error) {
 	return copied(item.OriginFile, source, title, name, media, base, raw)
 }
 
-func FromPage(requestedURL, title string, p *fetch.Page) (Prepared, error) { panic("not implemented") }
+// FromPage records the original request as the source. The final URL is used
+// only as the base for links in the decoded response.
+func FromPage(requestedURL, title string, p *fetch.Page) (Prepared, error) {
+	if p == nil || p.FinalURL == nil {
+		return Prepared{}, problem("fetch_failed", "the fetch returned no final page")
+	}
+	return copied(item.OriginURL, requestedURL, title, requestedURL, p.MediaType, p.FinalURL, p.Original)
+}
 
 // webURL checks form only. The fetch client owns network policy.
 func webURL(raw string) (*url.URL, bool) {

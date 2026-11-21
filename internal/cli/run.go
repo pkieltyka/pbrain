@@ -155,7 +155,7 @@ func runSkill(in *invocation) outcome {
 func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, _ Features) outcome {
 	switch in.cmd.name {
 	case "import":
-		return runImportCommand(ctx, in, newWriteContext(env, in, b))
+		return runImportCommand(ctx, in, newWriteContext(env, in, b), env.Net)
 	case "audience":
 		return runAudienceCommand(ctx, env, in, b)
 	case "add":
