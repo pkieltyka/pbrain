@@ -5,27 +5,115 @@ TODO
 
 ## In progress
 
-- [ ] pbrain spec: functional spec (@architect)
-    * description: gather the owner's round-1 answers, then draft the functional spec
-    * criteria: record owner answers in `specs/projects/pbrain/qa_round1.md`; draft `specs/projects/pbrain/functional_spec.md`; have @architect-2 and @lead-dev review it each round with findings in `specs/projects/pbrain/reviews/functional_spec/roundN-<name>.md`; apply owner batches 1–4 across the whole spec, preserve front-matter YAML, verify all references and parse all YAML/TOML/JSON samples, and leave status as draft
-        1. Remove `_by` suffixes: store `verified: <actor>` and `decided: <actor>`; use `--verified` and `--decided`; output `replacement` as a list for `replaced_by`; retain `status: provisional | verified`; verify writes status and actor; explain the `verified` to OKF `verified: [{by, at}]` conversion without other OKF changes.
-        2. Replace root `.pbrain.yml` with tracked `<brain>/pbrain.toml` (same settings minus `path`); replace ignored `<brain>/personal.yml` with `personal.toml` (same path, author and audience rules in TOML). Discover by walking upward for `<dir>/pbrain.toml`, otherwise `<dir>/docs/brain/pbrain.toml`. `init` target precedence is `--path`, `--brain`, `PBRAIN_DIR`, then `docs/brain`; `init [--path <folder>]` defaults to `docs/brain`, creates the TOML and `.gitignore`, and explains `--brain`/`PBRAIN_DIR` for non-default paths. Define project root where needed, remove obsolete path-containment rules, and state that item front matter remains YAML.
-        3. Brain and personal local data folders use `.pbrain/`, never tracked. Any file input inside a path resolving to a folder named `.pbrain` is refused, across brains and sections, including symbolic links, case variants and aliases; retain scenario 6 coverage for foreign and external-personal `.pbrain/` paths both directly and through symbolic links. Refuse any `.pbrain` folder as a file input, even if it is not pbrain's.
-        4. No `verified_by`, `decided_by`, `--verified-by`, `--decided-by`, `replaced_by`, `.pbrain.yml`, `personal.yml`, or `--root` remains, except quoted OKF `superseded_by` or factory `superseded-by`; no `.local`, `PBRAIN-LOCAL` or `local_unmarked` remains; references resolve, all YAML/TOML/JSON examples parse, and status is draft.
-        5. Owner batch 2 model (owner decided yes to A and B, 2026-11-20): shared/personal remain the only scopes; independently, content is copied or linked. A linked item leaves content at its source for the reader's own access. Shared linked titles, links, tags and summaries are repository-visible; personal linked items hide their existence. Use “linked” consistently; define near scopes/kinds (2.5/5) and reference from 8.4.
-        6. V1 linked items remain kind `source`, origin `link`, with no new front-matter field. Add `pbrain import --link-only <url> --summary "<text>"`: optional one-paragraph plain-text body, maximum 300 characters; reject longer input and reject `--summary` without `--link-only`; a bare link without summary remains valid. Search and secret-scan the summary; never generate or fetch-derived-write it. Apply audience rules unchanged, including Slack D/G IDs never matching shared rules, and make notices clear that title, link and summary are shared. Linked imports store no original, but update any index like every write; originals are kept only for copied imports. `get` prints the summary and full linked locator exactly once in the linked line; JSON `source` carries the full locator. A source URL may be up to 2,000 characters; reject 2,001. Search labels linked items in text and JSON. Skill guidance: hand-write an identity-only summary, e.g. “pricing thread for the Q4 launch, Nov 2026” (what the source is, never what it says); no figures, quotes, private-party names or conclusions; DMs/private channels stay personal; readers fetch live content through their own access. Test summary-only search, get output, 301-character summary and invalid-flag rejection, 2,000/2,001-character locator boundaries, audience_required for an unruled linked Google Doc, and secret-scan warning on a token in summary.
-        7. Section 17 “Likely later” sketches per-reader caching: `pbrain cache <id> <file>` saves fetched content in that section's `.pbrain/` with fetch time and digest, never in item files; `get --cached` labels “local copy, fetched <date>”; cache search requires an explicit flag, labels hits and reports linked items not cached here. Defer because content differs per reader, copies outlive revoked access, `.pbrain/` differs per checkout/worktree, and live fetch already works.
-        8. Owner batch 3 (owner decision, 2026-11-20): rename `.local/` back to `.pbrain/` everywhere. Because `.local` is generic and `.pbrain` is distinctive, remove `PBRAIN-LOCAL` marker writing, `local_unmarked` warnings and deleted-marker cases. Refuse file input from any folder named `.pbrain` after path resolution, regardless of which brain it belongs to, including case variants and aliases; retain scenario 6 for another brain's and an external personal section's `.pbrain/` supplied directly or through a symbolic link. State in one clause that unrelated `.pbrain` folders are refused too.
-        9. Owner batch 4 (owner decisions, 2026-11-20): add `pbrain delete <id> [--personal] [--yes]` consistently to command lists, flows, scenarios, skill and delivery order. Preview without `--yes` makes no changes and fails with a new confirmation error; show the file path, replaced items that become current, and links left dangling; `--yes` deletes and reports the same facts in text and JSON. Respect personal visibility (`--personal` required; shared view never reveals personal existence or links); preserve ordinary errors including ambiguous IDs (never delete both). Deleting copied sources also removes an unused original from that section's `.pbrain/`; indexes update; linked sources have no original. Run normal read-only Git exposure checks, but never stage, commit or rewrite history; explain that users must commit the deletion and that Git history still retains a committed file, while history rewrites for leaked secrets/private data are out of scope. Skill: replace wrong/outdated items with `--replaces`; delete duplicates, junk, secrets or private content in shared; agents delete only their own items unless asked by a person. Section 11 points dangling/moved-item guidance to delete; `check` still reports dangling links. Cover preview no-op, replacement lineage revival, original cleanup/retention, ambiguous ID refusal, and personal `not_found` without `--personal`.
-        10. Add `--since <when>` and `--until <when>` to search and list consistently. Filter by `created` only, with other filters before count/limit; ranking within the window is unchanged and decision-in-force is computed within filtered results. Accept `YYYY-MM-DD`, RFC 3339, `today`, `yesterday`, and `Nh`/`Nd`/`Nw` spans from the recency evaluation instant. Local timezone for bare dates/today/yesterday is set by `TZ`; RFC 3339 is interpreted as written. `--since` includes its instant; document the chosen endpoint semantics, including that bare-date/today/yesterday `--until` includes the full day. Exclude unknown-created items when either flag is set; unparseable values and `--since` later than `--until` are usage errors. When filtered, report current matches excluded by the time window in the closing line and a matching JSON field (same for list). Cover recent-search older-match count, local-day-boundary list, inclusive bare-date `--until`, unknown dates, invalid values and inverted ranges.
-    * work: batches 1 and 2 checks approved at SHA-256 `e296c95f9742f6a8f97059d88ce7a8c8e7c1ab563e9702b22e973fbb918cd0a0` and `360bd54958fcbafa5466e27e6630f4f4ae1da9abcf55e7ddc544db73e8f93352`; batch 3 owner decision applied and approved at SHA-256 `0928b6b0107d3ac676d8c4eeb9a49520d602a4968ed4c3677fb9288bc8b00a53`; rationale: `.local` is generic (roughly `~/.local`) while `.pbrain` is distinctive
-        * batch 2 decisions: originals only for copied imports; linked import stores no original but updates indexes; `get` prints the full linked locator once and JSON `source` is complete; source URL limit is 2,000 characters
-        * batch 3 checks reviewed `functional_spec.md` diff from `360bd549`; zero `.local`, `PBRAIN-LOCAL` or `local_unmarked` hits; all 21 section references resolve; all 11 YAML/TOML/JSON samples parse; status draft
-        * @operator's owner-approved one-sentence edits say both people and agents feed the brain; `FACTORY.md` and `project_overview.md` carry the edits and will be committed with the spec after owner approval
-        * batch 4 applied and approved by @architect-2 and @lead-dev at SHA-256 `5372ff086aaf29b2f5193ec17228985f097e0c90d3c5e32dab324d5b305bf6bd` (+479 words from `88a482fa`); targeted review reports show draft status, 23 references resolve, and all 12 YAML/TOML/JSON samples parse
-        * batch 4 fix-pass decisions: missing links are `dangling_link` warnings only, never `replace_invalid`; for `verify` and `delete`, the flag chooses lookup view while the resolved item's own section supplies the lock and files; owner accepted reviewers' recommendations for the fix pass, including read-only exposure checks without Git mutations, safe same-section original cleanup, resolved dangling-link reporting, and outside-window counts even for empty results
-    * verdict: batches 1–4 approve; functional spec remains draft, awaiting owner approval
-    * next: owner approves or requests changes; after approval, commit the functional spec with the owner-approved `FACTORY.md` and `project_overview.md` edits
+- [ ] Rename owner fork module paths for aikit then goinfer (@lead-dev-2)
+    * description: make the two owner forks independently installable under their pkieltyka module paths and finish the required release-document follow-ups
+    * criteria: complete both module renames and preserve license attribution; run each repository's requested checks; keep work on owner forks only; pin goinfer to aikit `v1.79.0`; merge goinfer PR #3 once code CI is green, then create an annotated `v0.1.0` tag on the merge commit and push to owner-fork origin only; leave goinfer checkout on `main`; open one docs follow-up PR in each fork, reviewed by @reviewer and merged by @operator when green
+    * work: aikit PR #3 merged to owner-fork main as `0b1b868e4b89af6937eeefed851bd79dcce972e9`; CI green including GPU backend version pins. After-the-fact review: changes required, P2 docs only; module/tag pins and attribution pass. Aikit docs follow-up must update README.md, docs/architecture.md and RELEASING.md to `v1.79.0` / `gpu/v0.36.0` while retaining dated history. Goinfer PR #3 head `6efa2038c4065a88f6516608302ce5e2c402367b`, base `2e413ee111048fff90b9c74bdbdaf6f02299bba`, pinned to aikit `v1.79.0`; review: changes required, P2 active-doc/stale-checksum findings, no code issue identified. Focused parity-manifest test, 17 apidiff tests and diff check passed. Latest operator status: goinfer CI green except two tag-dependent jobs; darwin/windows/decoder jobs still running; operator will message when merged. Goinfer docs PR must update active owner-facing references in README.md, RELEASING.md, demo/chat/README.md and docs/ARCHITECTURE.md to `pkieltyka/goinfer` or remove unsupported instructions, and remove/regenerate stale `go.work.sum` townsendmerino v0.22.0/go.mod entry. Preserve valid attribution/history/changelog references. Owner chose goinfer version `v0.1.0`; no tag has been pushed.
+    * verdict: changes required on both reviewed changesets for P2 documentation consistency; these findings do not block goinfer PR #3 merge once code CI is green. Aikit docs follow-up and goinfer tag/docs follow-ups remain outstanding.
+    * next: @lead-dev-2 continues item.md and search.md now, without waiting for the goinfer merge. Remaining darwin/windows/decoder jobs are running; goinfer CI is green except two tag-dependent jobs. @operator merges PR #3 when ready and messages @lead-dev-2; then @lead-dev-2 tags the merge commit annotated `v0.1.0` on owner-fork origin only and leaves checkout on main. Afterward open one docs PR per fork with the exact fixes above; @reviewer reviews both and @operator merges each on green CI. @reviewer verdicts: aikit PR #3 at merged `0b1b868e4b89af6937eeefed851bd79dcce972e9`; goinfer PR #3 at head `6efa2038c4065a88f6516608302ce5e2c402367b`.
+
+- [ ] pbrain architecture, semantic and output-format amendments (@architect)
+    * description: record owner decisions, semantic architecture, accepted amendments and fixed shared interfaces
+    * criteria: preserve the Embedder seam and gates; update §3/8.7/13–17 and semantic.md for accepted BM25, the wider fixture, SQLite/sqlite-vec and both models; include schema, transaction/index-lock model, per-section file, catalog replacement, read validation and in-memory journal. Record renamed owner-fork module paths, version tags/pins and topic branch → fork-main PR → upstream workflow, and `go install @version` support without replace directives. Record the fast tokenizer pack, verified-byte encoder construction and immutable-buffer lifetime. Use aikit's encoder for bge-small; retain hugot only as documented fallback. Remove GOEXPERIMENT=simd, the s3 shim and envguard, while retaining stdout/stderr redirection to null. Add the accepted long-document evidence metrics and section-alignment tests. Record the owner's decision that a lexical snippet names the section where its selected window starts. Add the owner-approved Item definition in §4.1 and the type's doc comment with library pins. Also apply signed output-format joint `1c5a95f0`: `file_chars` included; search default `--max-chars=3000`, `--limit=5`; exact text/JSON hit shapes, coordinates/units, sizes, body-start accounting, occurrence count, `get --offset`, bounded opt-in line context and color, examples and budgets. Update the functional spec and issue the component owners' change list. Requests review from @architect-2 and @lead-dev.
+    * work: fix pass applied in one delta, not staged or committed. Current functional spec SHA-256 `d1ba263730a163d1209dc9a9ab34c88b08aa732fac947c75eaeb950da748e177` (base `ad0a4f74`); architecture `ed3682b8c013d439d98fd30f6f5f74ae98084f85f332c5b4449066d2bcb45f0c` (base `50c865ad`); semantic `5f4a23ca0a1d6e703ec7af0fce4891dbd9107d1bc6d12c81585c2ab67c449294` (base `6a10dfa2`, Our libraries pin update only). All three reported hashes verified against files. Six findings addressed: paths safely escaped or withheld for invalid UTF-8; color/stdin detection and stored body bytes separated; exact required fields survive combined tiers; `FitBody` uses Format and fits inclusive file-line ranges before decoration; item/store expose Layout/Measure and coordinate mapping uses a LineCursor; context boundaries and snippet-less semantic anchors defined. Added combined-mode, path, literal-escape, line-slice and mapping cases. Also applied both library pins and the owner-approved Item definition in architecture §4.1/type comment: aikit `v1.79.0` (author reports verified tag) and goinfer `v0.1.0`; the goinfer tag itself does not yet exist. Author ran sha256, table/escape checks, path escape check and stale-word sweep. Component follow-up list: @lead-dev-2 item/search, @lead-dev store, @lead-dev render, @architect-2 cli/skill; other component docs unchanged.
+    * verdict: functional spec `d1ba2637`, architecture `ed3682b8` and semantic pin delta `5f4a23ca` approved by @architect-2 and @lead-dev
+    * next: component owners complete the approved deltas; @architect runs the final consistency pass across all twelve designs and reports package readiness to the owner
+
+- [ ] pbrain component: brain (@lead-dev)
+    * description: design brain discovery/configuration, scrubbed-environment Git queries and exposure guard
+    * reviewer: @architect-2; `reviews/components/brain-architect-2.md`
+    * work: SHA-256 `2b0cfed0d928e069e2a1db74421f68fb1625faf359371c352fa3cf21ed42009b`; both review findings resolved; uncommitted
+    * verdict: approve by @architect-2
+    * next: include in the implementation handoff
+
+- [ ] pbrain component: store (@lead-dev)
+    * description: design sys folder handles/locks, parallel scan, guarded inputs and write primitives/hard-link publish
+    * reviewer: @architect-2; `reviews/components/store-architect-2.md`
+    * criteria: preserve approved store design; update the scan to call `item.Measure(data, bodyAt)` after Parse and retain `Item.Layout` on each item; no other store behavior changes
+    * work: output delta SHA-256 `396c02b72096a5cfd48e8b78f476468bf65d22fa97dea594dd989ccdec68dec6` (base `f6d47833`); scan calls `item.Measure` on the validated bytes and bodyAt from the same successful Parse before retention filtering; Layout survives both modes and KeepNone verifies later reads. Full hash confirmed by @architect-2; verdict in `reviews/components/store-architect-2.md` (`f48c135f`); @lead-dev confirms both render and store outputs are done; uncommitted.
+    * verdict: approve by @architect-2 at `396c02b7`
+    * next: include approved current store design in final consistency pass
+
+- [ ] pbrain component: writes (@lead-dev)
+    * description: design add/verify/delete, secret scan, WritePlan, commit points and `after_write`
+    * reviewer: @architect-2; `reviews/components/writes-architect-2.md`
+    * work: SHA-256 `b204c350773f5b8d7a52d8a01311295631c2d4599da368f431090273070f9a2b`; verification retains the initial file version, delete preview probes originals read-only, and scanner boundaries/redaction are specified; uncommitted
+    * verdict: approve by @architect-2
+    * next: include in the implementation handoff
+
+- [ ] pbrain component: item (@lead-dev-2)
+    * description: design front matter parse/emit/edit, ids, standing and fold rule
+    * reviewer: @lead-dev; `reviews/components/item-lead-dev.md`
+    * criteria: preserve current parser/emit design; add `Layout` and `Measure(data, bodyAt)` counts (BodyLine, BodyChars, FileLines, FileChars), `Item.Layout`, `LineOf` and the rising-offset `LineCursor`; keep Parse signature; Measure accepts only the bodyAt from a successful Parse; specify BOM handling before first `---` and add LF/CRLF/BOM/no-final-LF/empty-body tests, plus the Item doc comment
+    * work: final output delta SHA-256 `69970eba83125c3a02d4c19ac0b93e4a065f8408acd75db32ef64259ccdd33bb`; @lead-dev approved after recheck. Measure and FuzzMeasure use the same valid UTF-8 bytes and successful Parse offset. Verdict appended to `reviews/components/item-lead-dev.md`; uncommitted.
+    * verdict: approve by @lead-dev at `69970eba`
+    * next: include approved item design in the final consistency pass
+
+- [ ] pbrain component: graph (@lead-dev-2)
+    * description: design graph, `graph.Effect`, dangling links and `current_again`
+    * reviewer: @lead-dev; `reviews/components/graph-lead-dev.md`
+    * work: current SHA-256 `06c2de16e4cdcf881f30077f4ddd3585203c851f0df7d55c323e6ae46390d12f`; traversal order, view-relative resolution and stamp scoping fixes approved at `935042aa`; generic lookup comment cleanup applied; uncommitted
+    * verdict: approve; @lead-dev confirms approval carries to current hash `06c2de16` after the comment cleanup
+    * next: include in the implementation handoff
+
+- [ ] pbrain component: search (@lead-dev-2)
+    * description: design query parsing, lexical scan/ranking, time windows, per-clause counts, hybrid merge and BM25 partial tier
+    * reviewer: @lead-dev; `reviews/components/search-lead-dev.md`
+    * criteria: preserve the approved BM25/semantic design; add Request.Context; add snippet Line and Context []ContextLine for every snippet, keeping Section only when Long; omit snippets for title-only semantic hits; add Hit.Occurrences from BM25 tf counting; distinguish corpus-wide BM25 TF from page-row occurrence counts and test the specified behavior
+    * work: final output delta SHA-256 `1c9e64d7bef69533773e59d6413d3040d5156be20f88c8b1268ff33bdc8b8925`; @lead-dev approved after recheck. Context tests distinguish lone CR from CRLF and cover exclusive endpoints; BM25 corpus TF and page-row occurrence counts are separate; no-BM25 test isolates the fast match pass. Verdict appended to `reviews/components/search-lead-dev.md`; uncommitted.
+    * verdict: approve by @lead-dev at `1c9e64d7`
+    * next: include approved search design in the final consistency pass
+
+- [ ] pbrain component: render (@lead-dev)
+    * description: design `render.Doc` fitting/budgets and search/get/list/prime/tags/check output, including `get --outline` and BM25 partial rows
+    * reviewer: @architect; `reviews/components/render-architect.md`
+    * criteria: preserve the approved rendering design and add output-format fields/templates (location, sizes, occurrences, path encoding), get line ranges and outline file line; update Fit/FitBody to Format, add Style/marks, implement context blocks and color fitting, preserve list/prime/history rows, update 3,000-char assumptions and alignment fixture
+    * work: output delta SHA-256 `27d3f1ba6e4f02968891c2b314d8d3c8bc83f912b8b00ed7a711b6efe661b40c` (base `3f204821`), verified against file. @architect reports seven-line fix of four printed-byte findings; verdict in `reviews/components/render-architect.md`. Prior handoff `05b65201` was superseded. No pending review; uncommitted.
+    * verdict: approve by @architect at `27d3f1ba`
+    * next: include approved render design in final consistency pass
+
+- [ ] pbrain component: semantic (@architect)
+    * description: design the semantic search/index subsystem
+    * reviewer: @architect-2 and @lead-dev; `reviews/components/semantic-architect-2.md`, `reviews/components/semantic-lead-dev.md`
+    * work: SHA-256 `6a10dfa2cae1d81e2897c251483b165aa70a6387960e6c449501e56135703f1d`; exactly five model-file paths and read-attempt accounting are checked before load, with the immutable zero-copy handoff retained. Evidence selection/judging/measuring uses one fitted JSON stream including escaping; `TestCalibrate` tests differing text/JSON fits. Aikit/goinfer use the renamed owner modules without replace directives; final pins await module-path PR merges. Uncommitted.
+    * verdict: approve by @architect-2 (`reviews/components/semantic-architect-2.md`, `55b72773`) and @lead-dev (`reviews/components/semantic-lead-dev.md`); final fork pins remain unverified
+    * next: record the aikit/goinfer module-path commit pins after their PRs merge, then rerun consistency
+- [ ] pbrain component: cli (@architect-2)
+    * description: design command table, pflag parsing, usage/JSON errors, exit codes and clock/time-zone handling
+    * reviewer: @architect; `reviews/components/cli-architect.md`
+    * criteria: add search-only `--context` (0 by default, explicit 1–3 only; invalid values are usage errors) and `--color` on search/get (usage error with `--json`); pass Context and TextColor through renderer; cover scenarios 39–41
+    * work: output-format delta SHA-256 `563240ef96a1b61d3794ea068f72dd9c141b1f45fb9a405fdd18101da2afee51` against spec `d1ba2637` and architecture `ed3682b8`; registrations, links, fences and navigation checks reported passed; uncommitted. Base runtime change at `a0b68d15` removes envguard and retains stdout/stderr redirection.
+    * verdict: approve by @architect at `563240ef`; `--color` is consistent on history/outline too; core shared types unchanged
+    * next: include approved current design in the final consistency pass; @architect-2 handles any follow-up found there
+
+- [ ] pbrain component: audience (@architect-2)
+    * description: design canonical form, rule type/audience decision and audience command
+    * reviewer: @lead-dev-2; `reviews/components/audience-lead-dev-2.md`
+    * work: SHA-256 `58070db6c2b16ee1555318633eb2878f1a0c32fbe5b4670c285ebddf8142b382`; source classification, rule recovery, listing and transaction findings resolved; uncommitted
+    * verdict: approve by @lead-dev-2
+    * next: include in the implementation handoff
+
+- [ ] pbrain component: importer (@architect-2)
+    * description: design file imports, linked items, fetch and HTML extraction
+    * reviewer: @lead-dev-2; `reviews/components/importer-lead-dev-2.md`
+    * work: SHA-256 `02229ba40dbfcda9c196edb95443910467fcc99fa18ed56fcb55593375db3278`; base and streaming `Download` addendum approved; interrupted downloads restart from zero; uncommitted
+    * verdict: approve by @lead-dev-2
+    * next: include in the implementation handoff
+
+- [ ] pbrain component: skill (@architect-2)
+    * description: design skill text layout, go:embed, word limits and topic tests
+    * reviewer: @architect; `reviews/components/skill-architect.md`
+    * criteria: add the navigation sentence from spec 12, distinguishing path:line for file tools from body offset for get; mention optional context and leave color to people; maintain the 400-word core cap
+    * work: output-format delta SHA-256 `763d7e76f94ccbff157ff15e003a6d4e87f10208e14769b7778fb055a3ed6421`; author and reviewer report exactly 400 words in core (including Markdown bullet markers), topics 219/101/79/96; uncommitted. Base BM25 delta `fb4cd0c4` remains.
+    * verdict: approve by @architect at `763d7e76`, against spec `d1ba2637` and architecture `ed3682b8`; no word-cap overrun
+    * next: include approved current design in the final consistency pass
+
+- [ ] pbrain component consistency and owner acceptance (@architect)
+    * description: reconcile the twelve component designs against fixed shared types, error/notice codes and build order
+    * criteria: every component signature, code and dependency agrees with architecture and functional spec; record all verdicts and hashes
+    * work: current parent hashes: functional spec `d1ba2637`, architecture `ed3682b8`, semantic `5f4a23ca`; parent amendment approved by both reviewers. Current output deltas: cli `563240ef` and skill `763d7e76`, approved by @architect; store `396c02b7`, approved by @architect-2; render `27d3f1ba`, approved by @architect; item `69970eba` and search `1c9e64d7`, approved by @lead-dev. All six assigned output deltas have reviewer approvals. Prior consistency pass at older parent hashes was clean; final pass on these outputs has not run. Files remain uncommitted.
+    * verdict: all component deltas have peer approvals; final consistency pass is now due
+    * next: @architect reruns the full cross-design check on current hashes (shared signatures, error/notice codes, imports/build order, reference/fence and stale-name checks), records findings, then reports package readiness to the owner
 
 ## Backlog
 
@@ -47,6 +135,107 @@ TODO
     * next: define how initialization detects an existing external brain before choosing a default target
 
 ## Done
+
+- [x] pbrain owner question: Item versus Document naming (@architect, @architect-2, @lead-dev, @lead-dev-2)
+    * description: recommend the term for the addressable knowledge unit
+    * criteria: short independent views, joint recommendation and owner decision; no redesign
+    * work: signed `reviews/naming/joint.md`, SHA-256 `aec237b2a6a8663cc470a60b79a607f8059a62f4ef91c4b8884e1321053738b3`. Owner chose to keep `Item` and approved the definition: “An item is one Markdown file of the brain: one piece of knowledge with its header, cited by its id. It can be a decision, a learning, an observation, a note or a source. A `source` item stands for material from outside, as a copy or as a pointer, with or without a summary; what is reusable in such material can also be recorded as items of the other kinds.”
+    * verdict: owner accepted the group's recommendation; definition is queued for architecture §4.1 and the type comment in the in-progress architecture amendment
+    * next: implementation tracked in the in-progress architecture/semantic/output-format amendment
+
+- [x] pbrain owner question: output-format hit shape (@lead-dev, @architect, @architect-2, @lead-dev-2)
+    * description: jointly define a concrete v1 search-hit output shape for agents
+    * criteria: joint specifies text/JSON fields, coordinate units and get continuation, body-start and file/body sizes, occurrence counts, optional context and color, fit costs and a worked five-hit example; owner resolves remaining choices
+    * work: signed `reviews/output-format/joint.md`, SHA-256 `1c5a95f0da427411feab233c488c5d2c9ce789fd5451a5ea47dd544a04b533d2`; all three peer sign-offs recorded. Owner chose `file_chars` included, search default `--max-chars=3000`, `--limit=5`; example remains 1,214 text / 1,922 compact JSON code points. Owner assigned application as the in-progress architecture/semantic/output-format amendment above.
+    * verdict: joint approved by owner; all output-shape decisions settled
+    * next: implementation tracked in the in-progress architecture/semantic/output-format amendment
+
+- [x] aikit `encoder.LoadBERTFromFS` implementation (@lead-dev-2) `04b54e26`
+    * description: add the filesystem-backed BERT loader required by the pbrain verified-bytes adapter
+    * criteria: follow aikit contribution rules; compare with `LoadBERT` on bge-small files; verify each model file opens once; preserve immutable buffer lifetime; run repository preflight and relevant tests; do not push/PR without owner approval
+    * work: commit `04b54e26` on `pbrain/load-bert-fs`; owner merged into aikit main as `eb8c5ddd` and opened upstream PR #38. Focused CGO-disabled parity/open-once/missing-file checks passed; real-checkpoint test skipped due to absent scratch model assets. Report appended to `goinfer-bge-small-check.md`, current reported SHA-256 `0d4651e3d0445a530806e7ef3625451024b06283f6b6e27783ed647b40d6d2d0`.
+    * verdict: complete; code merged to owner fork main; module-path rename is tracked separately
+    * next: none for this loader task; final pbrain module pin waits for the separate rename PR
+
+- [x] pbrain source research: ken (@architect-2)
+    * description: assess github.com/townsendmerino/ken for direct adoption or ideas useful to pbrain
+    * criteria: identify maturity, licence, activity, dependencies and relationship to goinfer/aikit; compare storage, retrieval, memory, ergonomics and output-budget fit; recommend adopt/borrow/ignore by pbrain section; read source before running, do not edit specs
+    * work: `specs/projects/pbrain/research/ken-review.md`, SHA-256 `8665fe41ad3a51f09f47876ed17c48825a7493c94097b880f69c58a46d82c99e`; reviewed ken commit `2d21e3d4`, MIT, v1.20.0, active with one human maintainer; no code run, proposals only, uncommitted.
+    * verdict: owner adopted both test-plan proposals only: measure whether long-document questions retrieve the correct item and expose the supporting passage, evidence-reaching fraction and tokens to first evidence including follow-up get reads, with misses separate; test passage offsets against get text and intended outline section using repeated headings, fenced pseudo-headings and multibyte text. No product behavior change.
+    * next: additions are incorporated in the current architecture and semantic design passes; no direct spec edits were made by the researcher
+
+- [x] pbrain goinfer fork spike: fast EmbeddingGemma 2 tokenizer (@lead-dev-2) `e98418db`
+    * description: test a prebuilt tokenizer representation to make goinfer's EmbeddingGemma 2 load fast enough for the 8.7 budget
+    * criteria: work in `~/Dev/pkieltyka/goinfer` on local branch `pbrain/fast-tokenizer`; follow repo instructions and read source before running; target tokenizer load in tens of milliseconds and exact IDs against reference text; report pack size and integration with bytes loader; owner later authorized push and fork PR, merged to fork main; upstream PR #1194 remains open
+    * work: report `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-tokenizer-spike.md`, SHA-256 `bcda0e77a23dc2908aa1d6ce5d36594e087af7d57de9f2b23cb03f7d86a80da0`. Owner merged tokenizer work to goinfer main as `2f80ef14`, then changelog update as `2e413ee111048fff90b9c74bdbdaf6f02299bba4`; upstream PR #1194 is open. Topic commits were `6f6806d5`, `bc477653`, `e98418db`. Pack load 24–26 ms vs 441–502 ms JSON, deterministic build 0.75–0.84 s, 9.58 MB, SHA-256 `45a7e7d5…` for tokenizer revision `f9972ac2`. Exact IDs on 48 golden texts, 10,000 random encodings, and 3,052 texts/250,897 tokens vs HF; tests/fuzz/lint passed.
+    * verdict: complete; @operator retires the tokenizer-load risk for the EmbeddingGemma 2 fork path
+    * next: tokenizer pack and constructor are incorporated into the approved semantic/architecture designs; no further tokenizer task remains
+
+- [x] pbrain runtime check: bge-small on goinfer/aikit (@lead-dev-2)
+    * description: determine whether aikit's encoder can replace hugot for bge-small-en-v1.5 under the §8.7 runtime and Artifact rules
+    * criteria: verify parity, no-cgo/runtime behavior, in-memory loading, check+load+query time, indexing speed, memory, binary size, environment/stdout; report bottom-line recommendation
+    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-bge-small-check.md`, SHA-256 `0d4651e3d0445a530806e7ef3625451024b06283f6b6e27783ed647b40d6d2d0`; aikit v1.78.0 matched token IDs/vectors on 22 texts (worst 1−cos 1.7e-13), 13/17 on 20 questions, 124–153 ms verify/load/first query, 0.14 GB search memory, ~0.9 MB binary addition and 2,800 tok/s. The loader gap was implemented as `LoadBERTFromFS` commit `04b54e26`, merged to fork main `eb8c5ddd`; real-checkpoint focused test was skipped because scratch model assets were absent.
+    * verdict: investigation complete; owner accepted the switch to aikit's encoder and dropping hugot, with hugot retained as fallback. The owner fork is `github.com/pkieltyka/aikit`.
+    * next: adapter design is recorded; owner-fork module-path rename and final pin are tracked separately
+
+- [x] pbrain owner follow-up: BM25 in v1 design, round 2 (@architect, @architect-2, @lead-dev, @lead-dev-2)
+    * description: jointly design BM25 integration after the owner leaned toward keyword + BM25 + semantic
+    * criteria: four independent round-two papers, joint `joint-bm25.md`, and three peer sign-offs; cover placement/order, abstention, engine, deterministic ties, decision-in-force, counts and default/flag behavior without editing product specs
+    * work: final `reviews/search-methods/joint-bm25.md`, SHA-256 `90a5b60b3353c4313d9a03e77de9fff5062c070ec1d573a96820cfaacaf15462`; four notes: @architect `round2-architect.md` `d3714a1b`, @architect-2 `round2-architect-2.md` `30ce16b6`, @lead-dev `round2-lead-dev.md` `e7279aa8`, @lead-dev-2 `round2-lead-dev-2.md` `fe7b4ebc`; approved by @architect, @lead-dev and @lead-dev-2; no commit
+    * verdict: owner accepted the joint proposal: opt-in `--bm25`, exact → semantic → marked partial, Go scoring over the scan, hold partial results unless the held-out gate passes; prior preferences are recorded as splits and the owner resolves the default by choosing opt-in
+    * next: spec and architecture implementation of the accepted decision is tracked above; no commit
+
+- [x] pbrain owner question: search methods and lessons from qmd (@architect, @architect-2, @lead-dev, @lead-dev-2)
+    * description: prepare one joint group answer to `specs/projects/pbrain/reviews/search-methods/owner-question.md`
+    * criteria: each member writes an independent concise `reviews/search-methods/round1-<name>.md`; @architect drafts `joint.md`; the other three sign off or object; report final hash to @operator. Evaluate BM25/any-word ranking, RRF, query expansion/reranking, stemming, typos, phrase/proximity, field weights, chunking/context, graph, recency, outline-first and other qmd ideas with evidence/gain, costs and v1/later/never recommendations.
+    * work: final `reviews/search-methods/joint.md`, SHA-256 `c114a55ad9c37cb135255120436fcc4664c827e920340c701272c068f6b5423c`; all four round-one papers are recorded above; three sign-offs verified at this hash; corrected “Four things follow” heading; uncommitted
+    * verdict: round-one recommendation approved by @architect-2, @lead-dev and @lead-dev-2; its “BM25 out of v1” position was superseded by the owner's follow-up request and is answered by the separate round-two joint task below; other recommendations retain no fusion, no expansion inside pbrain, no v1 reranker/stemming/typo mode, and approved chunking, graph, recency and outline behavior
+    * next: owner decides whether to accept the proposed fixture expansion and skill prefix line; no spec edits were made or authorized by this discussion
+
+- [x] pbrain runtime research: rembed EmbeddingGemma 2 (@architect-2)
+    * description: identify and evaluate the pure-Go rembed candidate against the goinfer rig and EmbeddingGemma 2 references
+    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/rembed-embeddinggemma2.md`, SHA-256 `17b7f02875931a7c54c5efbff14878811771cff449bb27abf646b3456b79fc78`; identified fork `f401a554`; source audit, 22-text vectors/token IDs, throughput windows, retrieval fixture, startup/hash timings, clean streams/traces and four CGO-disabled builds reported; uncommitted
+    * verdict: not suitable as runtime now: 21/22 parity (literal `<eos>` mismatch), 1.10–1.13 s load plus first query before verification, 1.62–1.75 GB peak, and 9/20 top-1 and 12/20 top-3; keep bge/hugot interim and goinfer as the EmbeddingGemma 2 reference/conditional base
+    * next: included in the signed joint comparison
+
+- [x] pbrain runtime comparison and recommendation (@architect, @architect-2)
+    * description: compare goinfer, rembed and accepted bge-small/hugot interim runtime
+    * criteria: recommend which runtime pbrain should adopt for EmbeddingGemma 2 and when, whether to change the interim choice, and whether the owner's own library should build on one candidate or is unnecessary; preserve the Embedder seam and §8.7 rules unless both authors justify a change
+    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/embeddinggemma2-runtime-comparison.md`, current SHA-256 `e81bacd7d5937a06459b2d8c6133bbd6d98d9a886f577b345865644e9a288fe8`; @architect-2's approval at `18e7c367` carries to the five-word clarification; compares all three runtimes and cross-checks figures against both goinfer reports and the bge spike; uncommitted
+    * verdict: signed by @architect-2; its recommendation was to keep bge-small/hugot interim and conditionally build on goinfer; the owner later superseded the “do not adopt either EG2 runtime” recommendation by deciding to support both models, pending an architecture amendment and goinfer-path choice
+    * next: owner-directed follow-up tracked in the active architecture and BM25 tasks
+
+- [x] pbrain runtime architecture review: goinfer EmbeddingGemma 2 (@architect)
+    * description: assess whether measured goinfer can meet architecture §8.7 and the hashed-bytes Artifact contract
+    * work: current `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-architecture-review.md` SHA-256 `d0bd03c86e9601659277cc562c0798fe88af6e0e0129d023c1179756ebc5a105`; source reviewed before scratch prototype; keeping BF16 resident cut weight loading from about 1 s to 97–137 ms and memory from 1.87 GB to 1.43 GB, but full Artifact read/hash/load/query remained 948–1,042 ms because tokenizer loading takes 500–550 ms; tokenizer prebuild is also needed to reach estimated 360–450 ms; recommendation separates architecture gates from later adoption; 1.49 GB is a model cost shared by runtimes; not committed
+    * verdict: do not adopt goinfer now and do not change the interim runtime; if the owner chooses EmbeddingGemma 2, build on goinfer rather than start a new library, after the retrieval gates pass
+    * next: incorporated in the signed joint comparison
+
+- [x] pbrain interim-runtime spike: bge-small on hugot pure Go (@lead-dev-2)
+    * description: validate bge-small-en-v1.5 against architecture §8.7 and the semantic adapter contract
+    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/spike-bge-small-hugot.md`, SHA-256 `ab5fdde36658543289009ef850052cbbf5e6fef16b301a768c0c74e0bcccbc2d`; pure-Go builds, vector parity, Artifact-bytes shim, latency, memory, indexing and paraphrase checks reported; uncommitted
+    * verdict: operator accepts as interim runtime under four conditions: release builds use `GOEXPERIMENT=simd` and arm64 Mac measurement; use the in-memory `s3:` shim (upstream fix preferred); adapter owns tokenization, 510-token truncation, special-token neutralization and CLS pooling; pin module/model digests and test stdout silence while handling `GOMLX_*` so they neither fail commands nor write stdout
+    * next: none; adapter design and reviews are recorded above
+
+- [x] pbrain runtime research: goinfer EmbeddingGemma 2 (@lead-dev-2)
+    * description: independently assess `goinfer/embeddinggemma2` as an interim or default EmbeddingGemma 2 runtime
+    * work: report `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-embeddinggemma2.md`, SHA-256 `af97e506a666d029ee1c8a4c202e86dc5fd1606ced095eb79bf6edfe73d782a8`; pure-Go MIT implementation reproduces sentence-transformers vectors, but 1.26–1.39 s load fails the 600 ms rule; operator retains it as the best base to extend, not the current runtime
+    * verdict: investigation complete; not accepted as runtime as-is
+    * next: none; interim runtime spike assigned separately
+
+- [x] pbrain research: semantic search and index (@lead-dev, @lead-dev-2, @architect)
+    * description: research whether built-in semantic/hybrid retrieval belongs in pbrain v1 and how to design its index and long-document support
+    * criteria: follow `specs/projects/pbrain/research/semantic-search-and-index/research_plan.md`; @lead-dev covers qmd and Go index/hybrid engine; @lead-dev-2 covers embedding models/Go runtime and long documents/PageIndex/references; @architect writes the cross-subtopic `research_summary.md` with recommendation, functional-spec implications and open owner decisions
+    * work: all three subtopics and the top-level `research_summary.md` are complete; research files currently exist as untracked work under `specs/projects/pbrain/research/semantic-search-and-index/`. The owner answered all eight research decisions; the summary informs the owner-approved functional-spec amendment and architecture design.
+    * verdict: research complete; findings accepted as the basis for owner decisions and design
+    * next: none; implementation/design proceeds under the assigned amendment and architecture tasks
+
+- [x] pbrain spec: functional spec (@architect) `9f9f6c3`
+    * description: draft and refine `specs/projects/pbrain/functional_spec.md` through five owner-directed batches
+    * criteria: record owner Q&A; apply batches 1–5; preserve item front-matter YAML; resolve section references and parse YAML/TOML/JSON examples; obtain targeted approvals from @architect-2 and @lead-dev; status complete on the owner's word
+    * work: batch 5 approved at SHA-256 `41605322ceac5a7edf841528e21bf5940f0a9ca31b6c388751d08d7469bf90d1`; 26 references resolve and all 13 structured samples parse. Owner/operator set status complete; current SHA-256 `4622a82fee8ae8903073974c1297c272105e6639933e0bc90cb3db48638f68ff` differs from the batch-approved content only in front matter. Iteration commit `9f9f6c3` contains prior spec work; current final spec and reviewer updates remain uncommitted in the working tree.
+    * verdict: complete on the owner's word; batch 5 approved by both targeted reviewers
+    * next: architecture is the active spec step; later functional-spec changes require an owner-approved amendment and cascade to architecture
 
 - [x] pbrain spec: research, browser use and permission-gated sources (@lead-dev, @lead-dev-2, @architect) `1de8c0a`
     * description: research browser and harness-native routes to import rendered or permission-gated content into pbrain

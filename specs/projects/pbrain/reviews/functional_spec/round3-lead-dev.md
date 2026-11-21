@@ -216,3 +216,36 @@ Checked `5372ff086aaf29b2f5193ec17228985f097e0c90d3c5e32dab324d5b305bf6bd` (+479
 - **Verify amendment · Resolved.** §5.2 separates the lookup view from the resolved item's section for `verify` and `delete`. Scenario 16 checks shared locking and file access for `verify --personal` on a shared item.
 
 **Verdict — Approve.**
+
+## Owner batch 5 check
+
+Reviewed `5372ff08` to `b8c7d75c3bb3e494b4e48b424e5288c57d16f6490c20a678408ad31171fa8bbe` (+961 words). Draft status, 25 section references, balanced fences and all 13 YAML, TOML and JSON samples pass. The advisory vocabulary, pilot ranking, factory upkeep, and the semantic research boundary match the decisions.
+
+### Blocking
+
+- **B5-1 · Keep zero-match diagnostics within the output budget (§§6.1–6.2, 7.1, 15.31).** Capping the number of clauses at eight leaves each echoed clause unbounded. A valid quoted phrase can alone exceed the default output budget. Keep the ordinary closing counts and envelope as fixed output, and add at most eight complete diagnostic entries only as they fit. An empty search whose ordinary fixed part fits must still succeed. Test a long clause and a tight budget in text and JSON, including a case where an outside-window count must remain visible.
+- **B5-2 · Specify visibility of discovered tag names (§§5.2, 7.5, 15.32).** Counts are scoped to the view, but the spec says undeclared tags “in use” are listed and that `--personal` adds personal items to counts. A build could discover an undeclared tag from a personal item, then print its name with a zero count in the shared view. Derive undeclared names, pagination and totals only from current items in the active view, including when no vocabulary exists. Test that a tag found only on a personal item does not appear or affect counts or pagination in shared mode.
+
+### Should fix
+
+- **B5-3 · Define the passage and its offset (§§6.2, 7.1–7.2, 15.31).** The agreed best stretch can cross a Markdown line break. Select it from the stored body and flatten it for one-line display. Specify the zero-based Unicode code-point offset into the stored body before flattening or adding ellipses, including an actual zero offset on long hits. Test a wrapped paragraph and a multibyte character before the hit to ensure `get --offset` opens at the same passage.
+- **B5-4 · Keep the skill fallback deliberate (§§12, 14).** The new core instruction still says to use `--all` automatically after a retry, while the new complete flow stops and reports no answer. Use history only when the task calls for it. The core outline's bullets now total 421 words before the five kind examples; compress the eventual skill to the existing 400-word cap.
+
+**Verdict — Changes required.** Bound the optional diagnostics and make the tag inventory's private-name boundary explicit.
+
+### Owner batch 5 re-check
+
+Checked `3461303e103b1606cdcac8d1786bb3bfd3c75e864961224411f94370033dd02b` (+326 words). Draft status, 26 section references and all 13 samples pass.
+
+- **B5-1 · Resolved.** §7.1 reserves the ordinary footer first, cuts displayed clauses at 40 characters, and stops adding optional entries at the first that will not fit. Scenario 31 covers long clauses, the entry limit and a retained outside-window count.
+- **B5-2 · Partly resolved and still blocking.** §7.5 now builds discovered names from visible current items. It also says both that every declared tag appears and that a tag used only on personal items is absent. If an existing public declaration disappears when a personal item uses it, shared readers can infer private use. Keep every declared tag visible with its shared count, including zero. Restrict the private-only omission to discovered, undeclared names. Test both a declared tag that stays at zero and an undeclared tag that remains absent, with the same shared output before and after personal use.
+- **B5-3 · Resolved.** The stored-body code-point position drives `get --offset`. Scenario 31 covers wrapping, a multibyte character and offset zero.
+- **B5-4 · Resolved.** §§12 and 14 use one retry and report the searches' result. The outline may be longer than the shipped text, whose cap remains enforced by scenario 23. Keep the tag naming guidance from §10 when drafting that text.
+
+**Verdict — Changes required.** Make the shared inventory invariant under personal use of an already declared tag.
+
+#### Declared tag visibility re-check
+
+**B5-2 · Resolved.** Checked `41605322ceac5a7edf841528e21bf5940f0a9ca31b6c388751d08d7469bf90d1` (+43 words). §7.5 retains every public declaration at its count in the active view, including zero. Scenario 32 keeps the shared listing identical before and after personal use and excludes a private-only undeclared name from shared output and pagination.
+
+**Verdict — Approve.**

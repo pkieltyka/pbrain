@@ -135,3 +135,23 @@ Reviewed `5372ff086aaf29b2f5193ec17228985f097e0c90d3c5e32dab324d5b305bf6bd` agai
 4. **Empty time window resolved.** §§7.1 and 7.3 preserve the outside-window count on empty search and list pages and name the supplied bounds. Scenario 30 verifies both commands against a single older decision.
 
 **Verdict — approve.**
+
+## Owner batch 5 check
+
+Checked `5372ff08` to `b8c7d75c3bb3e494b4e48b424e5288c57d16f6490c20a678408ad31171fa8bbe` (+961 words). The spec remains draft. All 25 referenced sections resolve. One YAML, three TOML and nine JSON samples parse. The passage jump, tag map and paging, operator upkeep, pilot ranking and semantic-research amendment are present. Three changes would prevent incorrect output.
+
+1. **Blocking — keep a suspected secret out of the undeclared-tag notice (§§6.3, 8.2, 9.1, 10).** Supply an undeclared tag that also matches the existing Slack-token scan. A lowercase token with hyphens fits the tag alphabet. Section 10 requires naming it on stderr, while §6.3 forbids echoing a suspected secret. Give redaction precedence for this case. The shared write still succeeds, both notices can identify the field, and neither the notices nor the corresponding check messages should repeat the value. Cover text and JSON with a synthetic matching tag.
+2. **Should fix — bound the size of echoed clauses (§§6.1, 7.1; scenario 31).** Limiting the footer to eight clauses still allows one long quoted phrase to exceed the entire default 2,000-character budget. This can turn a valid empty result into `budget_too_small` merely to repeat the caller's input. Cap each displayed label and trim optional diagnostic entries to the remaining rendered budget in text and JSON. Preserve the zero-result footer and applicable outside-window/replaced counts. Count each original clause in full. Test one over-budget phrase and nine short clauses.
+3. **Should fix — make the retry and stopping rule consistent (§§12, 14).** The skill says to retry once with other words, “then `--all`”, even with zero replaced matches. The usage flow stops after one retry and claims the brain “holds nothing on the question”. Lexical search can miss a current answer under different terminology. Teach one targeted retry, using `--all` when the footer reports a relevant historical match or the task asks for history. After a miss say that these searches found no supporting item.
+
+**Verdict — changes required.**
+
+## Owner batch 5 re-check
+
+Reviewed `3461303e103b1606cdcac8d1786bb3bfd3c75e864961224411f94370033dd02b` (+326 words from `b8c7d75c`). The spec is draft. All 26 referenced sections resolve and all 13 structured samples parse.
+
+1. **Secret redaction resolved.** §§9.1 and 10 preserve the write and identify only the field when the secret scan flags an undeclared tag. Scenario 32 covers both notices and the check findings in text and JSON.
+2. **Empty-result budget resolved.** §7.1 reserves the ordinary footer and applicable counts first, then adds up to eight hints while the rendered output fits. Each hint counts the full clause and displays at most 40 characters of it. Scenario 31 covers an over-budget phrase, nine short clauses and the outside-window count.
+3. **Retry and stop rule resolved.** §§12 and 14 agree on one targeted retry and reporting which supporting items the searches found. §12 retains the 400-word cap on the shipped core skill. Scenario 23 checks the shipped text when it exists.
+
+**Verdict — approve.**
