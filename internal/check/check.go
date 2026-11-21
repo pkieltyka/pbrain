@@ -170,26 +170,72 @@ func Collect(items []*item.Item, skipped []Skipped, g *graph.Graph, opt Options)
 	return findings, errorCount
 }
 
-// fields is the projection a shared write scans (writes.md): every stored field and the body.
-func fields(it *item.Item, body func(*item.Item) ([]byte, error)) []secretscan.Field {
-	h := &it.Header
-	out := []secretscan.Field{
-		{Name: "title", Value: h.Title},
-		{Name: "author", Value: h.Author},
-		{Name: "source", Value: h.Source},
-		{Name: "verified", Value: h.Verified},
-		{Name: "decided", Value: h.Decided},
-		{Name: "replaces", Value: strings.Join(h.Replaces, "\n")},
-		{Name: "relates", Value: strings.Join(h.Relates, "\n")},
-		{Name: "tags", Value: strings.Join(h.Tags, "\n")},
-		{Name: "sha256", Value: h.SHA256},
+// Stored is the text of every field a shared write stores in an item, and its body: the one
+// projection the secret scan of a write and of check reads (writes.md), so the two cannot drift.
+type Stored struct {
+	Kind, Title, Created, Author, Source, Status, Verified, Decided string
+	Replaces, Relates, Tags                                         []string
+	StaleAfter, Origin, Fetched, SHA256                             string
+	Body                                                            string
+}
+
+// Fields lists the stored fields by their front matter names, in the order a write stores them.
+func (s Stored) Fields() []secretscan.Field {
+	return []secretscan.Field{
+		{Name: "kind", Value: s.Kind},
+		{Name: "title", Value: s.Title},
+		{Name: "created", Value: s.Created},
+		{Name: "author", Value: s.Author},
+		{Name: "source", Value: s.Source},
+		{Name: "status", Value: s.Status},
+		{Name: "verified", Value: s.Verified},
+		{Name: "decided", Value: s.Decided},
+		{Name: "replaces", Value: strings.Join(s.Replaces, "\n")},
+		{Name: "relates", Value: strings.Join(s.Relates, "\n")},
+		{Name: "tags", Value: strings.Join(s.Tags, "\n")},
+		{Name: "stale_after", Value: s.StaleAfter},
+		{Name: "origin", Value: s.Origin},
+		{Name: "fetched", Value: s.Fetched},
+		{Name: "sha256", Value: s.SHA256},
+		{Name: "body", Value: s.Body},
 	}
+}
+
+// StoredOf is a parsed item's stored values: the raw kind and status as written, the dates as
+// parsed. The body is left for the caller.
+func StoredOf(h *item.Header) Stored {
+	s := Stored{
+		Kind: h.KindRaw, Title: h.Title, Author: h.Author, Source: h.Source, Status: h.StatusRaw,
+		Verified: h.Verified, Decided: h.Decided, Replaces: h.Replaces, Relates: h.Relates, Tags: h.Tags,
+		Origin: h.Origin.String(), SHA256: h.SHA256,
+	}
+	if s.Kind == "" {
+		s.Kind = h.Kind.String()
+	}
+	if s.Status == "" {
+		s.Status = h.Status.String()
+	}
+	if h.CreatedKnown {
+		s.Created = h.Created.UTC().Format(time.RFC3339)
+	}
+	if h.StaleSet && !h.StaleBad {
+		s.StaleAfter = h.StaleAfter.UTC().Format(time.RFC3339)
+	}
+	if !h.Fetched.IsZero() {
+		s.Fetched = h.Fetched.UTC().Format(time.RFC3339)
+	}
+	return s
+}
+
+// fields is a shared item's projection for check; a body that cannot be read as scanned is left out.
+func fields(it *item.Item, body func(*item.Item) ([]byte, error)) []secretscan.Field {
+	s := StoredOf(&it.Header)
 	if body != nil {
 		if b, err := body(it); err == nil {
-			out = append(out, secretscan.Field{Name: "body", Value: string(b)})
+			s.Body = string(b)
 		}
 	}
-	return out
+	return s.Fields()
 }
 
 func problemMessage(p item.Problem) string {

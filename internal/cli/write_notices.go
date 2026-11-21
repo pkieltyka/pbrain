@@ -2,9 +2,9 @@ package cli
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/pkieltyka/pbrain/internal/check"
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/secretscan"
 	"github.com/pkieltyka/pbrain/internal/store"
@@ -18,24 +18,13 @@ func warnSecrets(wc writeContext, fields []secretscan.Field) {
 
 func warnNewItem(wc writeContext, plan store.WritePlan, d *item.Draft, body []byte) {
 	if plan.Dest == item.Shared {
-		fields := []secretscan.Field{
-			{Name: "kind", Value: d.Kind.String()},
-			{Name: "title", Value: d.Title},
-			{Name: "created", Value: d.Created.UTC().Format(time.RFC3339)},
-			{Name: "author", Value: d.Author},
-			{Name: "source", Value: d.Source},
-			{Name: "status", Value: d.Status.String()},
-			{Name: "verified", Value: d.Verified},
-			{Name: "decided", Value: d.Decided},
-			{Name: "replaces", Value: strings.Join(d.Replaces, "\n")},
-			{Name: "relates", Value: strings.Join(d.Relates, "\n")},
-			{Name: "tags", Value: strings.Join(d.Tags, "\n")},
-			{Name: "stale_after", Value: d.StaleAfter},
-			{Name: "origin", Value: d.Origin.String()},
-			{Name: "fetched", Value: d.Fetched.UTC().Format(time.RFC3339)},
-			{Name: "sha256", Value: d.SHA256},
-			{Name: "body", Value: string(body)},
-		}
+		fields := check.Stored{
+			Kind: d.Kind.String(), Title: d.Title, Created: d.Created.UTC().Format(time.RFC3339),
+			Author: d.Author, Source: d.Source, Status: d.Status.String(), Verified: d.Verified, Decided: d.Decided,
+			Replaces: d.Replaces, Relates: d.Relates, Tags: d.Tags, StaleAfter: d.StaleAfter,
+			Origin: d.Origin.String(), Fetched: d.Fetched.UTC().Format(time.RFC3339), SHA256: d.SHA256,
+			Body: string(body),
+		}.Fields()
 		warnSecrets(wc, fields)
 	}
 	if wc.Brain.Config.HasTags {

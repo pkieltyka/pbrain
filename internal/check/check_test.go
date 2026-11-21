@@ -2,6 +2,7 @@ package check
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -181,4 +182,46 @@ func itoa(n int) string {
 		b = append([]byte{byte('0' + n%10)}, b...)
 	}
 	return string(b)
+}
+
+// The scan covers the raw kind and status as stored, as a shared write does.
+func TestCheckScansRawKindAndStatus(t *testing.T) {
+	status := mk("st", item.Shared, item.Note, func(h *item.Header) { h.StatusRaw = token })
+	kind := mk("kd", item.Shared, item.Note, func(h *item.Header) { h.KindRaw = token })
+	fs, _ := collect([]*item.Item{status, kind}, nil, Options{})
+	var got []string
+	for _, f := range find(fs, "secret_suspected") {
+		got = append(got, f.Path+" "+f.Message)
+	}
+	if strings.Join(got, "|") != "kd.md kind line 1: github_token|st.md status line 1: github_token" {
+		t.Fatalf("raw kind and status: %q", got)
+	}
+}
+
+// Every stored field of a parsed item reaches the projection: with a secret in each header field,
+// every field but the body is reported, by the same names a write uses.
+func TestStoredProjectionIsComplete(t *testing.T) {
+	h := item.Header{KindRaw: token, Title: token, Author: token, Source: token, StatusRaw: token, Verified: token,
+		Decided: token, Replaces: []string{token}, Relates: []string{token}, Tags: []string{token}, SHA256: token}
+	s := StoredOf(&h)
+	v := reflect.ValueOf(s)
+	for i := range v.NumField() {
+		name := v.Type().Field(i).Name
+		switch name {
+		case "Body", "Created", "StaleAfter", "Fetched", "Origin": // the body is the caller's; the rest are parsed values
+			continue
+		}
+		f := v.Field(i)
+		if f.Kind() == reflect.String && f.String() == "" || f.Kind() == reflect.Slice && f.Len() == 0 {
+			t.Errorf("StoredOf leaves %s empty", name)
+		}
+	}
+	var names []string
+	for _, f := range s.Fields() {
+		names = append(names, f.Name)
+	}
+	want := "kind title created author source status verified decided replaces relates tags stale_after origin fetched sha256 body"
+	if strings.Join(names, " ") != want {
+		t.Fatalf("fields %q", names)
+	}
 }
