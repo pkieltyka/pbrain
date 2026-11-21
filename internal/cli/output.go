@@ -141,7 +141,11 @@ func finish(env Env, in *invocation, result outcome) int {
 			if !result.committed {
 				return emitError(env.Stderr, in.json, ioFailure("could not deliver standard output"))
 			}
-			emitNotice(env.Stderr, in.json, errs.Notice{Code: "after_write", Message: "Could not deliver standard output. Look up the item before repeating the command."})
+			message := "Could not deliver standard output. Look up the item before repeating the command."
+			if in.cmd.name == "audience" {
+				message = "Could not deliver standard output. List the audience rules before repeating the command."
+			}
+			emitNotice(env.Stderr, in.json, errs.Notice{Code: "after_write", Message: message})
 			return 0
 		}
 	}
