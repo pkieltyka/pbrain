@@ -6,7 +6,7 @@ require (
 	codeberg.org/readeck/go-readability/v2 v2.1.3
 	github.com/BurntSushi/toml v1.6.0
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
-	github.com/pkieltyka/aikit v1.79.0
+	github.com/pkieltyka/aikit v1.79.1
 	github.com/pkieltyka/goinfer v0.4.1
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/pflag v1.1.0

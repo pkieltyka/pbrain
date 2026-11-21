@@ -28,8 +28,8 @@ github.com/mattn/go-isatty v0.0.24 h1:tGZZoVgT/KiqK1c8ocVLeDS8BSWMRd47J3Lbz7vsRe
 github.com/mattn/go-isatty v0.0.24/go.mod h1:nMCL3Zebbrt45jsMDgnfIwz6ydEQApk5oEI3HqDio6A=
 github.com/ncruces/go-strftime v1.1.0 h1:vtPmPWMkb539RGV9WpWT9EwJGvrOCKvMNI4obWL47Hk=
 github.com/ncruces/go-strftime v1.1.0/go.mod h1:yVaq7iwCN09vHRrKBrrflXT0M9tTMG2KmZ9Fj7xeG/g=
-github.com/pkieltyka/aikit v1.79.0 h1:V+jzZQK05MtAZTx21cuNOY3SXODIKMw2uWLhVwiA3uc=
-github.com/pkieltyka/aikit v1.79.0/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
+github.com/pkieltyka/aikit v1.79.1 h1:J8fGlbr5HlGBukmT1U/B4JhdeGWhPw+DJnZEaYamTnk=
+github.com/pkieltyka/aikit v1.79.1/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
 github.com/pkieltyka/goinfer v0.4.1 h1:incHcoSd+vK6pt3SlgQurirXYpZS1h628zkrGORJnHQ=
 github.com/pkieltyka/goinfer v0.4.1/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
