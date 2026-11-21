@@ -1,0 +1,21 @@
+{
+  "paused_at_utc": "2026-11-21T16:02:52.602616+00:00",
+  "pid": 694052,
+  "initial_index_wall_seconds": 5873.415863012982,
+  "peak_rss_kib": 2068220,
+  "brain": "/tmp/pbrain-phase28-release.Oq1j8a/full-corpus/personal/docs/brain",
+  "cache": "/tmp/pbrain-phase28-release.Oq1j8a/full-corpus/personal-model-cache",
+  "last_seen_manifest": {
+    "format": 2,
+    "fingerprint": "e3c9a68ccccdf02cf42843d7d19fac984a5c6f922630f12217cbab68343509e9",
+    "model": "embeddinggemma-2",
+    "dim": 768,
+    "db": "f8eea433419aeb55.db",
+    "size": 21954560,
+    "sha256": "2dfe0b49b6ac4b56baa0062260e069c40618b66cf622cb3ad6084d0b1ade2b69"
+  },
+  "checkpoint_items": 545,
+  "checkpoint_passages": 5251,
+  "checkpoint_database": "/tmp/pbrain-phase28-release.Oq1j8a/full-corpus/personal/docs/brain/.pbrain/index/f8eea433419aeb55.db",
+  "cache_vectors": 5272
+}

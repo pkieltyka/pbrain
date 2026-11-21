@@ -1,0 +1,4 @@
+queued 2026-11-21T16:05:18+00:00; waiting for BGE build and reads
+resuming 2026-11-21T17:45:50+00:00
+=== RUN   TestMeasureResumeGemma
+    measure_resume_test.go:93: resuming the Gemma index with 545 shared items and 5251 passages already published
