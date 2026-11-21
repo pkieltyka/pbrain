@@ -249,6 +249,7 @@ A negative offset is a usage error. An offset at or past the end returns an empt
 
 - Every value outside a body is printed on one line: line breaks and control characters become spaces. Bodies are printed as stored.
 - Long values are cut and end in "…": title 120, snippet 200, actor 80, source 80 in results and 200 in `get`, except a linked item's link in `get` (section 7.2). An id list shows at most 10 ids, then the count of the rest: `(+N more)` in text, and in JSON a number beside the list, named after it, such as `replaces_more`.
+- **Counts.** Wherever pbrain prints a count with its noun, a count of one is written in the singular (`1 result`, `1 occurrence`, `1 section`, `1 item`) and every other count, zero included, in the plural (`0 results`, `0 occurrences`).
 - Every result in `search`, `list` and `prime` shows the item's `created` date, or `unknown`.
 - A `source` item is labelled by its kind in every result; that label marks outside material. A linked item (section 2.5) is also marked `linked` wherever it is shown, in JSON `"linked": true`: its content is at the source, so an agent that needs it fetches it there. pbrain only prints stored text: it never renders it, runs it or fetches anything it names.
 - A path is never printed absolute. It is relative to the top of the Git work tree that holds the brain, or to the brain folder outside one, with forward slashes: `docs/brain/decisions/<id>.md`. A personal item stored outside that folder prints as `personal:` and its path inside the personal section.
