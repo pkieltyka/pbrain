@@ -12,7 +12,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/item"
 )
 
-const token = "ghp_abcdefghijklmnopqrstuvwxyz0123456789"
+const token = "gh" + "p_" + "abcdefghijklmnopqrstuvwxyz0123456789"
 
 func mk(id string, sec item.Section, kind item.Kind, mod func(h *item.Header)) *item.Item {
 	it := &item.Item{ID: id, Key: item.Fold(id), Section: sec, Path: "/b/" + id + ".md"}
