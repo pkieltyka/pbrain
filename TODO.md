@@ -7,23 +7,13 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Gemma paused after 5,873.416 s at 545 items/5,251 passages (1.97 GiB peak); BGE indexing first, at 917 passages. Both baseline jobs use binary 9f53910; sum Gemma active time across resume, excluding pause
-    * next: finish BGE build and warm samples, resume Gemma on its retained index/cache, then validate warm search with the v0.4.1 binary on fixture copies; finish README figures and final read-only pass
-
-- [ ] pbrain aikit v1.79.1 dependency verification (@architect-2)
-    * owner: @architect-2
-    * range/status: `df454ba..98d62cb` on `peter/aikit-v1791`; proxy, BGE and Gemma pinned-file checks passed
-    * next: @reviewer reviews both commits
-
-- [ ] pbrain aikit v1.79.1 spec pin update (@architect)
-    * owner: @architect
-    * range/status: second commit `98d62cb` on `peter/aikit-v1791`
-    * next: reviewer reviews the bump and spec together over `df454ba..98d62cb`
+    * range/status: BGE record `8ed106e` under review; Gemma resumed on baseline 9f53910, at 741 shared items/7,167 passages
+    * next: finish Gemma and active-time total, then run queued warm checks with `67cf646`
 
 - [ ] pbrain final first-index figures (@architect)
     * owner: @architect
-    * range/status: waiting for the completed Linux full-size Gemma and BGE runs
-    * next: update spec, skill and README with final measured figures for both models
+    * range/status: five-file BGE spec/skill delta in working tree, held pending review of `8ed106e`; Gemma figures pending
+    * next: after review, @operator merges record and delta; @architect updates the README sentence and later adds Gemma's final figures
 
 ## Backlog
 
@@ -48,6 +38,8 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain aikit v1.79.1 dependency and spec pin (@architect-2, @architect) `20a69cf`, `98d62cb`
 
 - [x] pbrain goinfer v0.4.1 dependency and spec pin (@architect-2, @architect) `023bc3e`, `0b655ae`
 
