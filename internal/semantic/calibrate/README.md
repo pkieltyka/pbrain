@@ -2,7 +2,7 @@
 
 Run from the repository root. The tool copies the fixture to a temporary
 brain and uses a fixed UTC clock and the release's default JSON budgets.
-The phase 18 tool runs the model-free arms.
+With no model selected it runs the model-free arms.
 
 ```sh
 go run ./internal/semantic/calibrate -stage calibration internal/semantic/calibrate/testdata/retrieval
@@ -18,6 +18,32 @@ diagnostic and that the private controls open in the personal view.
 The count and BM25 controls use identical candidates. The separate stemming
 control uses English suffix rules on unquoted words. The heading control
 adds a second count for occurrences in recognized heading titles.
+
+## Model gates
+
+Pass a model name and the directory of its pinned files. For bge-small
+the directory uses the same flat names as `model_path` in pbrain.
+
+```sh
+go run ./internal/semantic/calibrate -model bge-small-en-v1.5 \
+  -model-path /path/to/pinned/bge-small \
+  internal/semantic/calibrate/testdata/retrieval
+```
+
+The tool builds the scratch index, uses uncensored production scores and
+the complete exact-result list to choose the cutoff on calibration
+negatives, then evaluates the held-out JSON pages at that cutoff. It
+also reports reciprocal-rank fusion of positive BM25 ranks and semantic
+ranks at the same cutoff, with equal weights and a rank constant of 60.
+No model files are downloaded. The scratch indexes and cache are removed
+when the run finishes.
+
+Read `model.semantic_gate.pass` for standalone model eligibility and
+`model.combined_abstention_gate.pass` for the two flags together.
+`model.bm25_with_model` is true only when the standalone partial and
+semantic gates and their combined gate all pass. Exit 1 means one or
+more gates failed. An incomplete index or a semantic fallback stops
+the evaluation as an error instead of counting a lexical-only page.
 
 ## Phase 18 gate
 

@@ -46,6 +46,7 @@ type fixture struct {
 	root, dir string
 	overlay   string
 	questions []question
+	model     *modelRun
 }
 
 func loadFixture(ctx context.Context, source string) (*fixture, error) {
