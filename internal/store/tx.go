@@ -104,6 +104,11 @@ func (tx *Tx) destination(ctx context.Context, kind item.Kind, id string) (folde
 	folderPath := filepath.Join(tx.rootDir, folder)
 	finalPath := filepath.Join(folderPath, name)
 	for _, p := range tx.b.Protected() {
+		// The personal section is protected from shared use, but it is the
+		// intended root of this personal transaction.
+		if tx.section == item.Personal && p.Path == tx.rootDir {
+			continue
+		}
 		if folderPath == p.Path || strings.HasPrefix(folderPath, p.Path+string(filepath.Separator)) {
 			return "", "", invalidErr("the destination folder is protected")
 		}
