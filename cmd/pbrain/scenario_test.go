@@ -70,6 +70,7 @@ func TestScenarios(t *testing.T) {
 		Dir:                "testdata/scenarios",
 		Setup:              setupScenario,
 		RequireUniqueNames: true,
+		Condition:          scenarioCondition,
 		Cmds: map[string]func(*testscript.TestScript, bool, []string){
 			"guard":         assertGuard,
 			"pagebudget":    pageBudget,
@@ -85,6 +86,17 @@ func TestScenarios(t *testing.T) {
 			"testmodel":     scenarioTestModel,
 			"damage-index":  scenarioDamageIndex,
 			"audience-race": scenarioAudienceRace,
+			"bytefile":      scenarioByteFile,
+			"byterm":        scenarioByteRm,
+			"nocolor":       scenarioNoColor,
+			"ptyout":        scenarioPTYOut,
+			"fits":          scenarioFits,
+			"fileline":      scenarioFileLine,
+			"nofinal":       scenarioNoFinal,
+			"minbudget":     scenarioMinBudget,
+			"sameprefix":    scenarioSamePrefix,
+			"countfiles":    scenarioCountFiles,
+			"ptyskip":       scenarioPTYSkip,
 		},
 	})
 }

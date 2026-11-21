@@ -1,0 +1,50 @@
+# Functional spec §15, scenario 40, with --semantic as well: a page that held an exact result with
+# its block holds, when an added result also fits, both results; the exact one may be back to its
+# one-line snippet, with its first, title and location lines as they were. Text and JSON.
+pbrain init
+testmodel test-model $WORK/table.json
+pbrain-test index
+
+pbrain-test search heron --context 1
+stdout '^    9: the heron stands$'
+pbrain-test search heron --semantic
+cp stdout $WORK/both.txt
+pagebudget N $WORK/both.txt
+pbrain-test search heron --context 1 --semantic --max-chars $N
+stdout '^20261102-000000-heron-h1h1  note  provisional  2026-11-02$'
+stdout '^  Heron alpha note \(by agent:x\)$'
+stdout '^  docs/brain/notes/20261102-000000-heron-h1h1.md:8  \[body L8, offset 0/51; file 10L/141C; 2 occurrences\]$'
+stdout '^20261103-000000-plain-p1p1  note  provisional  2026-11-03  semantic$'
+stdout '^2 results\.$'
+fits stdout $N
+
+pbrain-test search heron --semantic --json
+cp stdout $WORK/both.json
+pagebudget NJ $WORK/both.json
+pbrain-test search heron --context 1 --semantic --json --max-chars $NJ
+ids results 20261102-000000-heron-h1h1 20261103-000000-plain-p1p1
+stdout '"file_lines":10,"id":"20261102-000000-heron-h1h1",.*"snippet_line":8,"snippet_offset":0,'
+fits stdout $NJ
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- repo/docs/brain/notes/20261102-000000-heron-h1h1.md --
+---
+kind: note
+title: Heron alpha note
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+first line alpha
+the heron stands
+third line alpha
+-- repo/docs/brain/notes/20261103-000000-plain-p1p1.md --
+---
+kind: note
+title: Plain
+author: agent:x
+created: 2026-11-03T00:00:00Z
+---
+
+no keyword here at all

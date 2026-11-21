@@ -1,0 +1,116 @@
+# Functional spec §15, scenario 36: outline.
+pbrain init
+
+# A long source lists its sections in order with position, size and its heading's file line; text
+# before the first heading has its own line; a heading inside fenced code is not a section; a
+# parent's size covers its subsections.
+pbrain-test get long --outline
+cp stdout $WORK/outline.txt
+stdout '^outline: 5 sections, body 139$'
+stdout '^0  27  L8  \(before the first heading\)$'
+stdout '^27  91  L10  # Part one$'
+stdout '^49  47  L14  ## Sub a$'
+stdout '^96  22  L22  ## Sub b$'
+stdout '^118  21  L26  # Part two$'
+stdout '^5 sections\.$'
+! stdout 'not a heading'
+fileline docs/brain/long.md 10 '^# Part one$'
+fileline docs/brain/long.md 22 '^## Sub b$'
+fileline docs/brain/long.md 26 '^# Part two$'
+pbrain-test get long --outline --json
+stdout '\{"chars":27,"file_line":8,"level":0,"offset":0\},\{"chars":91,"file_line":10,"level":1,"offset":27,"title":"Part one"\}'
+
+# get --offset at a listed position opens on that heading.
+pbrain-test get long --offset 27
+stdout '^# Part one$'
+stdout '^\[body 27 to 138 of 139; file L10–L28\]$'
+pbrain-test get long --offset 96
+stdout '^## Sub b$'
+stdout '^\[body 96 to 138 of 139; file L22–L28\]$'
+
+# Paging with --offset visits each section once, within the limit, in text and JSON.
+pbrain-test get long --outline --limit 2
+stdout '^0  27  L8  '
+stdout '^27  91  L10  '
+stdout '^2 sections\. 3 more: --offset 2$'
+pbrain-test get long --outline --limit 2 --offset 2
+stdout '^49  47  L14  '
+stdout '^96  22  L22  '
+stdout '^2 sections\. 1 more: --offset 4$'
+pbrain-test get long --outline --limit 2 --offset 4
+stdout '^118  21  L26  '
+stdout '^1 section\.$'
+pbrain-test get long --outline --limit 2 --json
+stdout '"offset":0\}.*"offset":27,'
+stdout '"more":3,"next":2'
+pbrain-test get long --outline --limit 2 --offset 2 --json
+stdout '"offset":49,.*"offset":96,'
+stdout '"more":1,"next":4'
+pbrain-test get long --outline --limit 2 --offset 4 --json
+stdout '"offset":118,'
+! stdout '"more"'
+
+# A body without headings gives one line; an empty body none.
+pbrain-test get flat --outline
+stdout '^0  27  L8  \(before the first heading\)$'
+stdout '^1 section\.$'
+pbrain-test get empty --outline
+stdout '^outline: 0 sections, body 0$'
+stdout '^0 sections\.$'
+
+# --outline --history is a usage error.
+status 2 pbrain-test get long --outline --history
+stderr '^usage: --history cannot be used with --outline$'
+
+# The outline is the same with a model, an index and a cache on the machine as without them.
+testmodel test-model
+pbrain-test index
+pbrain-test get long --outline
+cmp stdout $WORK/outline.txt
+
+-- repo/docs/brain/long.md --
+---
+kind: source
+title: Outline source
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+Intro before any heading.
+
+# Part one
+
+one text
+
+## Sub a
+
+sub a text
+
+```
+# not a heading
+```
+
+## Sub b
+
+sub b text
+
+# Part two
+
+two text
+-- repo/docs/brain/flat.md --
+---
+kind: note
+title: Flat note
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+no headings here
+just text
+-- repo/docs/brain/empty.md --
+---
+kind: note
+title: Empty note
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---

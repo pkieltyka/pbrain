@@ -1,0 +1,159 @@
+# Functional spec §15, scenario 37: fingerprint change, a second work tree, incremental rebuilds.
+pbrain init
+testmodel test-model $WORK/table.json
+pbrain-test index
+stdout '^shared: 1 item indexed, 0 items removed; 12 passages embedded, 0 reused$'
+countfiles $PBRAIN_CACHE/vectors 12
+pbrain-test search alphas --semantic
+stdout '^guide  source  provisional  2026-11-01  semantic$'
+
+# Naming another model: lexical results with semantic_not_ready, and no item indexed.
+testmodel test-model-b $WORK/table.json
+pbrain-test search alphas --semantic
+stdout '^0 results\.'
+stderr '^semantic_not_ready: no index for this model: run pbrain index$'
+pbrain-test index --status
+stdout '^model: test-model-b, on this machine$'
+stdout '^shared: 0 of 1 item indexed \(built for another model\)$'
+
+# pbrain index builds a new index and removes the old one.
+pbrain-test index
+stdout '^shared: 1 item indexed, 0 items removed; 12 passages embedded, 0 reused$'
+countfiles docs/brain/.pbrain/index 3
+pbrain-test index --status
+stdout '^shared: 1 of 1 item indexed$'
+pbrain-test search alphas --semantic
+stdout '^guide  source  provisional  2026-11-01  semantic$'
+! stderr .
+countfiles $PBRAIN_CACHE/vectors 24
+
+# A second work tree builds its index from the per-user cache without embedding a shared passage;
+# its personal item is embedded and never written to the cache.
+exec git add -A
+exec git commit -q -m 'scenario 37'
+exec git worktree add -q ../wt2
+cd ../wt2
+testmodel test-model-b $WORK/table.json
+mkdir docs/brain/personal
+cp $WORK/mine.md docs/brain/personal/mine.md
+pbrain-test index --personal
+stdout '^shared: 1 item indexed, 0 items removed; 0 passages embedded, 12 reused$'
+stdout '^personal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused$'
+countfiles $PBRAIN_CACHE/vectors 24
+cd ../repo
+
+# One edited paragraph of a long indexed source: one passage embedded, the others reused. One added
+# short note: one passage. Run again at once: none.
+cp $WORK/edited.md docs/brain/sources/guide.md
+pbrain-test index
+stdout '^shared: 1 item indexed, 0 items removed; 1 passage embedded, 11 reused$'
+pbrain-test add --title 'Short note' --body 'gamma words'
+pbrain-test index
+stdout '^shared: 2 items indexed, 0 items removed; 1 passage embedded, 0 reused$'
+pbrain-test index
+stdout '^shared: 2 items indexed, 0 items removed; 0 passages embedded, 0 reused$'
+countfiles $PBRAIN_CACHE/vectors 26
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- repo/docs/brain/sources/guide.md --
+---
+kind: source
+title: Guide
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Guide
+
+## Part 0
+
+paragraph 0 about alpha matters
+## Part 1
+
+paragraph 1 about alpha matters
+## Part 2
+
+paragraph 2 about alpha matters
+## Part 3
+
+paragraph 3 about alpha matters
+## Part 4
+
+paragraph 4 about alpha matters
+## Part 5
+
+paragraph 5 about alpha matters
+## Part 6
+
+paragraph 6 about alpha matters
+## Part 7
+
+paragraph 7 about alpha matters
+## Part 8
+
+paragraph 8 about alpha matters
+## Part 9
+
+paragraph 9 about alpha matters
+## Part 10
+
+paragraph 10 about alpha matters
+## Part 11
+
+paragraph 11 about alpha matters
+-- edited.md --
+---
+kind: source
+title: Guide
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Guide
+
+## Part 0
+
+paragraph 0 about alpha matters
+## Part 1
+
+paragraph 1 about alpha matters
+## Part 2
+
+paragraph 2 about alpha matters
+## Part 3
+
+paragraph 3 about alpha matters
+## Part 4
+
+paragraph 4 about alpha matters
+## Part 5
+
+paragraph 5 rewritten about beta matters
+## Part 6
+
+paragraph 6 about alpha matters
+## Part 7
+
+paragraph 7 about alpha matters
+## Part 8
+
+paragraph 8 about alpha matters
+## Part 9
+
+paragraph 9 about alpha matters
+## Part 10
+
+paragraph 10 about alpha matters
+## Part 11
+
+paragraph 11 about alpha matters
+-- mine.md --
+---
+kind: note
+title: Mine
+author: agent:x
+created: 2026-11-03T00:00:00Z
+---
+
+my gamma notes

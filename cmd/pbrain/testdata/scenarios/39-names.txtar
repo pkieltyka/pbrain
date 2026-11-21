@@ -1,0 +1,116 @@
+# Functional spec Â§15, scenario 39: ids and file names. An item whose file name holds a line feed
+# is one result with its id as one quoted token; a check finding about such a file is one line; of
+# two stems ending in the byte ff and in U+FFFD only the second is an item.
+pbrain init
+bytefile $WORK/new.md 'docs/brain/decisions/20261121-000000-a\nb.md'
+mkdir docs/brain/personal
+
+# The id is one token on the result's first line, in get, list, prime, history, a related line and
+# id lists; JSON carries the stored id.
+pbrain-test search zebraword
+stdout '^"20261121-000000-a\\u000ab"  decision  verified  2026-11-21$'
+stdout '^  newer related: "20261121-000000-a\\u000ab", decision, decided, 2026-11-21, New way$'
+! stdout '^b  |^b"'
+pbrain-test list
+stdout '^"20261121-000000-a\\u000ab"  decision  verified  2026-11-21  New way$'
+pbrain-test prime
+stdout '^decision  2026-11-21  "20261121-000000-a\\u000ab"  New way \(human:x\)$'
+pbrain-test get 20261101-000000-old-o1o1
+stdout '^replacement: "20261121-000000-a\\u000ab"$'
+stdout '^current: "20261121-000000-a\\u000ab"$'
+pbrain-test search zebraword --json
+jsonenv ID results.0.id
+pbrain-test get $ID
+stdout '^"20261121-000000-a\\u000ab"$'
+stdout '^path: "docs/brain/decisions/20261121-000000-a\\u000ab.md"$'
+pbrain-test get $ID --history
+stdout '^"20261121-000000-a\\u000ab"  decision  verified  2026-11-21  New way \(decided by human:x; replaces: 20261101-000000-old-o1o1\)$'
+pbrain-test get $ID --json
+stdout '"id":"20261121-000000-a\\nb"'
+
+# A check finding about a file whose name holds a line feed is one line, its path quoted.
+bytefile $WORK/broken.md 'docs/brain/bad\npath.md'
+status 1 pbrain-test check
+stdout '^error bad_front_matter "docs/brain/bad\\u000apath.md"  duplicate_key$'
+byterm 'docs/brain/bad\npath.md'
+
+# Of the stems 78 ff and 78 ef bf bd only the second is an item: a search returns it alone, with its
+# path, and one notice counts the other.
+bytefile $WORK/ff.md 'docs/brain/notes/x\xff.md'
+bytefile $WORK/fffd.md 'docs/brain/notes/x\ufffd.md'
+pbrain-test search wombatword
+stdout '^x\x{fffd}  note  provisional  2026-11-02$'
+stdout '^  docs/brain/notes/x\x{fffd}.md:8  '
+stdout '^1 result\.$'
+stderr -count=1 '\n'
+stderr '^skipped_files: 1 file skipped: run pbrain check$'
+pbrain-test search wombatword --json
+stdout '"id":"x\x{fffd}"'
+stdout '"path":"docs/brain/notes/x\x{fffd}.md"'
+
+# get with the second's id opens it; get with the first's bytes finds nothing and suggests nothing.
+pbrain-test get xï¿½
+stdout '^title: Real name$'
+status 1 pbrain-test get xÿ
+stderr '^not_found: no item has that id in this view$'
+
+# check reports the first as bad_file_name, naming its folder.
+status 1 pbrain-test check
+stdout '^error bad_file_name docs/brain/notes/  the file name is not valid UTF-8, so the file has no id; reads skip this file$'
+
+-- repo/docs/brain/decisions/20261101-000000-old-o1o1.md --
+---
+kind: decision
+title: Old way
+author: agent:x
+created: 2026-11-01T00:00:00Z
+decided: human:x
+status: verified
+---
+
+zebraword old
+-- repo/docs/brain/notes/20261110-000000-plain-p1p1.md --
+---
+kind: note
+title: Plain
+author: agent:x
+created: 2026-11-10T00:00:00Z
+---
+
+zebraword plain
+-- new.md --
+---
+kind: decision
+title: New way
+author: agent:x
+created: 2026-11-21T00:00:00Z
+decided: human:x
+status: verified
+replaces: [20261101-000000-old-o1o1]
+relates: [20261110-000000-plain-p1p1]
+---
+
+zebraword new
+-- broken.md --
+---
+kind: note
+kind: note
+---
+-- ff.md --
+---
+kind: note
+title: Bad name
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+wombatword
+-- fffd.md --
+---
+kind: note
+title: Real name
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+wombatword

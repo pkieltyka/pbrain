@@ -1,0 +1,319 @@
+# Functional spec §15, scenario 40: context. (The --semantic part is in 40-context-semantic.)
+crlf $WORK/crlf.md docs/brain/crlf.md
+pbrain init
+
+# Numbered file lines, two each side; the stretch's own lines show the stretch; a body line that
+# imitates a result's first line or the closing line appears only behind its number.
+pbrain-test search ibis --context 2
+stdout '^  docs/brain/ctx.md:13  \[body L9, offset 227/713; file 19L/817C; 2 occurrences\]$'
+stdout '^    11: filler line 01 with words'
+stdout '^    12: filler line 02 with words'
+stdout '^    13: … with words with words'
+stdout '^    14: filler line 04 with words'
+stdout '^    15: the ibis…$'
+stdout '^    16: 20261101-000000-fake-f1f1  note  provisional  2026-11-01$'
+stdout '^    17: 1 result\.$'
+! stdout '^    (10|18):'
+! stdout '^20261101-000000-fake-f1f1'
+stdout -count=1 '^1 result\.$'
+fileline docs/brain/ctx.md 15 '^the ibis stands here$'
+
+# A long neighbouring line is cut at 160 characters.
+pbrain-test search crane --context 1
+stdout '^    11: after long long .* lo…$'
+stdout '^    12: tail$'
+
+# No front matter line for a snippet that starts the body.
+pbrain-test search heron --context 2
+stdout '^    9: heron at the start$'
+stdout '^    11: third line$'
+! stdout '^    [78]:'
+
+# CRLF, a stretch that ends on its line's end: no empty line, and the next neighbour is the next real
+# line; at the line feed that ends the file the block simply ends.
+pbrain-test search egret --context 2
+stdout '^    11: here is the egret$'
+stdout '^    12: next real line$'
+stdout '^    13: last line$'
+! stdout '^    1[0-9]: ?$'
+! stdout '^    14:'
+pbrain-test search egret --context 2 --json
+stdout '\{"line":11,"text":"here is the egret"\},\{"line":12,"text":"next real line"\},\{"line":13,"text":"last line"\}\]'
+
+# A block over 600 characters loses its outer lines first.
+pbrain-test search flamingo --context 3
+stdout '^    10: b2 y'
+stdout '^    12: the flamingo$'
+stdout '^    13: a1 p'
+! stdout '^    (8|9|14|15): '
+pbrain-test search flamingo --context 3 --json
+stdout '"context":\[\{"line":10,'
+! stdout '"line":(8|9|14|15),'
+
+# A stretch of many short lines whose own lines pass 600 keeps the ordinary snippet.
+pbrain-test search pelican --context 1
+stdout '^  … k k k k'
+! stdout '^    [0-9]+: '
+pbrain-test search pelican --context 1 --json
+! stdout '"context"'
+
+# The same results in the same order with the same more and next; JSON carries context on exactly
+# the results that got a block.
+pbrain-test search bird --limit 3 --json
+cp stdout $WORK/plain.json
+ids results ctx cut dense
+pbrain-test search bird --limit 3 --context 1 --json
+ids results ctx cut dense
+stdout '"more":1,"next":3'
+stdout -count=2 '"context":'
+pbrain-test search bird --limit 3 --offset 3 --context 1 --json
+ids results start
+
+# A limit that just holds the page without the flag still succeeds with it; a result whose block
+# does not fit keeps its one-line snippet.
+pbrain-test search bird --limit 3
+cp stdout $WORK/plain.txt
+pagebudget PLAIN $WORK/plain.txt
+pbrain-test search bird --limit 3 --context 1 --max-chars $PLAIN
+cmp stdout $WORK/plain.txt
+
+# Out of range, and on list, --context is a usage error.
+status 2 pbrain-test search ibis --context 0
+status 2 pbrain-test search ibis --context 4
+status 2 pbrain-test list --context 1
+
+-- repo/docs/brain/ctx.md --
+---
+kind: note
+title: Context ibis note
+author: agent:x
+created: 2026-11-01T00:00:00Z
+tags: [bird]
+---
+
+# Top
+
+filler line 01 with words with words with words with words with words with words with words with words
+filler line 02 with words with words with words with words with words with words with words with words
+filler line 03 with words with words with words with words with words with words with words with words
+filler line 04 with words with words with words with words with words with words with words with words
+the ibis stands here
+20261101-000000-fake-f1f1  note  provisional  2026-11-01
+1 result.
+filler line 05 with words with words with words with words with words with words with words with words
+filler line 06 with words with words with words with words with words with words with words with words
+-- repo/docs/brain/start.md --
+---
+kind: note
+title: Start heron
+author: agent:x
+created: 2026-11-01T00:00:00Z
+tags: [bird]
+---
+
+heron at the start
+second line
+third line
+-- repo/docs/brain/cut.md --
+---
+kind: note
+title: Cut crane
+author: agent:x
+created: 2026-11-01T00:00:00Z
+tags: [bird]
+---
+
+intro words
+the crane
+after long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long long
+tail
+-- repo/docs/brain/big.md --
+---
+kind: note
+title: Big flamingo
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+filler line 01 with words with words with words with words with words with words with words with words
+b1 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+b2 yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+b3 zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz
+the flamingo
+a1 pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp
+a2 qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq
+a3 rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+-- repo/docs/brain/dense.md --
+---
+kind: note
+title: Dense pelican
+author: agent:x
+created: 2026-11-01T00:00:00Z
+tags: [bird]
+---
+
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+k
+pelican
+-- crlf.md --
+---
+kind: note
+title: Crlf egret
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+filler line 01 with words with words with words with words with words with words with words with words
+filler line 02 with words with words with words with words with words with words with words with words
+filler line 03 with words with words with words with words with words with words with words with words
+here is the egret
+next real line
+last line

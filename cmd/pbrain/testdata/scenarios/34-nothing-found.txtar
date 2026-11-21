@@ -1,0 +1,53 @@
+# Functional spec §15, scenario 34: nothing found. In the test model's table "orbit" is its own
+# direction: the item with two other keywords beside it scores 1/sqrt(3), about 0.577, just above the
+# 0.5 cut-off; the one with four scores 1/sqrt(5), about 0.447, just below.
+pbrain init
+testmodel test-model $WORK/table.json
+pbrain-test index
+stdout '^shared: 3 items indexed'
+
+# A question unrelated to anything returns 0 results with exit code 0: every item has a score, and
+# nothing under the cut-off is returned.
+pbrain-test search volcanoes erupting --semantic
+stdout '^0 results\.'
+! stdout '^2026'
+pbrain-test search volcanoes erupting --semantic --json
+! stdout '"results"'
+
+# With one item just above the cut-off and one just below, only the first is added.
+pbrain-test search orbiting objects --semantic
+stdout '^20261101-000000-above-a1a1  note  provisional  2026-11-01  semantic$'
+! stdout 'below-b1b1'
+stdout '^1 result\.$'
+pbrain-test search orbiting objects --semantic --json
+ids results 20261101-000000-above-a1a1
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- repo/docs/brain/notes/20261101-000000-above-a1a1.md --
+---
+kind: note
+title: Above the line
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+orbit with alpha and beta
+-- repo/docs/brain/notes/20261102-000000-below-b1b1.md --
+---
+kind: note
+title: Below the line
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+orbit with alpha, beta, gamma and delta
+-- repo/docs/brain/notes/20261103-000000-other-o1o1.md --
+---
+kind: note
+title: Something else
+author: agent:x
+created: 2026-11-03T00:00:00Z
+---
+
+Plain words with no keyword at all.

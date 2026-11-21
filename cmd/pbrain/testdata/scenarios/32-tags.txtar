@@ -1,0 +1,72 @@
+# Functional spec §15, scenario 32: declared and undeclared tags.
+pbrain init
+cp $WORK/table.toml docs/brain/pbrain.toml
+
+# With a [tags] table: an undeclared tag is written, with a notice, and check warns.
+pbrain-test add --title 'Cache note' --body x --tag cache
+! stderr .
+pbrain-test add --title 'Odd tag' --body x --tag redis-cache
+stderr '^undeclared_tag: tags: undeclared tag redis-cache$'
+pbrain-test tags
+cmp stdout $WORK/tags-1.txt
+pbrain-test tags --json
+stdout '^\{"tags":\[\{"description":"Caching layers, Redis, TTLs","items":1,"tag":"cache"\},\{"description":"Build and test pipelines","items":0,"tag":"ci"\},\{"items":1,"tag":"redis-cache","undeclared":true\}\]\}$'
+pbrain-test check
+stdout '^warning undeclared_tag docs/brain/notes/.*-odd-tag-....\.md  tag redis-cache is not declared in pbrain\.toml$'
+
+# A tag shaped like a Slack token is written; neither notice nor check repeats it, text or JSON. The
+# token is built at run time from parts, so no file holds one.
+env SLACKTAG=xo
+pbrain-test add --title 'Token tag' --body x --tag ${SLACKTAG}xb-123456789012-1234567890123-abcdefghijklmnopqrstuvwx
+stderr '^secret_suspected: tags line 1: slack_token$'
+stderr '^undeclared_tag: tags: undeclared tag$'
+! stderr ${SLACKTAG}xb
+pbrain-test add --title 'Token tag again' --body x --tag ${SLACKTAG}xb-123456789012-1234567890123-abcdefghijklmnopqrstuvwx --json
+stderr '^\{"notice":\{"code":"undeclared_tag","message":"tags: undeclared tag"\}\}$'
+! stderr ${SLACKTAG}xb
+pbrain-test check
+stdout '  a tag is not declared in pbrain\.toml$'
+stdout '  tags line 1: slack_token$'
+! stdout ${SLACKTAG}xb
+pbrain-test check --json
+stdout '"message":"a tag is not declared in pbrain.toml"'
+! stdout ${SLACKTAG}xb
+
+# No count includes a personal item without --personal; the shared listing, paging included, is the
+# same before and after a declared tag and an undeclared one are used only on a personal item.
+mkdir docs/brain/personal
+pbrain-test tags
+cp stdout $WORK/shared-before
+pbrain-test tags --limit 1
+cp stdout $WORK/shared-page-before
+pbrain-test add --title 'Personal' --body x --tag ci --tag mine-only --personal
+pbrain-test tags
+cmp stdout $WORK/shared-before
+stdout '^ci  0  Build and test pipelines$'
+pbrain-test tags --limit 1
+cmp stdout $WORK/shared-page-before
+pbrain-test tags --personal
+stdout '^ci  1  Build and test pipelines$'
+stdout '^mine-only  1  undeclared$'
+
+# With no table: no notice, no such finding, and the tags in use, unmarked.
+cp $WORK/empty.toml docs/brain/pbrain.toml
+pbrain-test add --title 'Free tag' --body x --tag anything-goes
+! stderr .
+pbrain-test check
+! stdout 'undeclared_tag'
+pbrain-test tags
+stdout '^anything-goes  1$'
+stdout '^redis-cache  1$'
+! stdout 'undeclared'
+
+-- table.toml --
+[tags]
+cache = "Caching layers, Redis, TTLs"
+ci = "Build and test pipelines"
+-- empty.toml --
+-- tags-1.txt --
+cache  1  Caching layers, Redis, TTLs
+ci  0  Build and test pipelines
+redis-cache  1  undeclared
+3 tags.

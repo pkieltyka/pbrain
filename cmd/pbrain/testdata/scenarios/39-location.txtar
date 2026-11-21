@@ -1,0 +1,279 @@
+# Functional spec §15, scenario 39: location. One body stored with LF, with CRLF and with a
+# byte-order mark; a long line; a title-only match; empty bodies; occurrences; odd paths.
+crlf $WORK/crlf.md docs/brain/layout/crlf.md
+nofinal $WORK/empty-nolf.md docs/brain/empty-nolf.md
+pbrain init
+
+# Each layout prints path:line, and that line of the stored file holds the snippet's first character.
+pbrain-test search koala
+stdout '^lf  note  provisional  2026-11-01$'
+stdout '^  docs/brain/layout/lf.md:15  \[body L8, offset 400/670; file 23L/753C; 1 occurrence\]$'
+stdout '^  docs/brain/layout/crlf.md:15  \[body L8, offset 410/686; file 23L/778C; 1 occurrence\]$'
+stdout '^  docs/brain/layout/bom.md:15  \[body L8, offset 400/670; file 23L/755C; 1 occurrence\]$'
+stdout '^  …al plain words to fill the snippet window here padding line 6'
+stdout '^  …plain words to fill the snippet window here padding line 6'
+fileline docs/brain/layout/lf.md 15 '^padding line 5 with sever'
+fileline docs/brain/layout/crlf.md 15 '^padding line 5 with several '
+fileline docs/brain/layout/bom.md 15 '^padding line 5 with sever'
+fileline docs/brain/layout/lf.md 8 '^# Heading one$'
+fileline docs/brain/layout/crlf.md 8 '^# Heading one$'
+fileline docs/brain/layout/bom.md 8 '^# Heading one$'
+pbrain-test search koala --json
+stdout '"body_chars":670,"body_line":8,"created":"2026-11-01T00:00:00Z","file_chars":753,"file_lines":23,"id":"lf",'
+stdout '"body_chars":686,"body_line":8,"created":"2026-11-01T00:00:00Z","file_chars":778,"file_lines":23,"id":"crlf",'
+stdout '"body_chars":670,"body_line":8,"created":"2026-11-01T00:00:00Z","file_chars":755,"file_lines":23,"id":"bom",'
+stdout '"snippet_line":15,"snippet_offset":400,"status":"provisional","title":"Layout lf"'
+stdout '"snippet_line":15,"snippet_offset":410,"status":"provisional","title":"Layout crlf"'
+stdout '"snippet_line":15,"snippet_offset":400,"status":"provisional","title":"Layout bom"'
+
+# get --offset at the printed offset opens on the same character, on the same file line.
+pbrain-test get lf --offset 400
+stdout '^body: L8, 670C; file 23L/753C$'
+stdout '^al plain words to fill the snippet window here$'
+stdout '^\[body 400 to 669 of 670; file L15–L23\]$'
+pbrain-test get crlf --offset 410
+stdout '^body: L8, 686C; file 23L/778C$'
+stdout '^plain words to fill the snippet window here\r?$'
+stdout '^\[body 410 to 685 of 686; file L15–L23\]$'
+pbrain-test get bom --offset 400
+stdout '^body: L8, 670C; file 23L/755C$'
+stdout '^al plain words to fill the snippet window here$'
+stdout '^\[body 400 to 669 of 670; file L15–L23\]$'
+
+# Each page of a long body names the file lines it printed; the outline names each heading's line.
+pbrain-test get lf --max-chars 400
+stdout '^\[body 0 to 205 of 670; file L8–L12; more: --offset 206\]$'
+pbrain-test get lf --outline
+stdout '^0  670  L8  # Heading one$'
+stdout '^643  27  L21  ## Second part$'
+fileline docs/brain/layout/lf.md 21 '^## Second part$'
+pbrain-test get lf --outline --json
+stdout '"file_line":21,"level":2,"offset":643'
+
+# A match deep inside one long line gives that line and an offset inside it.
+pbrain-test search wombat
+stdout '^  docs/brain/long.md:8  \[body L8, offset 3312/3523; file 8L/3606C; 1 occurrence\]$'
+pbrain-test get long --offset 3312
+stdout '^ller filler .* wombat ends here$'
+stdout '^\[body 3312 to 3522 of 3523; file L8–L8\]$'
+
+# A title-only match gives the body's first line and offset 0.
+pbrain-test search platypus
+stdout '^  docs/brain/title.md:8  \[body L8, offset 0/26; file 8L/114C; 1 occurrence\]$'
+
+# An empty body gives the path alone, 0C, no snippet fields, and a body_line one past the last line.
+pbrain-test search echidna
+stdout '^  docs/brain/empty-lf.md  \[body L7, 0C; file 6L/90C; 1 occurrence\]$'
+stdout '^  docs/brain/empty-nolf.md  \[body L7, 0C; file 6L/92C; 1 occurrence\]$'
+pbrain-test search echidna --json
+stdout '"body_chars":0,"body_line":7,"created":"2026-11-01T00:00:00Z","file_chars":90,"file_lines":6,"id":"empty-lf","kind":"note","occurrences":1,"path":"docs/brain/empty-lf.md","status"'
+stdout '"body_chars":0,"body_line":7,"created":"2026-11-01T00:00:00Z","file_chars":92,"file_lines":6,"id":"empty-nolf","kind":"note","occurrences":1,"path":"docs/brain/empty-nolf.md","status"'
+pbrain-test get empty-nolf
+stdout '^body: L7, 0C; file 6L/92C$'
+! stdout '^\[body'
+
+# occurrences: twice in the title and three times in the body is 5; a phrase counts once per place it
+# starts; a clause counts once however often the query repeats it.
+pbrain-test search quokka
+stdout '; 5 occurrences\]$'
+pbrain-test search quokka quokka --json
+stdout '"occurrences":5'
+pbrain-test search '"quokka island"'
+stdout '; 3 occurrences\]$'
+
+# An empty result prints none of this.
+pbrain-test search nosuchword
+stdout '^0 results\. Alone: nosuchword 0\.$'
+! stdout 'body L|offset|occurrence'
+
+# A path with a space is one quoted string; an escape, a C1 control and a direction override are
+# \u escapes in text and JSON, never raw.
+bytefile $WORK/wallaby.md 'docs/brain/esc\x1b\u0085\u202ename.md'
+pbrain-test search kangaroo
+stdout '^  "docs/brain/with space.md":8  \[body L8'
+pbrain-test search wallaby
+stdout '^  "docs/brain/esc\\u001b\\u0085\\u202ename.md":8  \[body L8'
+! stdout '\x1b|\x{0085}|\x{202e}'
+pbrain-test search wallaby --json
+stdout '"path":"docs/brain/esc\\u001b\\u0085\\u202ename.md"'
+
+# Under a folder whose name is not valid UTF-8 the result has no path, and ? in text; nothing names
+# the other folder whose name holds U+FFFD at that place.
+bytefile $WORK/inside.md 'docs/brain/bad\xff/inside.md'
+bytefile $WORK/other.md 'docs/brain/bad\ufffd/other.md'
+pbrain-test search dingo
+stdout '^  \?:8  \[body L8, offset 0/26; file 8L/112C; 1 occurrence\]$'
+stdout '^  docs/brain/bad\x{fffd}/other.md:8  '
+stdout -count=1 'bad\x{fffd}'
+pbrain-test search dingo --json
+stdout '"id":"inside","kind":"note","occurrences":1,"snippet"'
+stdout -count=1 '"path"'
+
+# A shared result is the same before and after a personal item with the same words is added.
+pbrain-test search koala
+cp stdout $WORK/shared-before
+mkdir docs/brain/personal
+cp $WORK/personal.md docs/brain/personal/koala-mine.md
+pbrain-test search koala
+cmp stdout $WORK/shared-before
+pbrain-test search koala --personal
+stdout 'koala-mine'
+
+-- repo/docs/brain/layout/lf.md --
+---
+kind: note
+title: Layout lf
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Heading one
+
+padding line 0 with several plain words to fill the snippet window here
+padding line 1 with several plain words to fill the snippet window here
+padding line 2 with several plain words to fill the snippet window here
+padding line 3 with several plain words to fill the snippet window here
+padding line 4 with several plain words to fill the snippet window here
+padding line 5 with several plain words to fill the snippet window here
+padding line 6 with several plain words to fill the snippet window here
+padding line 7 with several plain words to fill the snippet window here
+the koala sits in a tree with é and more
+more text
+
+## Second part
+
+final line
+-- repo/docs/brain/layout/bom.md --
+﻿---
+kind: note
+title: Layout bom
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Heading one
+
+padding line 0 with several plain words to fill the snippet window here
+padding line 1 with several plain words to fill the snippet window here
+padding line 2 with several plain words to fill the snippet window here
+padding line 3 with several plain words to fill the snippet window here
+padding line 4 with several plain words to fill the snippet window here
+padding line 5 with several plain words to fill the snippet window here
+padding line 6 with several plain words to fill the snippet window here
+padding line 7 with several plain words to fill the snippet window here
+the koala sits in a tree with é and more
+more text
+
+## Second part
+
+final line
+-- crlf.md --
+---
+kind: note
+title: Layout crlf
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Heading one
+
+padding line 0 with several plain words to fill the snippet window here
+padding line 1 with several plain words to fill the snippet window here
+padding line 2 with several plain words to fill the snippet window here
+padding line 3 with several plain words to fill the snippet window here
+padding line 4 with several plain words to fill the snippet window here
+padding line 5 with several plain words to fill the snippet window here
+padding line 6 with several plain words to fill the snippet window here
+padding line 7 with several plain words to fill the snippet window here
+the koala sits in a tree with é and more
+more text
+
+## Second part
+
+final line
+-- repo/docs/brain/long.md --
+---
+kind: note
+title: Long line
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+start filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler filler wombat ends here
+-- repo/docs/brain/title.md --
+---
+kind: note
+title: Platypus facts
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+nothing about that animal
+-- repo/docs/brain/empty-lf.md --
+---
+kind: note
+title: Echidna with feed
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+-- repo/docs/brain/count.md --
+---
+kind: note
+title: Quokka on quokka island
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+A quokka. The quokka island has a quokka island ferry.
+-- repo/docs/brain/with space.md --
+---
+kind: note
+title: Spaced kangaroo
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+kangaroo body
+-- wallaby.md --
+---
+kind: note
+title: Escaped wallaby
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+kangaroo body
+-- inside.md --
+---
+kind: note
+title: Inside dingo
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+nothing about that animal
+-- other.md --
+---
+kind: note
+title: Other dingo
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+nothing about that animal
+-- personal.md --
+---
+kind: note
+title: Mine koala
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+my own koala
+-- empty-nolf.md --
+---
+kind: note
+title: Echidna without feed
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---

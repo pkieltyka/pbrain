@@ -1,0 +1,36 @@
+# Functional spec §15, scenario 39, the parts found by meaning: occurrences is 0 on a result found
+# only by meaning; a result found through its title alone has the path, its real body size and no
+# snippet fields.
+pbrain init
+testmodel test-model $WORK/table.json
+pbrain-test index
+
+pbrain-test search gammas --semantic
+stdout '^20261101-000000-body-b1b1  note  provisional  2026-11-01  semantic$'
+stdout '^  docs/brain/notes/20261101-000000-body-b1b1.md:8  \[body L8, offset 0/47; file 8L/141C; 0 occurrences\]$'
+stdout '^20261102-000000-title-t1t1  note  provisional  2026-11-02  semantic$'
+stdout '^  docs/brain/notes/20261102-000000-title-t1t1.md  \[body L8, 16C; file 8L/[0-9]+C; 0 occurrences\]$'
+pbrain-test search gammas --semantic --json
+stdout '"body_chars":47,.*"id":"20261101-000000-body-b1b1",.*"occurrences":0,.*"semantic":true,"snippet":'
+stdout '"body_chars":16,"body_line":8,"created":"2026-11-02T00:00:00Z","file_chars":[0-9]+,"file_lines":8,"id":"20261102-000000-title-t1t1","kind":"note","occurrences":0,"path":"docs/brain/notes/20261102-000000-title-t1t1.md","semantic":true,"status"'
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- repo/docs/brain/notes/20261101-000000-body-b1b1.md --
+---
+kind: note
+title: Gamma rays explained
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+A body that mentions alpha only, nothing else.
+-- repo/docs/brain/notes/20261102-000000-title-t1t1.md --
+---
+kind: note
+title: Gamma only title
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+# Empty heading
