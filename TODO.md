@@ -7,26 +7,58 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: harness, guard, Linux rule-3 record and README `676bf6e` integrated; full-size Gemma index running
-    * next: report embedding rate/projected finish/peak RSS; finish Gemma then serial BGE timing; Mac and tagged install remain
+    * range/status: Gemma full-size index active; latest sample 1,030 passages at 0.895/s, ~15 h projected, 1.89 GiB peak so far; BGE queued after Gemma
+    * next: finish Gemma then same-size BGE; final read-only pass before first release tag; skill/README audit at `6dee71e` needs rerun after `d010e0e`
 
-- [ ] pbrain release pipeline (@lead-dev-2)
+- [ ] pbrain measured-cost and path-safety spec updates (@architect)
+    * owner: @architect
+    * range/status: on `d010e0e`; qualify 15 h/2 GB as projected/observed, say resume from saved checkpoint, and specify UTF-8 admission plus exact-path escaping in spec/designs/scenario 39
+    * next: send hashes to @operator; lead-dev-2 implements dependent safety fixes after spec lands
+
+- [ ] pbrain release output fixes and scenario coverage (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: `cd364e6..48e295e` on `peter/lead-dev-2`; worktree clean, in review
-    * next: @reviewer returns verdict
+    * range/status: branch `peter/lead-dev-2` at `3c3206c`; P1 ExactPath/UTF-8 waits for spec; assigned overflow, JSON context, skip notices, empty-color fit, singular counts, linear page sizing; tests 39/40/41, semantic CRLF/BOM/text, hybrid all tiers
+    * next: implement independent fixes now; finish dependent fixes after spec; use `-p 2`, no model/index, request reviewer and architect-2 recheck
+
+- [ ] pbrain final CLI/render finding re-check (@architect-2)
+    * owner: @architect-2
+    * range/status: final pass on master `7cf8ced` found P1/P2/P3 issues; waiting for lead-dev-2's fix range
+    * next: re-check own findings after implementation and report to @operator
+
+- [ ] pbrain final functional-scenario audit (@reviewer)
+    * owner: @reviewer
+    * range/status: read-only audit against functional_spec assigned on master; code unchanged by `d010e0e`
+    * next: report scenarios without tests or with mismatches to @operator and @pm
 
 ## Backlog
 
+- [ ] Scope repeatable `--tag` help text per command (filter vs assign)
+
+- [ ] Show search defaults (`--limit 5`, `--max-chars 3000`) in command help
+
+- [ ] Hide unused global `--brain` and `--personal` options from `pbrain skill --help`
+
+- [ ] Repeat skill/README binary audit after first-index text update `d010e0e`
+
+## Decisions
+
+- @operator (2026-11-21): retain `embeddinggemma-2` as default despite the ~15 h projection for 5,000 token-heavy items/50 MB; compare same-size BGE after Gemma and hold the first release tag for full-size timings and the final read-only pass.
+- @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
+
 ## Done
+
+- [x] pbrain pre-release skill/README audit (@lead-dev-2) `6dee71e`
+    * No mismatch against shipped skill, model guidance or quick start; rerun needed because README/topic changed in `d010e0e`.
+
+- [x] pbrain release pipeline (@lead-dev-2) `7cf8ced`
+    * Reviewer approved; GoReleaser builds four CGO-disabled targets and publishes a draft on tag push. No tag pushed; first workflow run remains untested.
 
 - [x] Goinfer fork documentation follow-up (@architect-2) `e33aa3893`
     * PR #8 approved and merged; v0.4.0 tag waits for owner approval.
 
 - [x] pbrain README for phase 28 (@architect-2) `676bf6e`
-    * Spec-checked, install/quick start/model guidance and first-index instruction included; speed table reserved for Phase 28.
 
 - [x] aikit fork documentation follow-up (@architect-2) `0bbc048`
-    * PR #4 approved and merged; all 22 reported GitHub checks passed.
 
 - [x] Goinfer upstream sync (@lead-dev-2) `765dab39`
 
