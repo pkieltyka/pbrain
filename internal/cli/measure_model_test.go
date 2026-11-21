@@ -262,7 +262,7 @@ func requireMeasuredSections(out []byte, model string, expected map[string]int) 
 
 func (h readMeasureHarness) checkMeasuredIndex(t *testing.T, f readMeasureFixture, model measureModelOptions, indexed bool) {
 	t.Helper()
-	got := runMeasured(t, h.bin, f.dir, h.env, model.indexTimeout, f.viewArgs([]string{"index", "--status", "--json"})...)
+	got := runMeasured(t, h.bin, f.dir, h.env, model.indexTimeout, f.viewArgs([]string{"sync", "--status", "--json"})...)
 	if len(got.stderr) > 0 {
 		t.Fatalf("unexpected index status diagnostics: %s", got.stderr)
 	}
@@ -303,7 +303,7 @@ func indexProgressOnly(stderr []byte) error {
 
 func (h readMeasureHarness) timeIndex(t *testing.T, f readMeasureFixture, model measureModelOptions, incremental bool) {
 	t.Helper()
-	got, sample := h.measureCLI(t, f, model.indexTimeout, f.viewArgs([]string{"index", "--json"}))
+	got, sample := h.measureCLI(t, f, model.indexTimeout, f.viewArgs([]string{"sync", "--json"}))
 	if err := indexProgressOnly(got.stderr); err != nil {
 		t.Fatalf("measured index: %v", err)
 	}

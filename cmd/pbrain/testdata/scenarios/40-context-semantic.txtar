@@ -3,7 +3,7 @@
 # one-line snippet, with its first, title and location lines as they were. Text and JSON.
 pbrain init
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 
 pbrain-test search heron --context 1
 stdout '^    9: the heron stands$'

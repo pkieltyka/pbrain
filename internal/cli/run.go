@@ -102,6 +102,12 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 		value := helpText(in.cmd)
 		return textOrJSON(in.json, value, helpOutput{Help: value})
 	}
+	if in.indexAlias {
+		emitNotice(env.Stderr, in.json, errs.Notice{
+			Code:    "command_renamed",
+			Message: "pbrain index is now pbrain sync: the old name will be removed in the next release",
+		})
+	}
 	if in.cmd.name == "skill" {
 		return runSkill(in)
 	}
@@ -171,7 +177,7 @@ func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, fe
 		return runTags(ctx, env, in, b)
 	case "check":
 		return runCheck(ctx, env, in, b)
-	case "index":
+	case "sync":
 		return runIndex(ctx, env, in, b)
 	case "add":
 		return runAddCommand(ctx, in, newWriteContext(env, in, b))

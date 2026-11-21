@@ -18,20 +18,20 @@ func TestReleaseModelSelection(t *testing.T) {
 	}
 	root := t.TempDir()
 	cache := filepath.Join(t.TempDir(), "cache")
-	const absent = "the model is not on this machine: run pbrain index, or set model_path"
+	const absent = "the model is not on this machine: run pbrain sync, or set model_path"
 	for _, tc := range []struct{ config, status, notice string }{
 		{"", "bge-small-en-v1.5, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2"`, "embeddinggemma-2, not on this machine", absent},
 		{`semantic.model = "bge-small-en-v1.5"`, "bge-small-en-v1.5, not on this machine", absent},
 		{`semantic.model = "none"`, "none", `semantic search is off: pbrain.toml sets model = "none"`},
-		{`semantic.model = "None"`, "None, not supported by this pbrain", "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names"},
+		{`semantic.model = "None"`, "None, not supported by this pbrain", "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"},
 	} {
 		if err := os.WriteFile(filepath.Join(root, "pbrain.toml"), []byte(tc.config), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		var out, diag bytes.Buffer
 		env := cli.Env{
-			Args: []string{"--brain", root, "index", "--status"}, Dir: root,
+			Args: []string{"--brain", root, "sync", "--status"}, Dir: root,
 			Stdout: &out, Stderr: &diag, Files: sys.Native(), Models: models,
 			Getenv: func(key string) string {
 				if key == "PBRAIN_CACHE" {

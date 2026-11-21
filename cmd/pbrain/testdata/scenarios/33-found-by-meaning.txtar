@@ -2,7 +2,7 @@
 # "login" one direction, so the question shares no word with the decision it finds.
 pbrain init
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 4 items indexed, 0 items removed; 104 passages embedded, 0 reused$'
 countfiles $PBRAIN_CACHE/vectors 104
 
@@ -81,11 +81,11 @@ stdout '^0 results\.'
 # the per-user cache holds a vector of one.
 pbrain-test search where is login state kept --semantic
 ! stdout 'mine-p1p1'
-pbrain-test index --personal
+pbrain-test sync --personal
 stdout '^personal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused$'
 countfiles $PBRAIN_CACHE/vectors 104
 tree-absent docs/brain/.pbrain 'login reminders'
-pbrain-test index --status
+pbrain-test sync --status
 stdout '^shared: 4 of 4 items indexed$'
 pbrain-test search where is login state kept --semantic
 ! stdout 'mine-p1p1'

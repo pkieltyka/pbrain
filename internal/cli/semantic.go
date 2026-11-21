@@ -133,12 +133,12 @@ func inputs(dirs []semantic.SectionDir, cat *store.Catalog) []semantic.SectionIn
 	return out
 }
 
-// indexHint is "pbrain index", with --personal in the personal view.
+// indexHint is "pbrain sync", with --personal in the personal view.
 func indexHint(in *invocation) string {
 	if in.view == brain.PersonalView {
-		return "pbrain index --personal"
+		return "pbrain sync --personal"
 	}
-	return "pbrain index"
+	return "pbrain sync"
 }
 
 // semanticNotice is the one notice a search with --semantic prints from Result.Sem.
@@ -150,7 +150,7 @@ func semanticNotice(in *invocation, st search.SemanticState) (errs.Notice, bool)
 	if !st.Ready {
 		msg := map[search.NotReady]string{
 			search.NoModel:          "semantic search is off: pbrain.toml sets model = \"none\"",
-			search.UnsupportedModel: "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names",
+			search.UnsupportedModel: "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names",
 			search.CacheExposed:     "the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them",
 			search.ModelAbsent:      "the model is not on this machine: run " + x + ", or set model_path",
 			search.NoIndex:          "no index for this model: run " + x,
@@ -241,7 +241,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 // progressMessage is the index_progress text: "<section>: <Done> of <Total> item[s]", or the wait.
 func progressMessage(p semantic.Progress) string {
 	if p.Waiting {
-		return sectionName(p.Section) + ": waiting for another pbrain index"
+		return sectionName(p.Section) + ": waiting for another pbrain sync"
 	}
 	return fmt.Sprintf("%s: %d of %s", sectionName(p.Section), p.Done, counted(p.Total, "item", "items"))
 }

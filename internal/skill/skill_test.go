@@ -26,7 +26,7 @@ func TestSkillResourcesAndLimits(t *testing.T) {
 		}
 	}
 	semantic, _ := Topic("semantic")
-	for _, guidance := range []string{"first pbrain index on a machine is a person's step", "about 1.5 GB", "model_download", "pbrain index --status"} {
+	for _, guidance := range []string{"first pbrain sync on a machine is a person's step", "about 1.5 GB", "model_download", "pbrain sync --status"} {
 		if !strings.Contains(semantic, guidance) {
 			t.Errorf("semantic topic is missing %q", guidance)
 		}

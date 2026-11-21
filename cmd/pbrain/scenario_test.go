@@ -258,7 +258,7 @@ func assertGuard(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) != 0 {
 		ts.Fatalf("usage: guard")
 	}
-	commands := [][]string{{"init"}, {"list"}, {"search", "probe"}, {"get", "missing"}, {"tags"}, {"prime"}, {"check"}, {"audience"}, {"add", "--title", "probe"}, {"delete", "missing"}, {"verify", "missing"}, {"import", "missing.md"}, {"index", "--status"}, {"index"}}
+	commands := [][]string{{"init"}, {"list"}, {"search", "probe"}, {"get", "missing"}, {"tags"}, {"prime"}, {"check"}, {"audience"}, {"add", "--title", "probe"}, {"delete", "missing"}, {"verify", "missing"}, {"import", "missing.md"}, {"sync", "--status"}, {"sync"}}
 	for _, a := range commands {
 		err := ts.Exec("pbrain-test", append(a, "--json")...)
 		var ee *exec.ExitError

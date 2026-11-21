@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+func retainedStatusCommand() string {
+	if os.Getenv("PBRAIN_PHASE28_STATUS_COMMAND") == "sync" {
+		return "sync"
+	}
+	return "index"
+}
+
 func retainedFixture(t *testing.T) (readMeasureHarness, readMeasureFixture, *measureModelOptions) {
 	t.Helper()
 	if os.Getenv("PBRAIN_MEASURE") != "1" {

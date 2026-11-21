@@ -64,6 +64,13 @@ old = 'filepath.EvalSymlinks(t.TempDir())'
 new = 'filepath.EvalSymlinks(os.Getenv("PBRAIN_PHASE28_RETAIN"))'
 assert source.count(old) == 1
 file.write_text(source.replace(old, new))
+
+status_file = file.with_name('measure_model_test.go')
+source = status_file.read_text()
+old = '[]string{"index", "--status", "--json"}'
+new = '[]string{retainedStatusCommand(), "--status", "--json"}'
+assert source.count(old) == 1
+status_file.write_text(source.replace(old, new))
 PY
         cp -- "$here/testdata/measure_resume_test.go" "$work/harness-src/internal/cli/"
         cp -- "$here/evidence/gemma-corpus-counts.json" "$work/gemma-corpus-counts.json"
@@ -110,6 +117,7 @@ PY
         export CGO_ENABLED=0 GOMAXPROCS=4 PBRAIN_MEASURE=1 PBRAIN_MEASURE_PROCS=4 PBRAIN_MEASURE_RUNS=10
         export PBRAIN_MEASURE_BIN="$work/pbrain-baseline" PBRAIN_PHASE28_RETAIN="$work/$flavor-corpus"
         unset PBRAIN_TEST_BGE_MODEL PBRAIN_TEST_GEMMA2_PACK PBRAIN_MEASURE_COLD_PREP
+        unset PBRAIN_PHASE28_STATUS_COMMAND
         case "$flavor" in
             bge) export PBRAIN_TEST_BGE_MODEL="$model" PBRAIN_MEASURE_INDEX_TIMEOUT=8h ;;
             gemma) export PBRAIN_TEST_GEMMA2_PACK="$model" PBRAIN_MEASURE_INDEX_TIMEOUT=30h ;;
@@ -131,6 +139,9 @@ PY
                 mkdir -- "$copy"
                 cp -a --reflink=auto -- "$PBRAIN_PHASE28_RETAIN/personal" "$PBRAIN_PHASE28_RETAIN/git" "$copy/"
                 export PBRAIN_PHASE28_RETAIN="$copy" PBRAIN_MEASURE_BIN="$work/pbrain-candidate"
+                if taskset -c "$cpus" "$PBRAIN_MEASURE_BIN" sync --help >/dev/null 2>&1; then
+                    export PBRAIN_PHASE28_STATUS_COMMAND=sync
+                fi
                 python3 - "$copy/personal/docs/brain" <<'PY'
 from pathlib import Path
 import sys

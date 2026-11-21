@@ -130,7 +130,7 @@ func TestReleaseBinaryOutput(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "docs/brain/personal.toml"), []byte(fmt.Sprintf("model_path = %q\n", model)), 0600); err != nil {
 		t.Fatal(err)
 	}
-	out, diag := run(0, "", "index", "--json")
+	out, diag := run(0, "", "sync", "--json")
 	var build struct {
 		Sections []struct {
 			Passages int `json:"passages_embedded"`

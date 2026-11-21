@@ -101,7 +101,7 @@ stdout ' 1 replaced item also matched: --all\. 1 match outside the time window: 
 # With --semantic as well: exact, then found by meaning, then partial, no item twice; with the model
 # absent, exact and partial come with semantic_not_ready.
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 pbrain-test search queue retry timeout backoff worker lease --bm25 --semantic
 stdout -count=1 '^2026112[0-9]-[0-9]{6}-alpha-all-six-'
 stdout '^20261101-000000-mean-m1m1  note  provisional  2026-11-01  semantic$'

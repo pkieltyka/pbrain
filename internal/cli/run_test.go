@@ -74,6 +74,40 @@ func TestCLINoBrainDispatch(t *testing.T) {
 	}
 }
 
+func TestSyncAlias(t *testing.T) {
+	const message = "pbrain index is now pbrain sync: the old name will be removed in the next release"
+	env := Env{Files: noFiles{}}
+	status, root, stderr := invoke(t, env, Features{}, "--help")
+	if status != 0 || stderr != "" || !strings.Contains(root, "\n  sync ") || strings.Contains(root, "\n  index ") {
+		t.Fatalf("root help: %d %q %q", status, root, stderr)
+	}
+	status, help, stderr := invoke(t, env, Features{}, "sync", "--help")
+	if status != 0 || stderr != "" || !strings.HasPrefix(help, "Usage: pbrain sync ") || !strings.Contains(help, "--status") {
+		t.Fatalf("sync help: %d %q %q", status, help, stderr)
+	}
+	if status, out, stderr := invoke(t, env, Features{}, "index", "--help"); status != 0 || out != help || stderr != "" {
+		t.Fatalf("alias help: %d %q %q", status, out, stderr)
+	}
+	status, _, stderr = invoke(t, env, Features{}, "sync", "--bogus", "--json")
+	if code, out, diag := invoke(t, env, Features{}, "index", "--bogus", "--json"); status != 2 || code != status || out != "" || diag != stderr {
+		t.Fatalf("alias usage: %d %q %q", code, out, diag)
+	}
+	for _, tc := range []struct {
+		args   []string
+		notice string
+	}{
+		{[]string{"--status"}, "command_renamed: " + message + "\n"},
+		{[]string{"--status", "--json"}, `{"notice":{"code":"command_renamed","message":"` + message + `"}}` + "\n"},
+	} {
+		// A valid invocation can fail during discovery. The alias notice comes first.
+		status, stdout, stderr := invoke(t, Env{}, Features{}, append([]string{"sync"}, tc.args...)...)
+		code, out, diag := invoke(t, Env{}, Features{}, append([]string{"index"}, tc.args...)...)
+		if status != 1 || code != status || out != stdout || diag != tc.notice+stderr {
+			t.Errorf("alias %v: %d %q %q", tc.args, code, out, diag)
+		}
+	}
+}
+
 func TestInitDispatch(t *testing.T) {
 	env := Env{Dir: t.TempDir(), Files: sys.Native()}
 	status, stdout, stderr := invoke(t, env, Features{}, "--personal", "init", "--path", "notes", "--json")
