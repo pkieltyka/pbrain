@@ -10,30 +10,25 @@ TODO
     * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
     * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
 
-- [ ] pbrain BGE-default release wiring (@architect-2)
-    * owner: @architect-2
-    * range/status: `ecd8d49..3fdc104` on `peter/bge-default`; reviewer approved with no findings; focused tests/vet pass
-    * next: @operator integrates the approved range
-
 - [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
     * owner: @architect-2
-    * range/status: blocked; tag `v0.4.1` and module contents hash match `e33aa3893`; public proxy check and pinned-file tests remain pending; pbrain stays on v0.2.0
-    * next: retry proxy after cached not-found expires; verify Origin.Hash/module path before bumping and running Gemma tests
+    * range/status: tag `v0.4.1` and local content hash match `e33aa3893`; proxy verification and pinned-file tests pending; pbrain remains on v0.2.0
+    * next: verify proxy Origin.Hash, module path and checksum after cache expiry; then run Gemma pinned-file tests before bumping
 
 - [ ] pbrain executable scenarios 21–30 and 35 (@lead-dev)
     * owner: @lead-dev
-    * range/status: worktree `peter/lead-dev` at `fc739cd`, merged master `ecd8d49`; scenario set in progress
-    * next: finish 21–30 and 35, coordinate shared-helper ownership with @lead-dev-2; `-p 2`, CPUs 4–15, embedtest only
+    * range/status: full tree `36d21eda..622dfe5`; P2 fix is `32fa4a8..622dfe5`, ready for review; author reports full tests, vet and focused race pass
+    * next: @reviewer re-reviews the fix and scenario 35's omitted-key versus explicit-BGE build/search comparison
 
 - [ ] pbrain executable scenarios 31–34 and 36–41 (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: worktree `peter/lead-dev-2` at `e252f80`, merged master `ecd8d49`; scenario set in progress
-    * next: finish 31–34 and 36–41, coordinate shared-helper ownership with @lead-dev; `-p 2`, CPUs 4–15, embedtest only
+    * range/status: worktree `peter/lead-dev-2` at `64ba272`, based on merged master; scenarios 31–34 committed, 36–41 remain
+    * next: finish 36–41 and submit the range; `-p 2`, CPUs 4–15, embedtest only
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
-    * range/status: scenarios 1–20 and output range `0bd5a12..965ed58` approved; semantic alignment, scenarios and PTY checks pass
-    * next: review both submitted scenario sets: 21–30 and 35; 31–34 and 36–41
+    * range/status: scenarios 1–20 and output range `0bd5a12..965ed58` approved; scenario-35 fix submitted as `32fa4a8..622dfe5`
+    * next: re-review `32fa4a8..622dfe5`; then review scenarios 31–34 and 36–41 when submitted
 
 ## Backlog
 
@@ -55,6 +50,8 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain BGE-default release wiring (@architect-2) `3fdc104`
 
 - [x] pbrain spec: revise decision 27 for BGE default and measured cost (@architect) `ecd8d49`
 
