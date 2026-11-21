@@ -7,13 +7,13 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: BGE record `8ed106e` under review; Gemma resumed on baseline 9f53910, at 741 shared items/7,167 passages
-    * next: finish Gemma and active-time total, then run queued warm checks with `67cf646`
+    * range/status: BGE timing record integrated in `15996ee`; Gemma resumed on baseline 9f53910, final active-time total pending
+    * next: finish Gemma, then run queued warm checks with `67cf646`; finalize README measurements and the release read-only pass
 
 - [ ] pbrain final first-index figures (@architect)
     * owner: @architect
-    * range/status: five-file BGE spec/skill delta in working tree, held pending review of `8ed106e`; Gemma figures pending
-    * next: after review, @operator merges record and delta; @architect updates the README sentence and later adds Gemma's final figures
+    * range/status: BGE figures in spec/skill at `b73f952`; README sentence edit is uncommitted; Gemma figures pending
+    * next: provide and commit README sentence hash; add Gemma's final figures after its run
 
 ## Backlog
 
