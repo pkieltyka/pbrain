@@ -12,13 +12,13 @@ TODO
 
 - [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
     * owner: @lead-dev-2 for BGE; @lead-dev for gate tooling
-    * range/status: tool fix `6779723..9695d1b` approved; registry follow-up `50816cd..e62c2b7` approved; README `e05ff80..2976b3a` pending review; BGE 0.65 rerun passed (29/30, 40/47); Gemma rerun pending
-    * next: @operator may integrate the approved tool/follow-up; @reviewer reviews the BGE record, and @architect-2 reports Gemma results before model wiring
+    * range/status: tool/fix `d944dae`, `7091a6d` and registry `fb21809` merged; README `e05ff80..2976b3a` and BGE wiring `a278c0c..eebe8b0` pending review; corrected Gemma 0.72 gates passed on tool `9695d1b` (42/47, 30/30 abstention, no losses)
+    * next: @reviewer reviews BGE wiring/README; @operator integrates after approval; @architect-2 completes the Gemma wiring patch with its corrected report
 
 - [ ] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2)
     * owner: @architect-2 (patch flow)
     * branch/base: master `05f788e`; adapter merged `2ab7d56`, four-target audit `eb0441f`
-    * next: after Phase 25 tool fixes, use Gemma rerun's cutoff; coordinate report with @lead-dev and patch registry/default resolution/`none`/skill text/tests, then request review
+    * next: finish the wiring patch with cutoff 0.72, registry/default resolution/`none`/skill text/tests and corrected report; coordinate with @lead-dev, then request review
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
