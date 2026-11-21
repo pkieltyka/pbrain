@@ -218,12 +218,8 @@ func realEmbedder(t *testing.T) *embedder {
 
 func verifiedModel(t testing.TB, path string, model embed.Model) *embed.Artifact {
 	t.Helper()
-	path, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	files := sys.Native()
-	dir, err := files.OpenRoot(path, false)
+	dir, err := sys.OpenDir(path)
 	if err != nil {
 		t.Fatal(err)
 	}

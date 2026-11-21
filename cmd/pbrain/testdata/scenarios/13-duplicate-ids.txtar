@@ -9,15 +9,23 @@ stdout '"next":1'
 stdout '"id":"Mixed"'
 pbrain list --tag same --limit 1 --offset 1 --json
 ids results mixed
-cp docs/brain/a/Mixed.md docs/brain/b/Mixed.md
-status 1 pbrain verify Mixed --json
-stderr 'ambiguous_id'
-pbrain list --tag same --json
-ids results Mixed Mixed mixed
-pbrain search café --json
-ids results café
-pbrain search café --json
-ids results café
+
+# Two ids equal but for case need a file system that keeps both names (APFS by default does not).
+[!casedistinct] fsnote 'the file system does not keep Mixed.md and mixed.md apart; macOS tracked in the Mac backlog'
+[casedistinct] cp docs/brain/a/Mixed.md docs/brain/b/Mixed.md
+[casedistinct] status 1 pbrain verify Mixed --json
+[casedistinct] stderr 'ambiguous_id'
+[casedistinct] pbrain list --tag same --json
+[casedistinct] ids results Mixed Mixed mixed
+
+# Composed and decomposed café are two ids, which needs a file system that keeps both names (APFS
+# takes them as one).
+[!nfdistinct] fsnote 'the file system takes composed and decomposed café as one name; macOS tracked in the Mac backlog'
+[nfdistinct] bytefile $WORK/cafe-nfd.md 'docs/brain/cafe\u0301.md'
+[nfdistinct] pbrain search café --json
+[nfdistinct] ids results café
+[nfdistinct] pbrain search café --json
+[nfdistinct] ids results café
 
 -- repo/docs/brain/a/Mixed.md --
 ---
@@ -45,7 +53,7 @@ author: human:test
 created: 2026-11-01T00:00:00Z
 ---
 
--- repo/docs/brain/café.md --
+-- cafe-nfd.md --
 ---
 kind: note
 title: café

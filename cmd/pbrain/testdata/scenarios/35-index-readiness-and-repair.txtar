@@ -187,6 +187,18 @@ pbrain-test search 'gamma sense' --semantic --json
 cmp stdout $WORK/unnamed-search
 ! stderr .
 
+# A model_path that reaches the model folder through a link builds: pbrain resolves the folder a
+# person names and refuses links only below it (architecture 10.3).
+testmodel test-model
+symlink $WORK/model-link -> $WORK/test-model
+modelpath $WORK/model-link
+env PBRAIN_CACHE=$WORK/link-cache
+pbrain-test index --status
+stdout '^model: test-model, on this machine$'
+pbrain-test index
+stdout '^shared: '
+! stderr .
+
 -- off --
 semantic.model = "none"
 -- no-model-key --

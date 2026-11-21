@@ -97,6 +97,8 @@ func TestScenarios(t *testing.T) {
 			"sameprefix":    scenarioSamePrefix,
 			"countfiles":    scenarioCountFiles,
 			"ptyskip":       scenarioPTYSkip,
+			"modelpath":     scenarioModelPath,
+			"fsnote":        scenarioFSNote,
 		},
 	})
 }

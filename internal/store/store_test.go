@@ -634,18 +634,30 @@ func TestScannedRoutesAreReleased(t *testing.T) {
 // bad_file_name skip, never an item, so it cannot share a key with a stem that really holds U+FFFD.
 func TestNameAdmission(t *testing.T) {
 	w := newWorld(t)
-	w.write("p/docs/brain/notes/x\xff.md", note("Bad name"))
+	// A name that is not valid UTF-8 can be set up only where the file system keeps one; APFS refuses
+	// it, and there the line-feed and U+FFFD stems are still checked (the macOS side of the rest is in
+	// the Mac backlog).
+	bad := os.WriteFile(filepath.Join(t.TempDir(), "x\xff"), nil, 0o600) == nil
+	if bad {
+		w.write("p/docs/brain/notes/x\xff.md", note("Bad name"))
+		w.write("p/docs/brain/plain/x\xff.md", "no front matter\n")
+		w.write("p/docs/brain/dup/x\xff.md", "---\nkind: note\nkind: note\n---\n")
+		w.write("p/docs/brain/odd\xfe/good-stem.md", note("Under an odd folder"))
+	} else {
+		t.Log("names that are not valid UTF-8 are not set up: the file system refuses them; macOS tracked in the Mac backlog")
+	}
 	w.write("p/docs/brain/notes/x\uFFFD.md", note("Real replacement character"))
-	w.write("p/docs/brain/plain/x\xff.md", "no front matter\n")
-	w.write("p/docs/brain/dup/x\xff.md", "---\nkind: note\nkind: note\n---\n")
-	w.write("p/docs/brain/odd\xfe/good-stem.md", note("Under an odd folder"))
 	w.write("p/docs/brain/notes/a\nb.md", note("Line feed"))
 	c, err := Scan(context.Background(), w.open(), brain.SharedView, KeepAll)
 	must(t, err)
 	got := ids(c)
 	slices.Sort(got)
-	if want := []string{"a\nb", "good-stem", "x\uFFFD"}; !slices.Equal(got, want) {
-		t.Fatalf("items %q, want %q", got, want)
+	wantIDs := []string{"a\nb", "x\uFFFD"}
+	if bad {
+		wantIDs = []string{"a\nb", "good-stem", "x\uFFFD"}
+	}
+	if !slices.Equal(got, wantIDs) {
+		t.Fatalf("items %q, want %q", got, wantIDs)
 	}
 	if found := c.Lookup("x\uFFFD"); len(found) != 1 || found[0].ID != "x\uFFFD" {
 		t.Fatalf("lookup of the real U+FFFD stem: %v", found)
@@ -664,10 +676,13 @@ func TestNameAdmission(t *testing.T) {
 			t.Fatalf("%q has a position", rel)
 		}
 	}
-	want := map[string]string{
-		"notes/x\xff.md": "bad_file_name/invalid_utf8",
-		"plain/x\xff.md": "not_an_item/",
-		"dup/x\xff.md":   "bad_file_name/invalid_utf8",
+	want := map[string]string{}
+	if bad {
+		want = map[string]string{
+			"notes/x\xff.md": "bad_file_name/invalid_utf8",
+			"plain/x\xff.md": "not_an_item/",
+			"dup/x\xff.md":   "bad_file_name/invalid_utf8",
+		}
 	}
 	if !maps.Equal(reasons, want) {
 		t.Fatalf("skipped %q, want %q", reasons, want)

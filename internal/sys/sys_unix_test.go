@@ -471,3 +471,98 @@ func TestLockTightensPermissiveFile(t *testing.T) {
 		t.Fatalf("new lock file mode %v", st.Mode().Perm())
 	}
 }
+
+// swapAfterResolve runs swap between Resolve and OpenRoot, as a concurrent rename would.
+type swapAfterResolve struct {
+	Files
+	swap func()
+}
+
+func (s swapAfterResolve) Resolve(path string, allowMissing bool) (ResolvedPath, error) {
+	r, err := s.Files.Resolve(path, allowMissing)
+	s.swap()
+	return r, err
+}
+
+// TestOpenNamedRoots is store.md's test of named roots (architecture §10.3): links are followed at the
+// root and above it, never below it, and a swap between the two steps fails the open. The test makes
+// its own links, so Linux proves it as well; on macOS the temporary folder is behind /var already.
+func TestOpenNamedRoots(t *testing.T) {
+	base := t.TempDir() // possibly behind a link itself (macOS)
+	real := filepath.Join(base, "real")
+	must(t, os.MkdirAll(filepath.Join(real, "a"), 0o700))
+	must(t, os.WriteFile(filepath.Join(real, "a", "note.md"), []byte("x"), 0o600))
+	must(t, os.Symlink(real, filepath.Join(base, "linked")))
+	must(t, os.Symlink(filepath.Join(real, "a"), filepath.Join(base, "alias")))
+	want, err := filepath.EvalSymlinks(filepath.Join(real, "a"))
+	must(t, err)
+
+	for _, named := range []string{filepath.Join(base, "linked", "a"), filepath.Join(base, "alias"), filepath.Join(real, "a")} {
+		d, r, err := OpenNamed(Native(), named, false)
+		if err != nil {
+			t.Fatalf("%s: %v", named, err)
+		}
+		if r.Path != want {
+			t.Fatalf("%s resolved to %s, want %s", named, r.Path, want)
+		}
+		if f, err := Native().OpenRegular(d, "note.md"); err != nil {
+			t.Fatalf("%s: read below the root: %v", named, err)
+		} else {
+			f.Close()
+		}
+		d.Close()
+		if d, err := OpenDir(named); err != nil {
+			t.Fatalf("OpenDir %s: %v", named, err)
+		} else {
+			d.Close()
+		}
+	}
+	// OpenRoot stays strict: a link in the path as given is refused.
+	for _, named := range []string{filepath.Join(base, "linked", "a"), filepath.Join(base, "alias")} {
+		if _, err := Native().OpenRoot(named, false); !errors.Is(err, ErrUnsafe) {
+			t.Fatalf("OpenRoot %s: %v, want ErrUnsafe", named, err)
+		}
+	}
+
+	// A link below the opened root is refused, from Sub and from a read.
+	other := t.TempDir()
+	must(t, os.WriteFile(filepath.Join(other, "elsewhere.md"), []byte("y"), 0o600))
+	must(t, os.Symlink(other, filepath.Join(real, "a", "sub")))
+	must(t, os.Symlink(filepath.Join(other, "elsewhere.md"), filepath.Join(real, "a", "linked.md")))
+	d, _, err := OpenNamed(Native(), filepath.Join(base, "linked", "a"), false)
+	must(t, err)
+	if _, err := d.Sub("sub", false); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("Sub through a link below the root: %v", err)
+	}
+	if _, err := Native().OpenRegular(d, "linked.md"); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("read through a link below the root: %v", err)
+	}
+	d.Close()
+
+	// A component of the resolved path swapped for a link after Resolve fails the open.
+	victim := filepath.Join(real, "victim")
+	must(t, os.MkdirAll(victim, 0o700))
+	moved := filepath.Join(base, "moved")
+	swapped := swapAfterResolve{Files: Native(), swap: func() {
+		must(t, os.Rename(victim, moved))
+		must(t, os.Symlink(moved, victim))
+	}}
+	if d, _, err := OpenNamed(swapped, victim, false); err == nil {
+		d.Close()
+		t.Fatal("a component swapped for a link after Resolve was opened")
+	}
+
+	// With create, the missing folders below the deepest existing one are made.
+	deep := filepath.Join(base, "linked", "new", "deeper")
+	d, r, err := OpenNamed(Native(), deep, true)
+	must(t, err)
+	d.Close()
+	if st, err := os.Stat(filepath.Join(real, "new", "deeper")); err != nil || !st.IsDir() || strings.Contains(r.Path, "linked") {
+		t.Fatalf("create through a linked ancestor: %v %s", err, r.Path)
+	}
+
+	// A relative path is refused.
+	if _, _, err := OpenNamed(Native(), "relative/path", false); err == nil {
+		t.Fatal("a relative path was opened")
+	}
+}

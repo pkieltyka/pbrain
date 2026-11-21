@@ -97,6 +97,20 @@ stdout '^  "docs/brain/esc\\u001b\\u0085\\u202ename.md":8  \[body L8'
 pbrain-test search wallaby --json
 stdout '"path":"docs/brain/esc\\u001b\\u0085\\u202ename.md"'
 
+# A shared result is the same before and after a personal item with the same words is added.
+pbrain-test search koala
+cp stdout $WORK/shared-before
+mkdir docs/brain/personal
+cp $WORK/personal.md docs/brain/personal/koala-mine.md
+pbrain-test search koala
+cmp stdout $WORK/shared-before
+pbrain-test search koala --personal
+stdout 'koala-mine'
+
+
+# Names that are not valid UTF-8 need a file system that keeps them (APFS refuses them).
+[!badnames] skip 'the file system refuses names that are not valid UTF-8; macOS tracked in the Mac backlog'
+
 # Under a folder whose name is not valid UTF-8 the result has no path, and ? in text; nothing names
 # the other folder whose name holds U+FFFD at that place.
 bytefile $WORK/inside.md 'docs/brain/bad\xff/inside.md'
@@ -108,16 +122,6 @@ stdout -count=1 'bad\x{fffd}'
 pbrain-test search dingo --json
 stdout '"id":"inside","kind":"note","occurrences":1,"snippet"'
 stdout -count=1 '"path"'
-
-# A shared result is the same before and after a personal item with the same words is added.
-pbrain-test search koala
-cp stdout $WORK/shared-before
-mkdir docs/brain/personal
-cp $WORK/personal.md docs/brain/personal/koala-mine.md
-pbrain-test search koala
-cmp stdout $WORK/shared-before
-pbrain-test search koala --personal
-stdout 'koala-mine'
 
 -- repo/docs/brain/layout/lf.md --
 ---

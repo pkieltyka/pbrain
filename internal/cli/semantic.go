@@ -20,6 +20,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/search"
 	"github.com/pkieltyka/pbrain/internal/semantic"
 	"github.com/pkieltyka/pbrain/internal/store"
+	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
 // The semantic commands (cli.md "Semantic commands and scan notices", semantic.md "What cli does"
@@ -73,7 +74,7 @@ func semanticOptions(ctx context.Context, env Env, b *brain.Brain, create bool) 
 		if !filepath.IsAbs(mp) {
 			mp = filepath.Join(b.Dir, mp)
 		}
-		d, err := env.Files.OpenRoot(filepath.Clean(mp), false)
+		d, _, err := sys.OpenNamed(env.Files, mp, false)
 		if err != nil {
 			return opt, release, &errs.Error{Code: "invalid_config", Message: "model_path in personal.toml cannot be opened", Exit: 1}
 		}

@@ -121,6 +121,9 @@ func TestInitSelectorOutput(t *testing.T) {
 		{"default", "docs/brain", "initialized docs/brain\n", `"docs/brain"`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.name == "withheld path" && !badNamesKept(t) {
+				t.Skip(badNamesSkip)
+			}
 			root := t.TempDir()
 			if out, err := exec.Command(git, "-C", root, "init", "-q").CombinedOutput(); err != nil {
 				t.Fatalf("git init: %s: %v", out, err)

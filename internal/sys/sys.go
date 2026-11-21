@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"time"
 )
 
@@ -89,5 +90,28 @@ var (
 // Native returns the operating system's Files.
 func Native() Files { return native{} }
 
-// OpenDir opens an already resolved folder with the native Files.
-func OpenDir(path string) (Dir, error) { return native{}.OpenRoot(path, false) }
+// OpenNamed opens a folder named from outside pbrain, such as model_path or a test's temporary folder
+// (architecture §10.3, store.md "Named roots"). The absolute path is resolved once with
+// files.Resolve, following any link at its last component or above, and the resolved path is opened
+// with files.OpenRoot, which follows none: links are refused only below the root, and a component
+// swapped for a link between the two steps fails the open. It makes no check of its own.
+func OpenNamed(files Files, path string, create bool) (Dir, ResolvedPath, error) {
+	if !filepath.IsAbs(path) {
+		return nil, ResolvedPath{}, &fs.PathError{Op: "open", Path: path, Err: errors.New("not an absolute path")}
+	}
+	resolved, err := files.Resolve(filepath.Clean(path), create)
+	if err != nil {
+		return nil, ResolvedPath{}, err
+	}
+	d, err := files.OpenRoot(resolved.Path, create)
+	if err != nil {
+		return nil, ResolvedPath{}, err
+	}
+	return d, resolved, nil
+}
+
+// OpenDir opens a named folder with the native Files: OpenNamed's handle alone.
+func OpenDir(path string) (Dir, error) {
+	d, _, err := OpenNamed(Native(), path, false)
+	return d, err
+}

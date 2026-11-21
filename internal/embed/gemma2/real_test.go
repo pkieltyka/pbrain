@@ -43,7 +43,11 @@ func fixtureDir(t testing.TB, variable string) sys.Dir {
 	if name == "" {
 		t.Skipf("set %s to run against the pinned local model", variable)
 	}
-	d, err := sys.Native().OpenRoot(name, false)
+	name, err := filepath.Abs(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d, err := sys.OpenDir(name)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,7 +196,7 @@ func TestGemmaBuildsFromBytes(t *testing.T) {
 			t.Fatalf("copy: %v %v", err, cerr)
 		}
 	}
-	d, err := sys.Native().OpenRoot(temp, false)
+	d, err := sys.OpenDir(temp)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -231,7 +235,7 @@ func TestDeriveDeterministic(t *testing.T) {
 	files := sys.Native()
 	src := fixtureDir(t, "PBRAIN_TEST_GEMMA2_SOURCE")
 	for range 2 {
-		d, err := files.OpenRoot(t.TempDir(), false)
+		d, err := sys.OpenDir(t.TempDir())
 		if err != nil {
 			t.Fatal(err)
 		}
