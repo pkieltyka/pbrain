@@ -126,6 +126,9 @@ func TestGemmaEntry(t *testing.T) {
 	if e.Model.Name != "embeddinggemma-2" || e.Model.Runtime != "goinfer" || e.Model.Dim != 768 || len(e.Model.Fingerprint) != 64 || len(e.Model.Files) != 4 || len(e.Model.Source) != 4 {
 		t.Fatalf("invalid model row")
 	}
+	if e.Model.Cutoff != 0.72 {
+		t.Fatalf("release cutoff = %v; want 0.72", e.Model.Cutoff)
+	}
 	e.Model.Files[0].Name = "changed"
 	e.Model.Source[0].URL = "changed"
 	if Entry().Model.Files[0].Name == "changed" || Entry().Model.Source[0].URL == "changed" {

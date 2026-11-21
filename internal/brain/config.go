@@ -16,6 +16,9 @@ import (
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
+// DefaultModel is the release model used when pbrain.toml omits semantic.model.
+const DefaultModel = "embeddinggemma-2"
+
 // The defaults and flag ranges of spec 6.1.
 const (
 	defaultSearchLimit, maxSearchLimit = 5, 50
@@ -94,8 +97,16 @@ func decodeProject(data []byte) (Config, error) {
 			return Config{}, err
 		}
 	}
+	c.Semantic.Model = DefaultModel
 	if w.Semantic != nil && w.Semantic.Model != nil {
-		c.Semantic.Model = *w.Semantic.Model
+		switch model := *w.Semantic.Model; model {
+		case "":
+			return Config{}, invalidConfig("pbrain.toml: semantic.model cannot be empty")
+		case "none":
+			c.Semantic.Model = ""
+		default:
+			c.Semantic.Model = model
+		}
 	}
 	if md.IsDefined("tags") {
 		c.HasTags = true

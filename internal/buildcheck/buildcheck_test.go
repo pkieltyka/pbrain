@@ -93,31 +93,32 @@ func TestDirectivesFindsBothForms(t *testing.T) {
 // allowed is the import table of architecture section 3: for each package, the pbrain packages it
 // may import. cli may import all of them. cmd/pbrain also wires native process inputs.
 var allowed = map[string][]string{
-	"internal/cli":             nil,                                          // may import every package
-	"cmd/pbrain":               {"cli", "gitx", "sys", "embed", "embed/bge"}, // process adapter in cli.md §1; the release registry (architecture 3: model sub-packages are imported where the registry is built)
-	"internal/check":           {"graph", "item", "secretscan"},
-	"internal/semantic":        {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
-	"internal/embed":           {"sys", "errs"},
-	"internal/embed/bge":       {"embed", "sys", "errs"},
-	"internal/embed/gemma2":    {"embed"},
-	"internal/embed/embedtest": {"embed", "errs"}, // semantic.md "Test plan": the test registry
-	"internal/importer":        {"item", "errs", "importer/fetch"},
-	"internal/importer/fetch":  {"errs"},
-	"internal/search":          {"graph", "item", "query", "outline", "errs"},
-	"internal/render":          {"errs"},
-	"internal/store":           {"brain", "item", "gitx", "sys", "errs"},    // errs: store.md "Dependencies"
-	"internal/brain":           {"audience", "item", "gitx", "sys", "errs"}, // errs: brain.md "Dependencies"
-	"internal/graph":           {"item", "errs"},                            // graph.md §4 allows errs for CheckNewReplaces
-	"internal/audience":        {"errs"},
-	"internal/query":           {"item", "errs"},
-	"internal/item":            {"outline", "errs"},
-	"internal/outline":         nil,
-	"internal/gitx":            {"errs"},
-	"internal/secretscan":      nil,
-	"internal/skill":           nil,
-	"internal/errs":            nil,
-	"internal/sys":             nil,
-	"internal/buildcheck":      nil,
+	"internal/cli":                nil,                                                          // may import every package
+	"cmd/pbrain":                  {"cli", "gitx", "sys", "embed", "embed/bge", "embed/gemma2"}, // process adapter in cli.md §1; the release registry (architecture 3: model sub-packages are imported where the registry is built)
+	"internal/check":              {"graph", "item", "secretscan"},
+	"internal/semantic":           {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
+	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "embed/gemma2", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
+	"internal/embed":              {"sys", "errs"},
+	"internal/embed/bge":          {"embed", "sys", "errs"},
+	"internal/embed/gemma2":       {"embed"},
+	"internal/embed/embedtest":    {"embed", "errs"}, // semantic.md "Test plan": the test registry
+	"internal/importer":           {"item", "errs", "importer/fetch"},
+	"internal/importer/fetch":     {"errs"},
+	"internal/search":             {"graph", "item", "query", "outline", "errs"},
+	"internal/render":             {"errs"},
+	"internal/store":              {"brain", "item", "gitx", "sys", "errs"},    // errs: store.md "Dependencies"
+	"internal/brain":              {"audience", "item", "gitx", "sys", "errs"}, // errs: brain.md "Dependencies"
+	"internal/graph":              {"item", "errs"},                            // graph.md §4 allows errs for CheckNewReplaces
+	"internal/audience":           {"errs"},
+	"internal/query":              {"item", "errs"},
+	"internal/item":               {"outline", "errs"},
+	"internal/outline":            nil,
+	"internal/gitx":               {"errs"},
+	"internal/secretscan":         nil,
+	"internal/skill":              nil,
+	"internal/errs":               nil,
+	"internal/sys":                nil,
+	"internal/buildcheck":         nil,
 }
 
 // TestPackageImports holds every package of the module to the table above, and every package

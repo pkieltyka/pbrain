@@ -46,9 +46,8 @@ var fingerprint = func() string {
 	return hex.EncodeToString(h[:])
 }()
 
-// Entry is available to calibration. Register it for release only with a
-// calibrated cutoff and passing release gates.
+// Entry returns the release model with its cutoff from the frozen retrieval fixture.
 func Entry() embed.Entry {
-	return embed.Entry{Model: embed.Model{Name: "embeddinggemma-2", Runtime: "goinfer", Dim: dimension, Fingerprint: fingerprint,
+	return embed.Entry{Model: embed.Model{Name: "embeddinggemma-2", Runtime: "goinfer", Dim: dimension, Cutoff: 0.72, Fingerprint: fingerprint,
 		Files: slices.Clone(packFiles), Source: slices.Clone(sourceFiles)}, Open: open, Derive: derive}
 }

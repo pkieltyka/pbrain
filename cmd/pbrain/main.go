@@ -14,12 +14,15 @@ import (
 	"github.com/pkieltyka/pbrain/internal/cli"
 	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/embed/bge"
+	"github.com/pkieltyka/pbrain/internal/embed/gemma2"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/sys"
 	"golang.org/x/sys/unix"
 )
 
 func main() { os.Exit(run()) }
+
+func releaseModels() embed.Registry { return embed.NewRegistry(bge.Entry(), gemma2.Entry()) }
 
 func run() int {
 	stdout, stderr := os.Stdout, os.Stderr
@@ -51,7 +54,7 @@ func run() int {
 		Files:  sys.Native(),
 		// The fetch client supplies the native defaults for a zero Net. The release registry
 		// holds the models whose gates pass (semantic.md "Calibration").
-		Models: embed.NewRegistry(bge.Entry()),
+		Models: releaseModels(),
 	}
 	if _, err := unix.IoctlGetTermios(int(os.Stdin.Fd()), terminalRequest); err != nil {
 		env.Stdin = os.Stdin

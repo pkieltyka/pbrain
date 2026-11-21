@@ -66,6 +66,9 @@ func semanticOptions(ctx context.Context, env Env, b *brain.Brain, create bool) 
 	}
 	opt := semantic.Options{Files: env.Files, Registry: reg, ModelName: b.Config.Semantic.Model, Rand: rnd}
 	release := func() {}
+	if opt.ModelName == "" {
+		return opt, release, nil
+	}
 	if mp := b.Local.ModelPath; mp != "" {
 		if !filepath.IsAbs(mp) {
 			mp = filepath.Join(b.Dir, mp)
@@ -145,7 +148,7 @@ func semanticNotice(in *invocation, st search.SemanticState) (errs.Notice, bool)
 	}
 	if !st.Ready {
 		msg := map[search.NotReady]string{
-			search.NoModel:          "semantic search is off: pbrain.toml names no model",
+			search.NoModel:          "semantic search is off: pbrain.toml sets model = \"none\"",
 			search.UnsupportedModel: "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names",
 			search.CacheExposed:     "the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them",
 			search.ModelAbsent:      "the model is not on this machine: run " + x + ", or set model_path",

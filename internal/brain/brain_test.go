@@ -449,7 +449,7 @@ func TestIgnoreAndDisplayUseLiteralPaths(t *testing.T) {
 func TestReadProjectSettings(t *testing.T) {
 	c, err := decodeProject(nil)
 	if err != nil || c.Search != (Limits{5, 3000}) || c.List != (Limits{20, 2000}) || c.Get.MaxChars != 6000 ||
-		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != "" {
+		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != DefaultModel {
 		t.Fatalf("defaults: %+v %v", c, err)
 	}
 	c, err = decodeProject([]byte("search = { limit = 50, max_chars = 9000 }\nlist = { limit = 200 }\nsemantic = { model = \"bge-small-en-v1.5\" }\n[tags]\n"))
@@ -461,7 +461,20 @@ func TestReadProjectSettings(t *testing.T) {
 	if err != nil || c.Tags["cache"] != "Caching layers" || len(c.Tags) != 2 {
 		t.Fatalf("tags: %+v %v", c, err)
 	}
+	for _, tc := range []struct{ setting, want string }{
+		{"[semantic]", DefaultModel},
+		{`semantic.model = "embeddinggemma-2"`, DefaultModel},
+		{`semantic.model = "none"`, ""},
+		{`semantic.model = "None"`, "None"},
+		{`semantic.model = "custom-model"`, "custom-model"},
+	} {
+		config, err := decodeProject([]byte(tc.setting))
+		if err != nil || config.Semantic.Model != tc.want {
+			t.Errorf("%s: model = %q, err = %v; want %q", tc.setting, config.Semantic.Model, err, tc.want)
+		}
+	}
 	for _, bad := range []string{
+		`semantic.model = ""`, "semantic.model = 42",
 		"search = { limit = 0 }", "search = { limit = 51 }", "list = { limit = 201 }",
 		"get = { max_chars = 0 }", "prime = { max_chars = -1 }", "search = { limit = \"5\" }",
 		"[tags]\nCache = \"x\"", "[tags]\ncache = \"\"", "[tags]\ncache = \"two\\nlines\"", "[tags]\ncache = 3",

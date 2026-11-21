@@ -27,4 +27,4 @@ type Env struct {
 
 type Features struct{ BM25 bool }
 
-var Release = Features{}
+var Release = Features{BM25: true}

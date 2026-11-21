@@ -22,7 +22,7 @@ Tasks and bugs are tracked in `TODO.md` at the repo root. Put the title on a che
 - [ ] Fix the README typo
 ```
 
-`## Ready` holds, in the order they will be done, the items the operator may assign without asking the user; only a person puts an item there or reorders it, never the team. Members report discoveries to @pm, or the operator when there is no @pm, who records them in `## Backlog`. An assigned item moves to `## In progress` with its owner at the end of the checkbox line, `(@lead-dev)`. Integrated work moves to the top of `## Done` as `- [x]` with its commit.
+`## Ready` holds, in the order they will be done, the items the operator may assign without asking the user; only a person puts an item there or reorders it, never the team. Members report discoveries to @pm, or the operator when there is no @pm, who records them in `## Backlog`. An assigned item moves to `## In progress` with its owner at the end of the checkbox line, `(@lead-dev)`. Integrated work moves to the top of `## Done` as `- [x]` with its commit. Keep the tracker small: each Done item is one line (title, owner, commit), with short detail only on the three newest; in-progress items carry at most owner, range or branch, and next step. Evidence lives in Git.
 
 ## Workflow
 

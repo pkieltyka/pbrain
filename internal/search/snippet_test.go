@@ -178,27 +178,21 @@ func TestOccurrences(t *testing.T) {
 }
 
 func TestBestStretchAgainstExhaustive(t *testing.T) {
-	found := []occurrence{{0, 2, 0}, {2, 4, 0}, {4, 6, 1}, {7, 9, 2}, {8, 9, 0}, {10, 11, 2}}
+	found := []SnippetOccurrence{{0, 2, 0}, {2, 4, 0}, {4, 6, 1}, {7, 9, 2}, {8, 9, 0}, {10, 11, 2}}
 	for length := 1; length < 14; length++ {
-		var fitting []occurrence
-		for _, o := range found {
-			if o.end-o.start <= length {
-				fitting = append(fitting, o)
-			}
-		}
 		best, coverage := 0, 0
 		for start := 0; start <= max(0, 11-length); start++ {
 			seen := map[int]bool{}
-			for _, o := range fitting {
-				if start <= o.start && o.end <= start+length {
-					seen[o.clause] = true
+			for _, o := range found {
+				if start <= o.Start && o.End <= start+length {
+					seen[o.Clause] = true
 				}
 			}
 			if len(seen) > coverage {
 				best, coverage = start, len(seen)
 			}
 		}
-		if got := bestStretch(slices.Clone(fitting), length, 3); got != best {
+		if got := SnippetStart(11, length, 3, slices.Clone(found)); got != best {
 			t.Errorf("length %d: got %d, exhaustive %d", length, got, best)
 		}
 	}
