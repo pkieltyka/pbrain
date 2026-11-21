@@ -5,25 +5,30 @@ TODO
 
 ## In progress
 
+- [ ] pbrain macOS trusted-root symlink policy (@architect)
+    * owner: @architect
+    * range/status: assigned; P1 `sys` path handling rejects symlinked ancestors such as `/var -> /private/var`
+    * next: specify which trusted-root ancestors may resolve and where symlinks must be refused; send the design delta
+
+- [ ] pbrain macOS path and lock test portability (@lead-dev-2)
+    * owner: @lead-dev-2
+    * range/status: assigned; invalid-byte filenames, NFC normalization and scenario 14 lock contention fail on macOS
+    * next: implement with the approved symlink boundary; verify on GitHub `macos-latest` and send the range to @reviewer
+
+- [ ] pbrain store scanned-identity race (@architect-2)
+    * owner: @architect-2
+    * range/status: diagnosed inode reuse after unlink/recreate; test will stage a distinct replacement and rename over the scanned file
+    * next: add the replacement-identity assertion, verify mutation failure without the product check, and send the range to @reviewer
+
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Gemma paused after 5,873.416 s at 545 items/5,251 passages (1.97 GiB peak); BGE indexing first, at 917 passages. Both baseline jobs use binary 9f53910; sum Gemma active time across resume, excluding pause
-    * next: finish BGE build and warm samples, resume Gemma on its retained index/cache, then validate warm search with the v0.4.1 binary on fixture copies; finish README figures and final read-only pass
+    * range/status: BGE figures recorded in `15996ee`, `b73f952`, `30d02f2`; Gemma resumed on baseline 9f53910, final active-time total pending
+    * next: finish Gemma, then run queued warm checks with `67cf646`; complete the final release read-only pass
 
-- [ ] pbrain aikit v1.79.1 dependency verification (@architect-2)
-    * owner: @architect-2
-    * range/status: `df454ba..98d62cb` on `peter/aikit-v1791`; proxy, BGE and Gemma pinned-file checks passed
-    * next: @reviewer reviews both commits
-
-- [ ] pbrain aikit v1.79.1 spec pin update (@architect)
+- [ ] pbrain Gemma first-index figures (@architect)
     * owner: @architect
-    * range/status: second commit `98d62cb` on `peter/aikit-v1791`
-    * next: reviewer reviews the bump and spec together over `df454ba..98d62cb`
-
-- [ ] pbrain final first-index figures (@architect)
-    * owner: @architect
-    * range/status: waiting for the completed Linux full-size Gemma and BGE runs
-    * next: update spec, skill and README with final measured figures for both models
+    * range/status: Gemma final figures pending completion of the resumed run
+    * next: update spec, skill and README from the final Gemma record
 
 ## Backlog
 
@@ -37,6 +42,7 @@ TODO
 
 ## Decisions
 
+- @operator (2026-11-21): CI has been red since `9e66477`; hold publication of the v0.1.0 draft until the macOS and Linux fixes pass. Ship the fixes in v0.1.1, and check Actions after every push to master.
 - @operator (2026-11-21): revise decision 27: `bge-small-en-v1.5` is default; `embeddinggemma-2` remains opt-in and `none` turns semantic search off. The measured Gemma cost on the token-heavy 5,000-item/50 MB fixture informs the change; finish the same-size BGE run before release.
 - @operator (2026-11-21): prioritize the full-size default BGE run; stop and later resume Gemma on its existing index/cache, report Gemma active time summed across runs, use the same `9f53910` binary for both, then validate warm searches with the current v0.4.1 binary.
 - @operator (2026-11-21): use fork aikit v1.79.1 (`0bbc048`) and goinfer v0.4.1; verify the aikit proxy artifact before updating pbrain's dependency pin. Aikit root code is unchanged from v1.79.0; the release includes nested-module pins and docs.
@@ -48,6 +54,10 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain full-size BGE figures (@lead-dev, @architect) `15996ee`, `b73f952`, `30d02f2`
+
+- [x] pbrain aikit v1.79.1 dependency and spec pin (@architect-2, @architect) `20a69cf`, `98d62cb`
 
 - [x] pbrain goinfer v0.4.1 dependency and spec pin (@architect-2, @architect) `023bc3e`, `0b655ae`
 
