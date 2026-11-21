@@ -159,16 +159,17 @@ func TestSemanticNotReadyAndPartial(t *testing.T) {
 
 func TestMergedListThreeGroups(t *testing.T) {
 	f := newFixture()
-	f.put("exact", "queue retry timeout", "")
-	f.put("partial", "queue retry", "")
-	both := f.put("both", "queue retry", "")
+	// Five of six clauses: a partial match under the calibrated minimum of five informative ones.
+	f.put("exact", "queue retry timeout backoff worker lease", "")
+	f.put("partial", "queue retry backoff worker lease", "")
+	both := f.put("both", "queue timeout backoff worker lease", "")
 	meaning := f.put("meaning", "unrelated words", "unrelated")
 	filler(f, 17)
 	src := &fakeSemantic{scores: Scores{Ready: true, Cutoff: 0.5, Hits: []SemanticHit{
 		{Item: both, Score: 0.6, End: 0}, {Item: meaning, Score: 0.9, End: 0},
 	}}}
-	strict := f.search(t, "queue retry timeout")
-	res := f.search(t, "queue retry timeout", withBM25, withSemantic(src))
+	strict := f.search(t, "queue retry timeout backoff worker lease")
+	res := f.search(t, "queue retry timeout backoff worker lease", withBM25, withSemantic(src))
 	// Exact, then found by meaning, then partial; an item both semantic and partial is semantic.
 	assertRows(t, res, "exact", "meaning", "both", "partial")
 	if res.Total != 4 || !reflect.DeepEqual(res.Hits[0], strict.Hits[0]) || res.Replaced != strict.Replaced || res.Outside != strict.Outside {
@@ -179,7 +180,7 @@ func TestMergedListThreeGroups(t *testing.T) {
 	}
 	// The model not ready: exact and partial, with Sem set.
 	src.scores.Ready, src.scores.Reason = false, NoIndex
-	res = f.search(t, "queue retry timeout", withBM25, withSemantic(src))
+	res = f.search(t, "queue retry timeout backoff worker lease", withBM25, withSemantic(src))
 	assertRows(t, res, "exact", "both", "partial")
 	if res.Sem.Reason != NoIndex {
 		t.Fatal(res.Sem)
@@ -187,7 +188,7 @@ func TestMergedListThreeGroups(t *testing.T) {
 	// Paging at page size one visits every row of the whole list once.
 	src.scores.Ready = true
 	for i, id := range []string{"exact", "meaning", "both", "partial"} {
-		page := f.search(t, "queue retry timeout", withBM25, withSemantic(src), func(r *Request) { r.Offset, r.Limit = i, 1 })
+		page := f.search(t, "queue retry timeout backoff worker lease", withBM25, withSemantic(src), func(r *Request) { r.Offset, r.Limit = i, 1 })
 		assertRows(t, page, id)
 	}
 }
