@@ -40,7 +40,8 @@ type InitOptions struct {
 // InitResult is what init made, for its output.
 type InitResult struct {
 	Dir           string // canonical target, internal only
-	Path          string // display path under project root, or "." at its root
+	Path          string // relative to the project root, or the supplied absolute external path
+	Selector      string // usable from the caller's directory as --brain or PBRAIN_DIR
 	NeedsSelector bool
 }
 
@@ -158,7 +159,15 @@ func absFrom(base, p string) string {
 func discover(env Env, opt OpenOptions) (string, error) {
 	files := env.Files
 	if sel := selector(env, opt); sel != "" {
-		r, err := files.Resolve(absFrom(env.Dir, sel), false)
+		if !filepath.IsAbs(sel) {
+			// Resolve the directory before joining: ".." is relative to the physical cwd.
+			cwd, err := files.Resolve(env.Dir, false)
+			if err != nil || !cwd.Exists {
+				return "", noBrain()
+			}
+			sel = filepath.Join(cwd.Path, sel)
+		}
+		r, err := files.Resolve(sel, false)
 		if err != nil || !r.Exists || !r.Info.Mode.IsDir() {
 			return "", noBrain()
 		}

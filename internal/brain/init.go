@@ -73,6 +73,22 @@ func Init(ctx context.Context, env Env, opt InitOptions) (InitResult, error) {
 		}
 	}
 
+	res := InitResult{Dir: target, NeedsSelector: target != filepath.Join(root, "docs", "brain")}
+	if _, inside := under(root, target); !inside && filepath.IsAbs(shown) {
+		res.Path = filepath.ToSlash(shown)
+		res.Selector = res.Path
+	} else {
+		location, err := filepath.Rel(root, target)
+		if err != nil {
+			return InitResult{}, ioError("cannot locate the brain relative to the project root")
+		}
+		fromCaller, err := filepath.Rel(cwd.Path, target)
+		if err != nil {
+			return InitResult{}, ioError("cannot locate the brain relative to the working directory")
+		}
+		res.Path, res.Selector = filepath.ToSlash(location), filepath.ToSlash(fromCaller)
+	}
+
 	h, err := files.OpenRoot(target, true)
 	if err != nil {
 		return InitResult{}, invalid("the brain folder cannot be a folder there")
@@ -88,12 +104,6 @@ func Init(ctx context.Context, env Env, opt InitOptions) (InitResult, error) {
 	}
 	b.Close()
 
-	res := InitResult{Dir: target, NeedsSelector: target != filepath.Join(root, "docs", "brain")}
-	if rel, ok := under(root, target); ok {
-		res.Path = filepath.ToSlash(rel)
-	} else {
-		res.Path = shown
-	}
 	return res, nil
 }
 
