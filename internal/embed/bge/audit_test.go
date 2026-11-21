@@ -16,13 +16,14 @@ import (
 )
 
 func TestRuntimeEnvAndOutput(t *testing.T) {
-	const runtimeModule = "github.com/pkieltyka/aikit"
-	out, err := exec.CommandContext(t.Context(), "go", "list", "-deps", "-json", ".").Output()
+	const aikit = "github.com/pkieltyka/aikit"
+	const goinfer = "github.com/pkieltyka/goinfer"
+	out, err := exec.CommandContext(t.Context(), "go", "list", "-deps", "-json", ".", "../gemma2").Output()
 	if err != nil {
 		t.Fatal(err)
 	}
 	list := json.NewDecoder(bytes.NewReader(out))
-	checked := 0
+	checked := map[string]int{}
 	for {
 		var pkg struct {
 			Dir, ImportPath string
@@ -34,16 +35,16 @@ func TestRuntimeEnvAndOutput(t *testing.T) {
 		} else if err != nil {
 			t.Fatal(err)
 		}
-		if pkg.Module == nil || pkg.Module.Path != runtimeModule {
+		if pkg.Module == nil || (pkg.Module.Path != aikit && pkg.Module.Path != goinfer) {
 			continue
 		}
 		for _, name := range pkg.GoFiles {
 			auditRuntimeFile(t, filepath.Join(pkg.Dir, name), pkg.ImportPath+"/"+name)
-			checked++
+			checked[pkg.Module.Path]++
 		}
 	}
-	if checked == 0 {
-		t.Fatal("aikit source was not audited")
+	if checked[aikit] == 0 || checked[goinfer] == 0 {
+		t.Fatalf("incomplete runtime audit: %v", checked)
 	}
 }
 
