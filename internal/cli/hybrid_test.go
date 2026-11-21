@@ -117,3 +117,54 @@ func TestHybridContinuationRaisesMinimum(t *testing.T) {
 		t.Fatalf("the semantic JSON row: %s", out)
 	}
 }
+
+// A partial row renders its marker and fields; an exact row on the same page has none of them.
+func TestHybridPartialRow(t *testing.T) {
+	rb := cacheBrain(t)
+	ctx := context.Background()
+	b, err := brain.Open(ctx, brain.Env{Dir: rb.env.Dir, Getenv: rb.env.Getenv, Now: rb.env.Now, Files: rb.env.Files}, brain.OpenOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	cat, err := store.Scan(ctx, b, brain.SharedView, store.KeepAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var redis, cost *item.Item
+	for _, it := range cat.Items() {
+		switch it.ID {
+		case redisID:
+			redis = it
+		case costID:
+			cost = it
+		}
+	}
+	for _, f := range []render.Format{render.Text, render.JSON} {
+		in, _ := parseOptions([]string{"search", "redis"}, Features{})
+		in.format, in.now = f, rb.env.Now()
+		r := &reader{in: &in, b: b, cat: cat, g: graph.Build(cat.Items()), now: in.now}
+		res := &search.Result{Total: 2, Hits: []search.Hit{
+			{Item: redis, Class: 3, Occurrences: 1},
+			{Item: cost, Partial: true, Matched: 2, Clauses: 3, Occurrences: 2},
+		}}
+		out, err := render.Fit(r.searchDoc(res), 3000, f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if f == render.Text {
+			if !strings.Contains(string(out), costID+"  note  provisional  2026-11-20  partial 2/3\n") || strings.Contains(string(out), redisID+"  decision  verified  2026-11-19  partial") {
+				t.Fatalf("partial text:\n%s", out)
+			}
+			continue
+		}
+		var page struct{ Results []map[string]any }
+		json.Unmarshal(out, &page)
+		if p := page.Results[1]; p["partial"] != true || p["matched"] != 2.0 || p["clauses"] != 3.0 || p["semantic"] != nil {
+			t.Fatalf("partial JSON: %s", out)
+		}
+		if e := page.Results[0]; e["partial"] != nil || e["matched"] != nil || e["clauses"] != nil {
+			t.Fatalf("exact JSON row with partial fields: %s", out)
+		}
+	}
+}

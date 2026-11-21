@@ -145,10 +145,10 @@ func TestSemanticNotReadyAndPartial(t *testing.T) {
 			t.Errorf("%s: total %d, %+v", name, res.Total, res.Sem)
 		}
 	}
-	// A cancelled context returns its error.
+	// A cancelled context returns its error, also with nothing on the page.
 	ctx, cancel := context.WithCancel(context.Background())
 	src := &fakeSemantic{cancel: cancel, scores: Scores{Ready: true, Cutoff: 0.5}}
-	if _, err := Run(ctx, f, graph.Build(f.items), Request{Clauses: clauses(t, "redis"), Text: "redis", Limit: 5, Now: now, Semantic: src}); !errors.Is(err, context.Canceled) {
+	if _, err := Run(ctx, f, graph.Build(f.items), Request{Clauses: clauses(t, "nothingmatches"), Text: "nothingmatches", Limit: 5, Now: now, Semantic: src}); !errors.Is(err, context.Canceled) {
 		t.Fatalf("a cancelled Score: %v", err)
 	}
 	// Without the source Score is never called and Sem is zero.
