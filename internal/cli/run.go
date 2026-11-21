@@ -158,6 +158,8 @@ func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, fe
 		return runSearch(ctx, env, in, b, features)
 	case "get":
 		return runGet(ctx, env, in, b)
+	case "audience":
+		return runAudienceCommand(ctx, env, in, b)
 	case "add":
 		return runAddCommand(ctx, in, newWriteContext(env, in, b))
 	case "verify":
