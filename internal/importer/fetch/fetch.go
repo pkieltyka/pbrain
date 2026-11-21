@@ -1,9 +1,9 @@
-// Package fetch: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package fetch downloads a public page or model file over checked, direct connections.
 package fetch
 
 import (
 	"context"
-	"io"
+	"crypto/x509"
 	"net"
 	"net/netip"
 	"net/url"
@@ -25,11 +25,30 @@ type Page struct {
 	MediaType string
 	Original  []byte
 }
-type Client struct { /* immutable dependencies */
+type Client struct {
+	net         Net
+	pageTimeout time.Duration
+	roots       *x509.CertPool // nil uses the system trust store
 }
 
-func New(net Net) *Client                                               { panic("not implemented") }
-func (c *Client) Get(ctx context.Context, rawURL string) (*Page, error) { panic("not implemented") }
-func (c *Client) Download(ctx context.Context, rawURL string, dst io.Writer, maxBytes int64, idle time.Duration) (written int64, err error) {
-	panic("not implemented")
+func New(n Net) *Client {
+	if n.Resolver == nil {
+		n.Resolver = systemResolver{}
+	}
+	if n.Dialer == nil {
+		n.Dialer = systemDialer{}
+	}
+	return &Client{net: n, pageTimeout: 30 * time.Second}
+}
+
+type systemResolver struct{}
+
+func (systemResolver) LookupNetIP(ctx context.Context, host string) ([]netip.Addr, error) {
+	return net.DefaultResolver.LookupNetIP(ctx, "ip", host)
+}
+
+type systemDialer struct{ net.Dialer }
+
+func (d systemDialer) DialContext(ctx context.Context, network string, addr netip.AddrPort) (net.Conn, error) {
+	return d.Dialer.DialContext(ctx, network, addr.String())
 }

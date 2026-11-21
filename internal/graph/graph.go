@@ -1,68 +1,224 @@
-// Package graph: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package graph derives replacement, history and related links from one command's items.
 package graph
 
-import "github.com/pkieltyka/pbrain/internal/item"
+import (
+	"cmp"
+	"slices"
 
-type Graph struct { /* unexported, immutable after Build */
+	"github.com/pkieltyka/pbrain/internal/item"
+)
+
+// Graph is an immutable view of one catalog. Its items must remain unchanged.
+type Graph struct {
+	items  []*item.Item
+	nodes  map[*item.Item]int
+	byKey  map[string][]int
+	out    [][]int // replacer to replaced item
+	in     [][]int // replaced item to replacer
+	succ   [][]int // reachable current items, including self for current items
+	rel    [][]int
+	relIn  [][]int
+	group  []int
+	groups [][]int
+	facts  []LinkFinding
 }
 
-func Build(items []*item.Item) *Graph { panic("not implemented") }
+// Build resolves links in the holder's view, removes invalid edges and computes currentness.
+func Build(items []*item.Item) *Graph {
+	n := len(items)
+	g := &Graph{
+		items: slices.Clone(items), nodes: make(map[*item.Item]int, n), byKey: make(map[string][]int, n),
+		out: make([][]int, n), in: make([][]int, n), succ: make([][]int, n),
+		rel: make([][]int, n), relIn: make([][]int, n),
+	}
+	for i, it := range items {
+		g.nodes[it] = i
+		g.byKey[it.Key] = append(g.byKey[it.Key], i)
+	}
+	g.buildReplaces()
+	g.addStamps()
+	g.deriveReplacementFacts()
+	g.buildRelates()
+	slices.SortStableFunc(g.facts, func(a, b LinkFinding) int {
+		return cmp.Or(cmp.Compare(a.Item.Section, b.Item.Section), cmp.Compare(a.Item.Path, b.Item.Path),
+			cmp.Compare(a.Field, b.Field), cmp.Compare(a.Target, b.Target))
+	})
+	return g
+}
 
-func (g *Graph) Current(it *item.Item) bool                   { panic("not implemented") }
-func (g *Graph) Replacement(it *item.Item) []*item.Item       { panic("not implemented") }
-func (g *Graph) CurrentSuccessors(it *item.Item) []*item.Item { panic("not implemented") }
-func (g *Graph) History(it *item.Item) []*item.Item           { panic("not implemented") }
-func (g *Graph) RelatesTo(it *item.Item) []*item.Item         { panic("not implemented") }
-func (g *Graph) NewerRelated(it *item.Item) []*item.Item      { panic("not implemented") }
-func (g *Graph) Unresolved(it *item.Item) int                 { panic("not implemented") }
-func (g *Graph) Findings() []LinkFinding                      { panic("not implemented") }
+func (g *Graph) Current(it *item.Item) bool {
+	i, ok := g.nodes[it]
+	return ok && len(g.in[i]) == 0
+}
+
+func (g *Graph) Replacement(it *item.Item) []*item.Item {
+	if i, ok := g.nodes[it]; ok {
+		return g.references(g.in[i])
+	}
+	return nil
+}
+
+func (g *Graph) CurrentSuccessors(it *item.Item) []*item.Item {
+	if i, ok := g.nodes[it]; ok && len(g.in[i]) != 0 {
+		return g.references(g.succ[i])
+	}
+	return nil
+}
+
+// Replaces returns what it replaces through valid links and accepted stamps.
+func (g *Graph) Replaces(it *item.Item) []*item.Item {
+	if i, ok := g.nodes[it]; ok {
+		return g.references(g.out[i])
+	}
+	return nil
+}
+
+func (g *Graph) RelatesTo(it *item.Item) []*item.Item {
+	if i, ok := g.nodes[it]; ok {
+		return g.references(g.rel[i])
+	}
+	return nil
+}
+
+func (g *Graph) NewerRelated(it *item.Item) []*item.Item {
+	if i, ok := g.nodes[it]; ok {
+		return g.references(g.relIn[i])
+	}
+	return nil
+}
+
+func (g *Graph) references(nodes []int) []*item.Item {
+	if len(nodes) == 0 {
+		return nil
+	}
+	result := make([]*item.Item, len(nodes))
+	for i, node := range nodes {
+		result[i] = g.items[node]
+	}
+	return result
+}
+
+func (g *Graph) Findings() []LinkFinding {
+	out := slices.Clone(g.facts)
+	for i := range out {
+		out[i].Successors = slices.Clone(out[i].Successors)
+	}
+	return out
+}
+
+type Field uint8
+
+const (
+	FieldReplaces Field = iota
+	FieldRelates
+	FieldStatus
+)
+
+type LinkFinding struct {
+	Code       string
+	Item       *item.Item
+	Field      Field
+	Target     string // empty for dangling_link and personal_reference
+	Reason     Reason
+	Successors []*item.Item // populated for replace_fork
+}
+
+type Reason uint8
+
+const (
+	Ambiguous Reason = iota + 1
+	OtherSection
+	Standing
+	DecisionKind
+	SourceKind
+	AlreadyLinked
+	Missing
+	InCycle
+)
+
+// Shown returns an item's written ids that exist in the command's view.
+func (g *Graph) Shown(it *item.Item, f Field) []string {
+	if _, ok := g.nodes[it]; !ok {
+		return nil
+	}
+	var ids []string
+	switch f {
+	case FieldReplaces:
+		ids = it.Header.Replaces
+	case FieldRelates:
+		ids = it.Header.Relates
+	default:
+		return nil
+	}
+	var out []string
+	for id, key := range distinct(ids) {
+		if len(g.byKey[key]) != 0 {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// Unresolved counts distinct ids absent from the command's view, across both link fields.
+func (g *Graph) Unresolved(it *item.Item) int {
+	if _, ok := g.nodes[it]; !ok {
+		return 0
+	}
+	missing := make(map[string]struct{})
+	for _, ids := range [][]string{it.Header.Replaces, it.Header.Relates} {
+		for _, id := range ids {
+			key := item.Fold(id)
+			if len(g.byKey[key]) == 0 {
+				missing[key] = struct{}{}
+			}
+		}
+	}
+	return len(missing)
+}
 
 type Impact struct {
 	CurrentAgain []*item.Item
 	Dangling     []*item.Item
 }
 
-func Effect(items []*item.Item, target *item.Item) Impact { panic("not implemented") }
-
-// Replaces: the items this one replaces through counted links (valid replaces links,
-// and accepted stamps that name it), in history order. get --history prints them.
-func (g *Graph) Replaces(it *item.Item) []*item.Item { panic("not implemented") }
-
-// Shown returns the ids an item's own replaces and relates fields name that exist in the
-// command's view, in field order and deduplicated by folded id, each as written in the file.
-// get prints these on its replaces: and relates: lines; everything else is counted by Unresolved.
-func (g *Graph) Shown(it *item.Item, f Field) []string { panic("not implemented") }
-
-// CheckNewReplaces applies spec 4.2 to links a write is about to create, against this graph.
-// For each named id: it must resolve (lookup rules of section 3.1, in the new item's section and view),
-// pass the standing and kind rules for the new item's header, and name a current item.
-// It cannot form a cycle, given one precondition the caller guarantees: no existing item
-// names the new id, in replaces or in a legacy stamp. writes reserves those ids when it draws
-// the id (NewID's used callback also returns true for every folded id named by any item's
-// replaces field or stamp in the section, dangling ones included), so the new item has no
-// incoming link when it is published.
-// Errors (*errs.Error):
-//
-//	not_found     the id resolves to nothing in the view (the write's Lookup view)
-//	ambiguous_id  more than one item in the view has it
-//	invalid       another section, or the standing or kind rule fails
-//	              (message: "replaces <id>: <rule>")
-//	invalid       the target is already replaced (spec 4.2); the returned slice is then that
-//	              target's current successors, for writes to name if Disclose allows
-//
-// On success the returned slice is the resolved targets, in the order of ids.
-func (g *Graph) CheckNewReplaces(newSection item.Section, newHeader *item.Header, ids []string) ([]*item.Item, error) {
-	panic("not implemented")
+// Effect compares the same view before and after removing the target.
+func Effect(items []*item.Item, target *item.Item) Impact {
+	remaining := make([]*item.Item, 0, len(items))
+	found := false
+	for _, it := range items {
+		if it == target {
+			found = true
+		} else {
+			remaining = append(remaining, it)
+		}
+	}
+	if !found {
+		return Impact{}
+	}
+	before, after := Build(items), Build(remaining)
+	targetNode := before.nodes[target]
+	var impact Impact
+	for _, it := range remaining {
+		if !before.Current(it) && after.Current(it) {
+			impact.CurrentAgain = append(impact.CurrentAgain, it)
+		}
+		if newlyDangling(it, targetNode, before, after) {
+			impact.Dangling = append(impact.Dangling, it)
+		}
+	}
+	slices.SortFunc(impact.CurrentAgain, oldest)
+	slices.SortFunc(impact.Dangling, oldest)
+	return impact
 }
 
-type Field uint8 // FieldReplaces, FieldRelates, FieldStatus (the legacy stamp)
-
-type LinkFinding struct {
-	Code       string     // replace_invalid | replace_cycle | replace_fork | legacy_stamp_ignored | dangling_link | personal_reference
-	Item       *item.Item // the item whose file holds the link (the replaced item, for replace_fork)
-	Field      Field
-	Target     string       // the id as written; empty for dangling_link and personal_reference, which name no target
-	Reason     Reason       // why, for replace_invalid and legacy_stamp_ignored
-	Successors []*item.Item // replace_fork: the current successors
+func newlyDangling(it *item.Item, target int, before, after *Graph) bool {
+	for _, ids := range [][]string{it.Header.Replaces, it.Header.Relates} {
+		for _, id := range ids {
+			key := item.Fold(id)
+			if before.resolve(it.Section, key) == target && after.resolve(it.Section, key) == none {
+				return true
+			}
+		}
+	}
+	return false
 }
-type Reason uint8 // Ambiguous, OtherSection, Standing, DecisionKind, SourceKind, AlreadyLinked, Missing, InCycle
