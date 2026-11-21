@@ -46,6 +46,19 @@ func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
 	if h.Item.Layout.BodyLine == 0 {
 		n = utf8.RuneCount(body)
 	}
+	if h.Semantic {
+		// The snippet lies inside the passage only (section 6.1 step 7); an empty span has none.
+		if !req.BM25 {
+			m.scan(body, func(_, _, _ int) bool {
+				h.Occurrences++
+				return false
+			})
+		}
+		if row.start == row.end {
+			return h, nil
+		}
+		return withSnippet(h, body, row.start, min(row.end, row.start+l), n, req), nil
+	}
 	var start int
 	if n <= l {
 		// The whole body already fits. There is no stretch to choose.
@@ -68,7 +81,11 @@ func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
 		})
 		start = bestStretch(found, l, m.plan.size)
 	}
-	end := min(n, start+l)
+	return withSnippet(h, body, start, min(n, start+l), n, req), nil
+}
+
+// withSnippet sets the snippet of [start, end) with its line, section and context lines.
+func withSnippet(h Hit, body []byte, start, end, n int, req Request) Hit {
 	from, to := byteSpan(body, start, end)
 	h.Snippet = &Snippet{
 		Text: string(body[from:to]), Start: start, End: end, BodyChars: n, Long: n > req.LongBody,
@@ -83,7 +100,7 @@ func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
 	if req.Context > 0 {
 		h.Snippet.Context = contextLines(body, from, to, h.Snippet.Line, req.Context)
 	}
-	return h, nil
+	return h
 }
 
 // bestStretch chooses the earliest start with the most distinct clauses in its span.
