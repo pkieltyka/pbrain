@@ -7,8 +7,23 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; Linux BGE queued after Gemma
-    * next: finish both Linux measurements, then final read-only pass; release tag waits for those results
+    * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
+    * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
+
+- [ ] pbrain spec: revise decision 27 for BGE default and measured cost (@architect)
+    * owner: @architect
+    * range/status: assigned on master `20d8626`; Mac-owed spec delta is integrated
+    * next: update functional spec 9.4/10/16, architecture 8.7/16/17, semantic/brain/skill specs and README with Gemma opt-in, both models' figures, and goinfer v0.4.1
+
+- [ ] pbrain BGE-default release wiring (@architect-2)
+    * owner: @architect-2
+    * range/status: assigned after the revised-default spec lands; implementation on master
+    * next: set `brain.DefaultModel` to BGE and update default-reading tests, CLI status and notice expectations
+
+- [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
+    * owner: @architect-2
+    * range/status: blocked; signed v0.4.1 points to `e33aa3893`, but proxy currently returns a cached not-found; pbrain remains on v0.2.0
+    * next: after cache expiry, verify proxy Origin.Hash and fork module path; then bump and run Gemma pinned-file tests
 
 - [ ] pbrain executable scenarios 21–30 and 35 (@lead-dev)
     * owner: @lead-dev
@@ -37,11 +52,12 @@ TODO
 
 ## Decisions
 
-- @operator (2026-11-21): retain `embeddinggemma-2` as default despite the ~15 h projection for 5,000 token-heavy items/50 MB; compare same-size BGE after Gemma and hold the first release tag for full-size timings and the final read-only pass.
+- @operator (2026-11-21): revise decision 27: `bge-small-en-v1.5` is default; `embeddinggemma-2` remains opt-in and `none` turns semantic search off. The measured Gemma cost on the token-heavy 5,000-item/50 MB fixture informs the change; finish the same-size BGE run before release.
+- @operator (2026-11-21): macOS arm64 runtime measurements and tagged-install smoke are owed in a separate backlog item and do not block the first release.
 - @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
 - @operator (2026-11-21): use `ExactValue` for control/quote/backslash IDs and paths (spaces remain bare); reject invalid-UTF-8 lookup IDs; use `bad_file_name`; map invalid-name findings to the nearest printable ancestor or `?`; omit invalid-UTF-8 JSON paths.
 - @operator (2026-11-21): count only error-severity skipped files in `skipped_files`; informational `not_an_item` files do not trigger the notice.
-- @operator (2026-11-21): do not touch goinfer tags; the imported v0.4.0 tag is under owner review, and the next fork release awaits approval.
+- @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
 
