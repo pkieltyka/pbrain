@@ -540,7 +540,8 @@ func TestMutationFollowsScannedIdentity(t *testing.T) {
 	tx, err := Begin(context.Background(), b, item.Shared)
 	must(t, err)
 	defer tx.Close()
-	st, _ := os.Stat(w.brainPath("notes/a.md"))
+	st, err := os.Stat(w.brainPath("notes/a.md"))
+	must(t, err)
 	must(t, os.Rename(w.brainPath("notes"), w.brainPath("notes-old")))
 	w.write("p/docs/brain/notes/a.md", note("A"))
 	must(t, os.Chtimes(w.brainPath("notes/a.md"), st.ModTime(), st.ModTime()))
@@ -559,11 +560,28 @@ func TestMutationFollowsScannedIdentity(t *testing.T) {
 	// The file itself replaced by one with the same bytes and time, in the same folder.
 	must(t, os.RemoveAll(w.brainPath("notes")))
 	must(t, os.Rename(w.brainPath("notes-old"), w.brainPath("notes")))
-	must(t, os.Remove(w.brainPath("notes/a.md")))
-	w.write("p/docs/brain/notes/a.md", note("A"))
-	must(t, os.Chtimes(w.brainPath("notes/a.md"), st.ModTime(), st.ModTime()))
+	// Stage the replacement while the original inode is still allocated.
+	// Unlinking first would let the filesystem reuse the scanned identity.
+	target := w.brainPath("notes/a.md")
+	staged := w.brainPath("notes/replacement.tmp")
+	w.write("p/docs/brain/notes/replacement.tmp", note("A"))
+	must(t, os.Chtimes(staged, st.ModTime(), st.ModTime()))
+	replacement, err := os.Stat(staged)
+	must(t, err)
+	if replacement.Size() != st.Size() || !replacement.ModTime().Equal(st.ModTime()) {
+		t.Fatal("replacement fixture must preserve the scanned size and modification time")
+	}
+	if os.SameFile(st, replacement) {
+		t.Fatal("replacement fixture has the scanned file's identity")
+	}
+	must(t, os.Rename(staged, target))
 	if _, err := tx.RemoveItem(it); code(err) != "conflict" {
 		t.Fatalf("RemoveItem of a replaced file: %v", err)
+	}
+	after, err := os.Stat(target)
+	must(t, err)
+	if !os.SameFile(after, replacement) {
+		t.Fatal("RemoveItem did not preserve the replacement")
 	}
 	// An item no scan made is refused.
 	if _, _, err := tx.ReadFile(&item.Item{Section: item.Shared, Path: w.brainPath("notes/a.md")}); code(err) != "invalid" {
