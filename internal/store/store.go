@@ -15,6 +15,7 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+	"weak"
 
 	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/errs"
@@ -74,8 +75,23 @@ var castagnoli = crc32.MakeTable(crc32.Castagnoli)
 
 // scanned holds, for every item a scan made, the route it was read by: each folder's identity and
 // the file's. A write reaches an item only along that route, so a folder or file swapped since the
-// scan, even for one holding the same bytes, is a conflict.
-var scanned sync.Map // *item.Item -> route
+// scan, even for one holding the same bytes, is a conflict. It is keyed by a weak pointer and each
+// entry is deleted when its item is collected, so it holds nothing beyond the items still in use.
+var scanned sync.Map // weak.Pointer[item.Item] -> route
+
+func remember(it *item.Item, r route) {
+	key := weak.Make(it)
+	scanned.Store(key, r)
+	runtime.AddCleanup(it, func(k weak.Pointer[item.Item]) { scanned.Delete(k) }, key)
+}
+
+func recall(it *item.Item) (route, bool) {
+	v, ok := scanned.Load(weak.Make(it))
+	if !ok {
+		return route{}, false
+	}
+	return v.(route), true
+}
 
 func ioError(msg string) error    { return &errs.Error{Code: "io", Message: msg, Exit: 1} }
 func conflict(msg string) error   { return &errs.Error{Code: "conflict", Message: msg, Exit: 1} }
@@ -414,7 +430,7 @@ func (c *Catalog) read(ctx context.Context, cands []candidate) error {
 		case r.it != nil:
 			c.items = append(c.items, r.it)
 			c.routes[r.it] = cands[i].r
-			scanned.Store(r.it, cands[i].r)
+			remember(r.it, cands[i].r)
 			if c.keep == KeepAll {
 				c.bodies[r.it] = r.body
 			}

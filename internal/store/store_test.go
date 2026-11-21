@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -566,5 +567,46 @@ func TestMutationFollowsScannedIdentity(t *testing.T) {
 	// An item no scan made is refused.
 	if _, _, err := tx.ReadFile(&item.Item{Section: item.Shared, Path: w.brainPath("notes/a.md")}); code(err) != "invalid" {
 		t.Fatalf("an item from no scan: %v", err)
+	}
+}
+
+// The scanned routes live only as long as their items: repeated scans in one process do not grow
+// the table without bound.
+func TestScannedRoutesAreReleased(t *testing.T) {
+	w := newWorld(t)
+	for i := range 20 {
+		w.write(fmt.Sprintf("p/docs/brain/notes/n%d.md", i), note(fmt.Sprint(i)))
+	}
+	b := w.open()
+	count := func() int {
+		n := 0
+		scanned.Range(func(any, any) bool { n++; return true })
+		return n
+	}
+	base := count()
+	for range 50 {
+		if _, err := Scan(context.Background(), b, brain.SharedView, KeepNone); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var n int
+	for range 50 {
+		runtime.GC()
+		time.Sleep(10 * time.Millisecond)
+		if n = count(); n <= base+20 {
+			break
+		}
+	}
+	if n > base+20 {
+		t.Fatalf("%d routes kept after 50 scans of 20 items", n-base)
+	}
+	// A live catalog's items keep their routes.
+	c, err := Scan(context.Background(), b, brain.SharedView, KeepNone)
+	must(t, err)
+	runtime.GC()
+	for _, it := range c.Items() {
+		if _, ok := recall(it); !ok {
+			t.Fatal("a live item lost its route")
+		}
 	}
 }

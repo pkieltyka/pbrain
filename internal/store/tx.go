@@ -215,11 +215,10 @@ func (tx *Tx) Publish(ctx context.Context, kind item.Kind, id string, data []byt
 
 // itemRoute is the route a scan read the item by: only an item of the locked section, made by Scan.
 func (tx *Tx) itemRoute(it *item.Item) (route, error) {
-	v, ok := scanned.Load(it)
+	r, ok := recall(it)
 	if !ok || it.Section != tx.section {
 		return route{}, invalidErr("the item is not in the locked section")
 	}
-	r := v.(route)
 	if r.section != tx.section {
 		return route{}, invalidErr("the item is not in the locked section")
 	}
