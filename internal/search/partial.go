@@ -8,9 +8,9 @@ import (
 	"github.com/pkieltyka/pbrain/internal/query"
 )
 
-// Set these on the calibration half of the evaluation fixture.
+// Frozen by the model-free calibration in internal/semantic/calibrate.
 const (
-	partialMinInformative = 2
+	partialMinInformative = 5
 	partialDFDivisor      = 4
 	partialShareDivisor   = 2
 )

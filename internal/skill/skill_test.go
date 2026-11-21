@@ -20,7 +20,7 @@ func TestSkillResourcesAndLimits(t *testing.T) {
 	}
 	core := Core()
 	checkText("core", core, 400)
-	for _, guidance := range []string{"'cach*'", "three or more words", "--bm25", "2/3", "Read semantic and partial hits", "path:line", "get <id> --offset <n>", "--outline", "--context 2", "--color"} {
+	for _, guidance := range []string{"'cach*'", "six or more words", "--bm25", "5/6", "Read semantic and partial hits", "path:line", "get <id> --offset <n>", "--outline", "--context 2", "--color"} {
 		if !strings.Contains(core, guidance) {
 			t.Errorf("core is missing %q", guidance)
 		}
