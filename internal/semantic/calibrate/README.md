@@ -52,7 +52,8 @@ the evaluation as an error instead of counting a lexical-only page.
 
 ## bge-small release check
 
-Tool `8ecfb9e` selected cutoff **0.65** on the frozen calibration half.
+The corrected tool `9695d1b` reproduced cutoff **0.65** on the frozen
+calibration half and exited 0 in 63 seconds.
 On 47 answerable questions, expected IDs on the first page rose from 16
 with strict search to 40 with semantic search. Every strict success
 was preserved. The held-out results were:
@@ -67,10 +68,10 @@ was preserved. The held-out results were:
 The only nonempty unanswerable result in either model arm was `u036`.
 It had no literal match and was outside the marked regression set.
 All regressions passed. Hybrid reached the evidence on four of six
-long-source questions, compared with zero for strict search. All eight
-personal controls opened and the shared replay was byte-identical.
-Standalone model eligibility and the combined BM25 gate both passed.
-The two reports differed only in timing fields.
+long-source questions, compared with zero for strict search. Personal
+search returned all eight private controls, all eight opened with get,
+and the shared replay was byte-identical. The standalone model and
+combined BM25 gates both reproduced the pass from tool `8ecfb9e`.
 
 On Linux, the wired candidate's 35-item fixture took 9.0 s for the first
 index including the model download, 131–164 ms for a no-op index, and
