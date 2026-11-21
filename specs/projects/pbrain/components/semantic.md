@@ -493,20 +493,20 @@ Both adapters run on libraries the project holds as its own (owner's decision, 2
 |---|---|---|
 | Module, the path in `go.mod` and in imports | `github.com/pkieltyka/goinfer` | `github.com/pkieltyka/aikit` |
 | Forked from | `github.com/townsendmerino/goinfer` at `e0d66171` | `github.com/townsendmerino/aikit` at `b719bbda`, the release v1.78.0 |
-| Release pbrain pins | v0.4.1 (`e33aa3893`): our `main` with the original merged up to its `36dbfbaf1`. The tokenizer pack came in v0.1.0 (`bdf9daf9`, the module rename, where our numbering started) and the loader from bytes in v0.2.0 (`a759890b`). v0.4.0 is unusable | v1.79.0 (`3c0896c0`): the loader from bytes, under our module path |
+| Release pbrain pins | v0.4.1 (`e33aa3893`): our `main` with the original merged up to its `36dbfbaf1`. The tokenizer pack came in v0.1.0 (`bdf9daf9`, the module rename, where our numbering started) and the loader from bytes in v0.2.0 (`a759890b`). v0.4.0 is unusable | v1.79.1 (`0bbc048`). The loader from bytes came in v1.79.0 (`3c0896c0`, the module rename); v1.79.1 adds nothing pbrain links |
 | Still to come | nothing in goinfer: the pack and its derive step are the adapter's, in pbrain | nothing pbrain needs |
 | Offered to the original author | `townsendmerino/goinfer#1194` | `townsendmerino/aikit#38` |
 | Imported by | `embed/gemma2`: the text encoder and tokenizer packages | `embed/bge`: `encoder` and `embed`; and goinfer itself |
 
-- **The pins** (owner's decision, 2026-11-21). pbrain requires `github.com/pkieltyka/aikit v1.79.0` and `github.com/pkieltyka/goinfer v0.4.1`; `go.sum` pins their content. A pin is always a tag on our `main`, never an untagged commit. Both tags exist: aikit v1.79.0 holds everything the bge-small adapter uses, and goinfer v0.4.1 everything the EmbeddingGemma 2 adapter uses, which it has had since v0.2.0. goinfer v0.4.0 must never be required: the module proxy holds a tag of the original under that number, with the original's module path, and keeps it for good (architecture §8.7). A new tag is checked on the proxy, against the commit and by its `h1` checksum, before pbrain requires it.
-- **One aikit.** goinfer requires our aikit too. Go links one copy of a module, the newer of the versions required, so pbrain's requirement of aikit is kept at or after the one in the goinfer release it pins, and `TestBgeParity` and `TestGemmaParity` run on what is linked.
+- **The pins** (owner's decision, 2026-11-21). pbrain requires `github.com/pkieltyka/aikit v1.79.1` and `github.com/pkieltyka/goinfer v0.4.1`; `go.sum` pins their content. A pin is always a tag on our `main`, never an untagged commit. Both tags exist: aikit v1.79.1 holds everything the bge-small adapter uses, which it has had since v1.79.0, and goinfer v0.4.1 everything the EmbeddingGemma 2 adapter uses, which it has had since v0.2.0. goinfer v0.4.0 must never be required: the module proxy holds a tag of the original under that number, with the original's module path, and keeps it for good (architecture §8.7). A new tag is checked on the proxy, against the commit and by its `h1` checksum, before pbrain requires it.
+- **One aikit.** goinfer requires our aikit too. Go links one copy of a module, the newer of the versions required, so pbrain's requirement of aikit is kept at or after the one in the goinfer release it pins, and `TestBgeParity` and `TestGemmaParity` run on what is linked. Today goinfer v0.4.1 requires aikit v1.79.0 and pbrain requires v1.79.1, so v1.79.1 is the copy both adapters run on.
 - **Changes** are made on a topic branch and reach our `main` through a reviewed pull request in our repository; then pbrain's pin moves. A new pin is read first (what changed in the packages pbrain links, and in the kernels they use), then must pass every test below.
 - **The original author's work** is taken only by a deliberate merge into our `main`, read and tested like any change; after the rename such a merge touches every import line. Offering our changes back is optional and is the owner's step. Parity is shown on each pinned commit, not assumed from the releases first measured, goinfer v0.24.1 and aikit v1.78.0.
 - **Licence.** Both keep their MIT licence and notice files with the original copyright, and a line that says what they were forked from.
 
 ### The bge-small adapter
 
-Package `internal/embed/bge` is the adapter, and the only package of pbrain that imports aikit. Every fact below was checked in `goinfer-bge-small-check.md` against aikit v1.78.0 with the loader added; names of aikit's functions are those of our aikit v1.79.0.
+Package `internal/embed/bge` is the adapter, and the only package of pbrain that imports aikit. Every fact below was checked in `goinfer-bge-small-check.md` against aikit v1.78.0 with the loader added; names of aikit's functions are those of our aikit v1.79.1, unchanged from v1.79.0.
 
 ```go
 package bge
