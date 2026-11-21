@@ -595,3 +595,32 @@ func TestBorrowedRoots(t *testing.T) {
 		t.Fatal("a closed brain still opens sections")
 	}
 }
+
+// A protected path whose parent cannot be opened for a reason other than absence fails the guard
+// closed; only a parent that does not exist means the path is absent.
+func TestGuardFailsClosedOnUnreadableParent(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root reads any folder")
+	}
+	w := newWorld(t)
+	w.project("p")
+	must(t, os.MkdirAll(w.path("ext/locked/personal"), 0o700))
+	b, err := w.open("p", OpenOptions{})
+	must(t, err)
+	g := []guarded{{ProtectedPath{w.path("ext/locked/personal"), true}, "the personal section"}}
+	if err := b.guard(context.Background(), g); err != nil {
+		t.Fatalf("a readable path: %v", err)
+	}
+	must(t, os.Chmod(w.path("ext/locked"), 0o000))
+	t.Cleanup(func() { os.Chmod(w.path("ext/locked"), 0o700) })
+	if err := b.guard(context.Background(), g); code(err) != "personal_exposed" {
+		t.Fatalf("an unreadable parent: %v", err)
+	}
+	if err := b.guard(context.Background(), []guarded{{ProtectedPath{w.path("ext/locked/personal/deeper"), true}, "the personal section"}}); code(err) != "personal_exposed" {
+		t.Fatalf("an unreadable ancestor: %v", err)
+	}
+	// A missing parent is still absence.
+	if err := b.guard(context.Background(), []guarded{{ProtectedPath{w.path("ext/gone/personal"), true}, "the personal section"}}); err != nil {
+		t.Fatalf("a missing parent: %v", err)
+	}
+}
