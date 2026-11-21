@@ -37,15 +37,21 @@ func newestFirst(a, b *item.Item) int {
 	return strings.Compare(a.Path, b.Path)
 }
 
+// pageEnd is where a page of limit rows from offset ends in n rows; limit 0 is no limit. It never
+// adds offset and limit, so a huge --limit cannot overflow.
+func pageEnd(n, offset, limit int) int {
+	if limit <= 0 || limit >= n-offset {
+		return n
+	}
+	return offset + limit
+}
+
 // page returns the units of rows from the offset, at most limit when limit is positive.
 func page(rows []render.Part, offset, limit int) []render.Unit {
 	if offset >= len(rows) {
 		return nil
 	}
-	end := len(rows)
-	if limit > 0 {
-		end = min(end, offset+limit)
-	}
+	end := pageEnd(len(rows), offset, limit)
 	units := make([]render.Unit, 0, end-offset)
 	for _, p := range rows[offset:end] {
 		units = append(units, render.Unit{Main: p})
@@ -98,7 +104,8 @@ func runList(ctx context.Context, env Env, in *invocation, b *brain.Brain) outco
 func (r *reader) listRow(it *item.Item) render.Part {
 	h := &it.Header
 	row := r.commonRow(it)
-	text := it.ID + "  " + h.Kind.String() + "  " + h.Status.String() + "  " + dateText(h) + "  " + render.OneLine(h.Title, titleCut)
+	id := render.ValueText(it.ID)
+	text := id + "  " + h.Kind.String() + "  " + h.Status.String() + "  " + dateText(h) + "  " + render.OneLine(h.Title, titleCut)
 	for _, m := range r.markers(it) {
 		text += "  " + m
 	}
@@ -106,7 +113,7 @@ func (r *reader) listRow(it *item.Item) render.Part {
 		row["replaced"] = true
 		cappedIDs(row, "replacement", ids(r.g.Replacement(it)))
 	}
-	return render.Part{Text: text, JSON: row, Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(it.ID), Style: render.Bold}}}
+	return render.Part{Text: text, JSON: row, Marks: []render.Mark{{Start: 0, End: utf8.RuneCountInString(id), Style: render.Bold}}}
 }
 
 func runPrime(ctx context.Context, env Env, in *invocation, b *brain.Brain) outcome {
@@ -170,7 +177,8 @@ func (r *reader) primeRow(it *item.Item) render.Part {
 	if h.Kind == item.Decision {
 		actor = h.Decided
 	}
-	text := h.Kind.String() + "  " + dateText(h) + "  " + it.ID + "  " + render.OneLine(h.Title, titleCut)
+	id := render.ValueText(it.ID)
+	text := h.Kind.String() + "  " + dateText(h) + "  " + id + "  " + render.OneLine(h.Title, titleCut)
 	if actor != "" {
 		text += " (" + render.OneLine(actor, actorCut) + ")"
 	}
@@ -178,7 +186,7 @@ func (r *reader) primeRow(it *item.Item) render.Part {
 		text += "  " + m
 	}
 	at := utf8.RuneCountInString(h.Kind.String() + "  " + dateText(h) + "  ")
-	return render.Part{Text: text, JSON: r.commonRow(it), Marks: []render.Mark{{Start: at, End: at + utf8.RuneCountInString(it.ID), Style: render.Bold}}}
+	return render.Part{Text: text, JSON: r.commonRow(it), Marks: []render.Mark{{Start: at, End: at + utf8.RuneCountInString(id), Style: render.Bold}}}
 }
 
 func runTags(ctx context.Context, env Env, in *invocation, b *brain.Brain) outcome {
@@ -265,12 +273,13 @@ func runCheck(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		Tags:        b.Config.Tags,
 		Now:         in.now,
 		DisplayPath: b.DisplayPath,
+		Value:       render.ValueText,
 		Body:        r.cat.Body,
 	})
 	rows := make([]render.Part, len(findings))
 	for i, f := range findings {
 		rows[i] = render.Part{
-			Text: f.Severity + " " + f.Code + " " + f.Path + "  " + f.Message,
+			Text: f.Severity + " " + f.Code + " " + render.ValueText(f.Path) + "  " + f.Message,
 			JSON: render.Object{"severity": f.Severity, "code": f.Code, "path": f.Path, "message": f.Message},
 		}
 	}

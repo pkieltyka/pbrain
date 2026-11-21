@@ -112,7 +112,17 @@ func budgetErr(limit, minimum int) error {
 	}
 }
 
-func runes(s string) int { return utf8.RuneCountInString(s) }
+// runesHook, when set by a test, sees every string runes counts with its count, and returns the
+// count to use: a test can tally the work or stand in a size no memory could hold.
+var runesHook func(s string, n int) int
+
+func runes(s string) int {
+	n := utf8.RuneCountInString(s)
+	if runesHook != nil {
+		n = runesHook(s, n)
+	}
+	return n
+}
 
 // encodeJSON is the one encoder of every JSON piece: compact, HTML escaping off, no final newline.
 func encodeJSON(v any) (string, error) {
@@ -179,6 +189,90 @@ type page struct {
 	env    Envelope
 	// JSON caches, by shown unit.
 	rowEnc []string
+	// Size caches (render.md "Whole rows"): each unit's cost in the page's format, the running sum
+	// over the shown units, and the head's fixed cost. Fit keeps them current as it admits a unit,
+	// swaps in an alternative or adds an extra, so a trial costs no recount of the admitted rows.
+	cost      []int
+	sum       int
+	headCost  int
+	headLines int
+	overflow  bool // a count overflowed: size fails
+}
+
+// unitCost is unit i's share of the page size: its encoded row in JSON; in text, its chosen line
+// and its admitted extras, each with its line feed.
+func (p *page) unitCost(i int) int {
+	if p.f == JSON {
+		return runes(p.rowEnc[i])
+	}
+	n := 0
+	p.grow(&n, runes(p.chosen[i].Text))
+	p.grow(&n, 1)
+	for j := range p.extras[i] {
+		p.grow(&n, runes(p.d.Units[i].Extras[j].Text))
+		p.grow(&n, 1)
+	}
+	return n
+}
+
+// addChecked is a + b, and false when the sum does not fit in an int.
+func addChecked(a, b int) (int, bool) {
+	c := a + b
+	if (b > 0 && c < a) || (b < 0 && c > a) {
+		return 0, false
+	}
+	return c, true
+}
+
+// grow adds d to *n; an overflow marks the page, whose size then fails (a size past MaxInt cannot
+// be counted, so it is an internal error rather than a wrapped, negative size that would fit).
+func (p *page) grow(n *int, d int) {
+	v, ok := addChecked(*n, d)
+	if !ok {
+		p.overflow = true
+		return
+	}
+	*n = v
+}
+
+// resync measures the head and every unit and recomputes the shown sum from the page's fields.
+func (p *page) resync() {
+	p.headCost, p.headLines, p.overflow = 0, 0, false
+	for _, h := range p.d.Head {
+		if h.Text != "" {
+			p.grow(&p.headCost, runes(h.Text)+1)
+			p.headLines++
+		}
+	}
+	p.cost = make([]int, len(p.d.Units))
+	p.sum = 0
+	for i := range p.d.Units {
+		p.cost[i] = p.unitCost(i)
+		if i < p.shown {
+			p.grow(&p.sum, p.cost[i])
+		}
+	}
+}
+
+// setShown shows the first k units, keeping the sum current.
+func (p *page) setShown(k int) {
+	for p.shown < k {
+		p.grow(&p.sum, p.cost[p.shown])
+		p.shown++
+	}
+	for p.shown > k {
+		p.shown--
+		p.grow(&p.sum, -p.cost[p.shown])
+	}
+}
+
+// recost measures unit i again after its chosen part or its extras changed.
+func (p *page) recost(i int) {
+	old := p.cost[i]
+	p.cost[i] = p.unitCost(i)
+	if i < p.shown {
+		p.grow(&p.sum, p.cost[i]-old)
+	}
 }
 
 func (p *page) state() State {
@@ -300,51 +394,42 @@ func (p *page) size() (int, error) {
 		}
 		n := runes(skel) + 1
 		if p.shown > 0 {
-			n += -1 + 2 + max(0, p.shown-1)
-			for _, s := range p.rowEnc[:p.shown] {
-				n += runes(s)
-			}
+			p.grow(&n, 1+max(0, p.shown-1))
+			p.grow(&n, p.sum)
 		}
 		if p.hints > 0 {
 			h, err := p.hintsArray()
 			if err != nil {
 				return 0, err
 			}
-			n += -1 + runes(h)
+			p.grow(&n, -1+runes(h))
 		}
-		return n, nil
+		return p.checked(n)
 	}
-	n := 0
-	lines := 0
-	for _, h := range p.d.Head {
-		if h.Text != "" {
-			n += runes(h.Text)
-			lines++
-		}
-	}
-	for i := range p.shown {
-		n += runes(p.chosen[i].Text)
-		lines++
-		for j := range p.extras[i] {
-			n += runes(p.d.Units[i].Extras[j].Text)
-			lines++
-		}
-	}
+	n := p.headCost
+	p.grow(&n, p.sum)
 	last := foot.Text
 	if last != "" {
-		n += runes(last)
-		lines++
+		p.grow(&n, runes(last)+1)
 	}
 	if p.hints > 0 {
-		if last == "" && lines == 0 {
-			lines++
+		if last == "" && p.headLines == 0 && p.shown == 0 {
+			p.grow(&n, 1) // the hints make a line of their own
 		}
-		n += runes(" Alone: ") + runes(".") + 2*(p.hints-1)
+		p.grow(&n, runes(" Alone: ")+runes(".")+2*(p.hints-1))
 		for i := range p.hints {
-			n += runes(p.d.Hints[i].Text)
+			p.grow(&n, runes(p.d.Hints[i].Text))
 		}
 	}
-	return n + lines, nil
+	return p.checked(n)
+}
+
+// checked is the page's size, or an internal error once any count on the way overflowed.
+func (p *page) checked(n int) (int, error) {
+	if p.overflow {
+		return 0, internalErr("the page size does not fit in an int")
+	}
+	return n, nil
 }
 
 // textParts lists the parts of the plain text output in output order, each with the number of its
@@ -515,13 +600,14 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 			}
 		}
 	}
+	p.resync()
 	fits := func() (bool, int, error) {
 		n, err := p.size()
 		return n <= limit, n, err
 	}
 	// The required output: zero units for an empty page, the first unit otherwise.
 	if len(d.Units) > 0 {
-		p.shown = 1
+		p.setShown(1)
 	}
 	ok, n, err := fits()
 	if err != nil {
@@ -531,11 +617,11 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 		return nil, budgetErr(limit, n)
 	}
 	for p.shown < len(d.Units) {
-		p.shown++
+		p.setShown(p.shown + 1)
 		if ok, _, err := fits(); err != nil {
 			return nil, err
 		} else if !ok {
-			p.shown--
+			p.setShown(p.shown - 1)
 			break
 		}
 	}
@@ -549,6 +635,7 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 					return nil, err
 				}
 			}
+			p.recost(i)
 			ok, _, err := fits()
 			if err != nil {
 				return nil, err
@@ -557,6 +644,7 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 				break
 			}
 			p.chosen[i], p.rowEnc[i] = prev, prevEnc
+			p.recost(i)
 		}
 	}
 	// Extras in unit order, stopping at the first that does not fit.
@@ -569,6 +657,7 @@ extras:
 					return nil, err
 				}
 			}
+			p.recost(i)
 			ok, _, err := fits()
 			if err != nil {
 				return nil, err
@@ -580,6 +669,7 @@ extras:
 						return nil, err
 					}
 				}
+				p.recost(i)
 				break extras
 			}
 		}
@@ -683,6 +773,29 @@ func ExactPath(path string) (display string, encoded json.RawMessage, ok bool) {
 		return tok, json.RawMessage(tok), true
 	}
 	return path, json.RawMessage(tok), true
+}
+
+// ExactValue is the text form of an id, or of any path outside the search location, get's path line
+// and init (render.md "Ids and other paths"): the value bare, or, when it holds a double quote, a
+// backslash or a rune ExactPath escapes, the token ExactPath builds. An ordinary space stays bare.
+// ok is false for input that is not valid UTF-8; the caller prints "?".
+func ExactValue(value string) (text string, ok bool) {
+	tok, _, ok := ExactPath(value)
+	if !ok {
+		return "", false
+	}
+	if strings.ContainsFunc(value, func(r rune) bool { return r == '"' || r == '\\' || needsEscape(r) }) {
+		return tok, true
+	}
+	return value, true
+}
+
+// ValueText is ExactValue's text, or "?" for a value it cannot write.
+func ValueText(value string) string {
+	if t, ok := ExactValue(value); ok {
+		return t
+	}
+	return "?"
 }
 
 func utf16Pair(r rune) (hi, lo rune) {
@@ -873,7 +986,10 @@ func (b *bodyPage) render(slice string, colour bool, limit int) ([]byte, error) 
 		if err != nil {
 			return nil, err
 		}
-		used = fixed + b.sliceCost(utf8.RuneCountInString(slice), 0, strings.HasSuffix(slice, "\n"))
+		used = fixed
+		if b.nonEmpty() { // fixedSize already holds the whole response of an empty slice
+			used += b.sliceCost(utf8.RuneCountInString(slice), 0, strings.HasSuffix(slice, "\n"))
+		}
 	}
 	var out strings.Builder
 	for _, h := range b.d.Doc.Head {

@@ -1,7 +1,6 @@
 package graph
 
 import (
-	"fmt"
 	"iter"
 	"slices"
 
@@ -213,15 +212,26 @@ func (g *Graph) CheckNewReplaces(newSection item.Section, newHeader *item.Header
 			why = replaceRule(newHeader, &old.Header)
 		}
 		if why != 0 {
-			return nil, writeError("invalid", fmt.Sprintf("replaces %s: %s", id, ruleMessage(why)))
+			return nil, &LinkError{Target: id, Reason: ruleMessage(why)}
 		}
 		if !g.Current(old) {
-			return g.CurrentSuccessors(old), writeError("invalid", fmt.Sprintf("replaces %s: target is already replaced", id))
+			return g.CurrentSuccessors(old), &LinkError{Target: id, Reason: "target is already replaced"}
 		}
 		targets = append(targets, old)
 	}
 	return targets, nil
 }
+
+// LinkError refuses one proposed replaces link. It carries the target as the caller gave it and the
+// reason, and its message names no id: the caller writes the id at its own boundary (spec 6.2). It
+// unwraps to an invalid domain error.
+type LinkError struct {
+	Target string // the id as given
+	Reason string // why the link is refused, e.g. "target has higher standing"
+}
+
+func (e *LinkError) Error() string { return "replaces target: " + e.Reason }
+func (e *LinkError) Unwrap() error { return writeError("invalid", e.Error()) }
 
 func writeError(code, message string) *errs.Error {
 	return &errs.Error{Code: code, Message: message, Exit: 1}

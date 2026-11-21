@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/graph"
 	"github.com/pkieltyka/pbrain/internal/item"
@@ -24,6 +25,8 @@ type Options struct {
 	Tags        map[string]string
 	Now         time.Time
 	DisplayPath func(item.Section, string) string
+	// Value writes an id placed inside a message as one token (render.ExactValue); nil keeps it as is.
+	Value func(string) string
 	// Body gives an item's stored body as scanned, for the secret scan of shared items; an item
 	// whose body cannot be read as scanned is not scanned. Nil scans the header fields only.
 	Body func(*item.Item) ([]byte, error)
@@ -42,6 +45,7 @@ const (
 
 var severity = map[string]string{
 	"bad_front_matter":         sevError,
+	"bad_file_name":            sevError,
 	"bad_field":                sevError,
 	"missing_field":            sevError,
 	"duplicate_id":             sevError,
@@ -63,6 +67,24 @@ var severity = map[string]string{
 var skippedMessage = map[string]string{
 	"bad_front_matter": "the front matter cannot be read; reads skip this file",
 	"not_an_item":      "a .md file without front matter is not an item",
+}
+
+// badFileName is the message of a bad_file_name finding, whatever its reason.
+const badFileName = "the file name is not valid UTF-8, so the file has no id; reads skip this file"
+
+// nameable is a display path that is valid UTF-8: the path itself, or else its longest prefix that
+// ends in "/" and is valid UTF-8, the nearest folder above the file that can be named; "?" when there
+// is none (render.md "Check").
+func nameable(path string) string {
+	if utf8.ValidString(path) {
+		return path
+	}
+	for i := len(path) - 1; i >= 0; i-- {
+		if path[i] == '/' && utf8.ValidString(path[:i+1]) {
+			return path[:i+1]
+		}
+	}
+	return withheld
 }
 
 func rank(s string) int {
@@ -92,14 +114,24 @@ func Collect(items []*item.Item, skipped []Skipped, g *graph.Graph, opt Options)
 		if opt.DisplayPath != nil {
 			path = opt.DisplayPath(sec, path)
 		}
-		return safe(path)
+		return safe(nameable(path))
+	}
+	value := func(v string) string {
+		v = safe(v)
+		if opt.Value != nil {
+			v = opt.Value(v)
+		}
+		return v
 	}
 	add := func(code, path, field, msg string, line, col int) {
 		findings = append(findings, Finding{Severity: severity[code], Code: code, Path: path, Field: field, Message: msg, Line: line, Column: col})
 	}
 	for _, s := range skipped {
 		msg := s.Reason
-		if msg == "" {
+		switch {
+		case s.Code == "bad_file_name":
+			msg = badFileName
+		case msg == "":
 			msg = skippedMessage[s.Code]
 		}
 		add(s.Code, display(s.Section, s.Path), "", msg, s.Line, s.Column)
@@ -142,14 +174,14 @@ func Collect(items []*item.Item, skipped []Skipped, g *graph.Graph, opt Options)
 			continue
 		}
 		for _, it := range same {
-			add("duplicate_id", display(it.Section, it.Path), "", fmt.Sprintf("%d files have the id %s", len(same), safe(it.ID)), 0, 0)
+			add("duplicate_id", display(it.Section, it.Path), "", fmt.Sprintf("%d files have the id %s", len(same), value(it.ID)), 0, 0)
 		}
 	}
 	for _, f := range g.Findings() {
 		if f.Code == "personal_reference" && !opt.Personal {
 			continue
 		}
-		add(f.Code, display(f.Item.Section, f.Item.Path), fieldName(f.Field), linkMessage(f), 0, 0)
+		add(f.Code, display(f.Item.Section, f.Item.Path), fieldName(f.Field), linkMessage(f, value), 0, 0)
 	}
 	slices.SortFunc(findings, func(a, b Finding) int {
 		if c := rank(a.Severity) - rank(b.Severity); c != 0 {
@@ -284,9 +316,9 @@ func reasonText(r graph.Reason) string {
 	return "it breaks a replacement rule"
 }
 
-func linkMessage(f graph.LinkFinding) string {
+func linkMessage(f graph.LinkFinding, value func(string) string) string {
 	field := fieldName(f.Field)
-	target := safe(f.Target)
+	target := value(f.Target)
 	switch f.Code {
 	case "dangling_link":
 		return field + " names an id that is not in this view"
@@ -297,7 +329,7 @@ func linkMessage(f graph.LinkFinding) string {
 	case "replace_fork":
 		ids := make([]string, len(f.Successors))
 		for i, s := range f.Successors {
-			ids[i] = safe(s.ID)
+			ids[i] = value(s.ID)
 		}
 		return "replaced by more than one current item: " + strings.Join(ids, ", ")
 	case "legacy_stamp_ignored":

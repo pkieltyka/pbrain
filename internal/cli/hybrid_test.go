@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -165,6 +166,81 @@ func TestHybridPartialRow(t *testing.T) {
 		}
 		if e := page.Results[0]; e["partial"] != nil || e["matched"] != nil || e["clauses"] != nil {
 			t.Fatalf("exact JSON row with partial fields: %s", out)
+		}
+	}
+}
+
+// The hybrid minimum with a partial row, and with all three tiers (render.md
+// TestHybridContinuationRaisesMinimum): in both formats the exact-only minimum fails, the minimum keeps
+// the exact row alone with more equal to the added rows and next 1, and one less fails.
+func TestHybridMinimumAllTiers(t *testing.T) {
+	rb := cacheBrain(t)
+	const extraID = "20261121-000000-extra-x9x9"
+	rb.put("notes/"+extraID+".md", []string{"kind: note", "title: Session store sizing", "created: 2026-11-21T08:00:00Z"}, "sizing\n")
+	ctx := context.Background()
+	b, err := brain.Open(ctx, brain.Env{Dir: rb.env.Dir, Getenv: rb.env.Getenv, Now: rb.env.Now, Files: rb.env.Files}, brain.OpenOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer b.Close()
+	cat, err := store.Scan(ctx, b, brain.SharedView, store.KeepAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]*item.Item{}
+	for _, it := range cat.Items() {
+		byID[it.ID] = it
+	}
+	exact := search.Hit{Item: byID[redisID], Class: 3, Occurrences: 1}
+	partial := search.Hit{Item: byID[costID], Partial: true, Matched: 5, Clauses: 6, Occurrences: 5}
+	semantic := search.Hit{Item: byID[extraID], Semantic: true}
+	for _, f := range []render.Format{render.Text, render.JSON} {
+		in, _ := parseOptions([]string{"search", "redis"}, Features{})
+		in.format, in.now = f, rb.env.Now()
+		r := &reader{in: &in, b: b, cat: cat, g: graph.Build(cat.Items()), now: in.now}
+		fit := func(hits []search.Hit, budget int) ([]byte, error) {
+			return render.Fit(r.searchDoc(&search.Result{Total: len(hits), Hits: hits}), budget, f)
+		}
+		smallest := func(hits []search.Hit) int {
+			for n := 1; n < 5000; n++ {
+				if _, err := fit(hits, n); err == nil {
+					return n
+				}
+			}
+			t.Fatal("nothing fits")
+			return 0
+		}
+		exactMin := smallest([]search.Hit{exact})
+		exactOnly, _ := fit([]search.Hit{exact}, exactMin)
+		for _, hits := range [][]search.Hit{{exact, partial}, {exact, semantic, partial}} {
+			added := len(hits) - 1
+			if _, err := fit(hits, exactMin); domainError(err).Code != "budget_too_small" {
+				t.Fatalf("format %d, %d added: the exact-only minimum fitted: %v", f, added, err)
+			}
+			need := smallest(hits)
+			if _, err := fit(hits, need-1); domainError(err).Code != "budget_too_small" {
+				t.Fatalf("format %d, %d added: one under the minimum: %v", f, added, err)
+			}
+			out, err := fit(hits, need)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if f == render.Text {
+				row := strings.TrimSuffix(string(exactOnly), "1 result.\n")
+				if !strings.HasPrefix(string(out), row) || string(out)[len(row):] != fmt.Sprintf("1 result. %d more: --offset 1.\n", added) {
+					t.Fatalf("%d added, text minimum page:\n%s\nexact-only:\n%s", added, out, exactOnly)
+				}
+				continue
+			}
+			var page struct {
+				Results []map[string]any `json:"results"`
+				More    int              `json:"more"`
+				Next    int              `json:"next"`
+			}
+			if err := json.Unmarshal(out, &page); err != nil || len(page.Results) != 1 || page.More != added || page.Next != 1 ||
+				page.Results[0]["id"] != redisID || page.Results[0]["partial"] != nil || page.Results[0]["semantic"] != nil {
+				t.Fatalf("%d added, JSON minimum page: %s", added, out)
+			}
 		}
 	}
 }
