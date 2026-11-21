@@ -7,23 +7,23 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
-    * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
+    * range/status: Gemma paused after 5,873.416 s at 545 items/5,251 passages (1.97 GiB peak); BGE indexing first, at 917 passages. Both baseline jobs use binary 9f53910; sum Gemma active time across resume, excluding pause
+    * next: finish BGE build and warm samples, resume Gemma on its retained index/cache, then validate warm search with the v0.4.1 binary on fixture copies; finish README figures and final read-only pass
+
+- [ ] pbrain aikit v1.79.1 dependency verification (@architect-2)
+    * owner: @architect-2
+    * range/status: `df454ba..98d62cb` on `peter/aikit-v1791`; proxy, BGE and Gemma pinned-file checks passed
+    * next: @reviewer reviews both commits
+
+- [ ] pbrain aikit v1.79.1 spec pin update (@architect)
+    * owner: @architect
+    * range/status: second commit `98d62cb` on `peter/aikit-v1791`
+    * next: reviewer reviews the bump and spec together over `df454ba..98d62cb`
 
 - [ ] pbrain final first-index figures (@architect)
     * owner: @architect
     * range/status: waiting for the completed Linux full-size Gemma and BGE runs
     * next: update spec, skill and README with final measured figures for both models
-
-- [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
-    * owner: @architect-2
-    * range/status: full range `ab2706b..0b655ae` on `peter/goinfer-v041`; proxy/archive/checksum and Gemma tests verified; bump and spec pins are both included
-    * next: @reviewer reviews the complete range; @operator integrates after approval
-
-- [ ] pbrain goinfer pin documentation update (@architect)
-    * owner: @architect
-    * range/status: spec pin update is second commit of `ab2706b..0b655ae` on `peter/goinfer-v041`
-    * next: reviewer reviews with the bump; integrate both after approval
 
 ## Backlog
 
@@ -38,6 +38,8 @@ TODO
 ## Decisions
 
 - @operator (2026-11-21): revise decision 27: `bge-small-en-v1.5` is default; `embeddinggemma-2` remains opt-in and `none` turns semantic search off. The measured Gemma cost on the token-heavy 5,000-item/50 MB fixture informs the change; finish the same-size BGE run before release.
+- @operator (2026-11-21): prioritize the full-size default BGE run; stop and later resume Gemma on its existing index/cache, report Gemma active time summed across runs, use the same `9f53910` binary for both, then validate warm searches with the current v0.4.1 binary.
+- @operator (2026-11-21): use fork aikit v1.79.1 (`0bbc048`) and goinfer v0.4.1; verify the aikit proxy artifact before updating pbrain's dependency pin. Aikit root code is unchanged from v1.79.0; the release includes nested-module pins and docs.
 - @operator (2026-11-21): keep credential-shaped literals out of committed files; construct test values at runtime.
 - @operator (2026-11-21): macOS arm64 runtime measurements and tagged-install smoke are owed in a separate backlog item and do not block the first release.
 - @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
@@ -46,6 +48,8 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain goinfer v0.4.1 dependency and spec pin (@architect-2, @architect) `023bc3e`, `0b655ae`
 
 - [x] pbrain final functional-scenario audit (@reviewer) `ab2706b`
 
