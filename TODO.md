@@ -7,13 +7,13 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: BGE timing record integrated in `15996ee`; Gemma resumed on baseline 9f53910, final active-time total pending
-    * next: finish Gemma, then run queued warm checks with `67cf646`; finalize README measurements and the release read-only pass
+    * range/status: BGE figures recorded in `15996ee`, `b73f952`, `30d02f2`; Gemma resumed on baseline 9f53910, final active-time total pending
+    * next: finish Gemma, then run queued warm checks with `67cf646`; complete the final release read-only pass
 
-- [ ] pbrain final first-index figures (@architect)
+- [ ] pbrain Gemma first-index figures (@architect)
     * owner: @architect
-    * range/status: BGE figures in spec/skill at `b73f952`; README sentence edit is uncommitted; Gemma figures pending
-    * next: provide and commit README sentence hash; add Gemma's final figures after its run
+    * range/status: Gemma final figures pending completion of the resumed run
+    * next: update spec, skill and README from the final Gemma record
 
 ## Backlog
 
@@ -38,6 +38,8 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain full-size BGE figures (@lead-dev, @architect) `15996ee`, `b73f952`, `30d02f2`
 
 - [x] pbrain aikit v1.79.1 dependency and spec pin (@architect-2, @architect) `20a69cf`, `98d62cb`
 
