@@ -12,38 +12,28 @@ TODO
 
 - [ ] pbrain release output fixes and scenario coverage (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: `029ff48..f65bf43` on `peter/lead-dev-2`; output fixes, `FuzzFit` and tests ready for review; full vet/tests, race, CGO-disabled build and Darwin/arm64 vet reported pass
-    * next: @reviewer reviews and @architect-2 rechecks findings; no model/index runs
+    * range/status: `0bd5a12..79218bf` on `peter/lead-dev-2`; reviewer found two P2s; fixes are uncommitted in the worktree; supplemental `TestSemanticAlignment` passed on CPUs 4–15 with `-p 2`
+    * next: format graph-validation target IDs with `ExactValue`; check and propagate overflow in `unitCost` additions and test each fix; then request re-review, including the semantic alignment run
 
 - [ ] pbrain final skill/README audit (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: changes required; read-only audit of master `029ff48` plus branch `f65bf43` found README and skill omit how to pass token IDs or shell-quote IDs with spaces
-    * next: @architect adds one-line guidance; coordinate identical shipped skill bytes with @lead-dev-2, then recheck
-
-- [ ] pbrain ID token guidance in README and skill (@architect)
-    * owner: @architect
-    * range/status: assigned on master `029ff48`; add the JSON-token decoding and shell-quoting hint beside README's “Copy the ID”
-    * next: add matching text to import topic or core if it fits; send hash and coordinate with @lead-dev-2
-
-- [ ] pbrain final CLI/render finding re-check (@architect-2)
-    * owner: @architect-2
-    * range/status: prior P1–P3 findings on `7cf8ced`; recheck target `029ff48..f65bf43` is ready
-    * next: recheck findings against this exact range and report to @operator
+    * range/status: prior gap fixed on master `0bd5a12`; audit target now includes branch head `79218bf`, recheck pending
+    * next: report audit findings or approval to @operator and @pm; `-p 2`, no model/index runs
 
 - [ ] pbrain testscript harness and scenarios 1–20 (@architect-2)
     * owner: @architect-2
-    * range/status: assigned against current master `029ff48`; worktree `peter/architect-2` remains at `790a1ea`; main uses `cmd/pbrain.run()` plus embedtest
-    * next: add `TestStrayOutputDiscarded`, `TestReleaseBinaryOutput`, cross-dir/stdin/delete-stream cases and scenarios 1–20 incl. child-process 14/15; `-p 2`, no model/index
+    * range/status: committed `502db3c` on `peter/scenarios`, based on `0bd5a12`; harness and scenarios 1–20 pass reported checks
+    * next: reviewer checks `0bd5a12..502db3c` after the output fixes; operator applies PTY patch `2ba91a38` after both ranges integrate
 
 - [ ] pbrain executable scenarios 21–41 (@lead-dev)
     * owner: @lead-dev
-    * range/status: mapped to spec §15, including scenario 35 damaged-passage and shared-view checks; waiting for harness; no files changed
-    * next: merge master after harness; cover Factory, offline HTML/source, Slack C1/D, TestDamagedPassageIsRepaired and 39–41; `-p 2`, CPUs 4–15, no model/index
+    * range/status: based on committed harness `502db3c` on `peter/lead-dev`; scenarios 21–29 are untracked worktree files, scenario 35 and boundary coverage are planned
+    * next: finish scenarios 21–41, including damaged-passage/shared-view and 39–41; `-p 2`, CPUs 4–15; embedtest indexes are allowed, no real model/full-size runs
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
-    * range/status: initial audit at `d010e0e` returned changes required and was triaged; now reviewing `029ff48..f65bf43`
-    * next: review harness/scenario ranges 1–20 and 21–41 as they arrive
+    * range/status: output review `0bd5a12..79218bf` requires two P2 fixes; supplemental `TestSemanticAlignment` passed per @architect-2; harness/scenario range `0bd5a12..502db3c` awaits review
+    * next: re-review output fixes and run semantic alignment; then review scenario ranges 1–20 and 21–41
 
 ## Backlog
 
@@ -63,14 +53,18 @@ TODO
 
 ## Done
 
+- [x] pbrain CLI/render finding re-check (@architect-2) `029ff48..f65bf43`
+    * All eight findings resolved; replay and focused tests passed on CPUs 4–15 with `-p 2`; reviewer full-range verdict remains pending.
+
+- [x] pbrain quoted-ID usage guidance in README and skill (@architect) `0bd5a12`
+    * Core explains decoding quoted IDs; README explains `--json` and shell quoting; skill remains 400 words.
+
 - [x] pbrain architecture/semantic documentation catch-up (@architect) `789b506`
     * Records first-index costs, admission/output rules, 41 scenarios, runtime facts and current test names.
 
 - [x] pbrain measured-cost and path-safety spec updates (@architect) `4f936a7`
-    * Records the observed rate, invalid-UTF-8 admission, ExactValue contract and skipped-file notice scope.
 
 - [x] pbrain pre-release skill/README audit (@lead-dev-2) `6dee71e`
-    * No mismatch at the audited commit; a final repeat is tracked because later docs changed.
 
 - [x] pbrain release pipeline (@lead-dev-2) `7cf8ced`
 
