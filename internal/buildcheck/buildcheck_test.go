@@ -104,8 +104,8 @@ var allowed = map[string][]string{
 	"internal/search":         {"graph", "item", "query", "outline"},
 	"internal/render":         {"errs"},
 	"internal/store":          {"brain", "item", "gitx", "sys"},
-	"internal/brain":          {"audience", "item", "gitx", "sys"},
-	"internal/graph":          {"item", "errs"}, // graph.md §4 allows errs for CheckNewReplaces
+	"internal/brain":          {"audience", "item", "gitx", "sys", "errs"}, // errs: brain.md "Dependencies"
+	"internal/graph":          {"item", "errs"},                            // graph.md §4 allows errs for CheckNewReplaces
 	"internal/audience":       {"errs"},
 	"internal/query":          {"item", "errs"},
 	"internal/item":           {"outline", "errs"},
