@@ -59,7 +59,7 @@ The pack is **9,581,663 bytes**, against 32,170,510 for `tokenizer.json`. Buildi
   - pieces are substrings of one string block;
   - the vocabulary map and the merge table are filled in parallel;
   - the byte-fallback table and the added-token trie are rebuilt as `initGemma` does.
-  
+
   It accepts only the SentencePiece-style byte-fallback BPE family (Gemma); a byte-level or score-ranked tokenizer is refused at `BuildPack`. Every count, offset and id is bounds-checked before anything is allocated, and a malformed pack is an `ErrPack` error, never a panic.
 - **`tokenizer/sentencepiece.go`:** `mergeTable` gains an optional `flat` field. `rank` and `len` consult it when it is set. Every other loader is untouched.
 - **Determinism:** the same `tokenizer.json` always gives the same pack bytes (`TestBuildPack_deterministic`). The pack built from `google/embeddinggemma-2` revision `f9972ac2`'s `tokenizer.json` has SHA-256 `45a7e7d5a1e84ad83ef469a8f6aecc3dd15f51b7c4866008e2d770142d96b709`, so pbrain can pin it beside the source file's digest.
