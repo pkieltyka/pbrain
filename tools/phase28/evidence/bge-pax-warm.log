@@ -1,0 +1,14 @@
+=== RUN   TestMeasureRetainedReleaseReads
+    measure_resume_test.go:133: shared model search: 4500 visible items
+    measure_resume_test.go:133: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_resume_test.go:133: search semantic with exact hit | 297.5 | 297.7 [292.7, 302.9] | 505.9 | 506.5 | 9 | [9, 9]
+    measure_resume_test.go:133: search semantic paraphrase | 294.4 | 292.2 [287.2, 295.9] | 479.0 | 504.0 | 9 | [9, 9]
+    measure_resume_test.go:133: search semantic and BM25 | 291.4 | 291.1 [284.0, 296.6] | 504.1 | 504.2 | 9 | [9, 9]
+    measure_resume_test.go:133: personal model search: 5000 visible items
+    measure_resume_test.go:133: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_resume_test.go:133: search semantic with exact hit | 325.3 | 325.7 [317.6, 331.0] | 549.3 | 549.7 | 9 | [9, 9]
+    measure_resume_test.go:133: search semantic paraphrase | 315.4 | 320.6 [316.3, 329.7] | 522.6 | 547.3 | 9 | [9, 9]
+    measure_resume_test.go:133: search semantic and BM25 | 316.7 | 321.8 [316.1, 324.9] | 547.2 | 547.6 | 9 | [9, 9]
+--- PASS: TestMeasureRetainedReleaseReads (23.33s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/cli	23.333s

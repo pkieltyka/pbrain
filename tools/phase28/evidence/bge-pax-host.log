@@ -1,0 +1,18 @@
+2026-11-21T20:29:20+00:00
+pax
+Linux 7.3.4
+Architecture:                            x86_64
+CPU(s):                                  32
+Model name:                              AMD Ryzen 9 7950X 16-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      16
+CPU CORE SOCKET
+  0    0      0
+  1    1      0
+  2    2      0
+  3    3      0
+MemTotal:       130973592 kB
+btrfs
+go version go1.27.3 linux/amd64
+PHASE28_CPUS=0-3
+candidate=cbaaa0ebe7978c0f8096ec46f38237b2aae4b1ed
