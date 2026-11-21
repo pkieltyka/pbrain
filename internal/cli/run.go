@@ -10,6 +10,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/query"
 	"github.com/pkieltyka/pbrain/internal/render"
+	"github.com/pkieltyka/pbrain/internal/skill"
 )
 
 // version can be supplied through -ldflags -X in a release build.
@@ -101,7 +102,7 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 		return textOrJSON(in.json, value, helpOutput{Help: value})
 	}
 	if in.cmd.name == "skill" {
-		return notImplemented()
+		return runSkill(in)
 	}
 
 	bEnv := brain.Env{Dir: env.Dir, Getenv: env.Getenv, Now: env.Now, Git: env.Git, Files: env.Files}
@@ -126,6 +127,28 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 	}
 	in.useConfig(b.Config)
 	return runCommand(ctx, env, in, b, features)
+}
+
+func runSkill(in *invocation) outcome {
+	var document string
+	switch {
+	case len(in.operands) == 0:
+		document = skill.Core()
+	case in.operands[0] == "list":
+		topics := skill.Topics()
+		return textOrJSON(in.json, strings.Join(topics, "\n")+"\n", struct {
+			Topics []string `json:"topics"`
+		}{topics})
+	default:
+		var ok bool
+		document, ok = skill.Topic(in.operands[0])
+		if !ok {
+			return outcome{err: usage("unknown skill topic; use pbrain skill list")}
+		}
+	}
+	return textOrJSON(in.json, document, struct {
+		Text string `json:"text"`
+	}{document})
 }
 
 // runCommand is the dispatch point for handlers delivered after the CLI core.
