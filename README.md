@@ -85,5 +85,11 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 
 | Release measurement (5,000 items, 50 MB) | Linux | Apple silicon Mac |
 | --- | --- | --- |
-| Search and get | Pending | Pending |
-| Semantic search, first index and one-note update, per model | Pending | Pending |
+| Lexical search / get, personal view | 135–189 ms / 134 ms | Not yet measured |
+| BGE semantic search, shared view (4,500 visible items) | 302–309 ms | Not yet measured |
+| BGE semantic search, personal view | 332–333 ms | Not yet measured |
+| BGE semantic + BM25, shared / personal view | 298 ms / 335 ms | Not yet measured |
+| BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
+| EmbeddingGemma 2, full-size measurements | Pending | Not yet measured |
+
+Search and get figures are warm medians on four CPUs. [Method and peak memory](internal/cli/README.measure.md)
