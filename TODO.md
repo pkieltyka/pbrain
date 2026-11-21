@@ -12,28 +12,23 @@ TODO
 
 - [ ] pbrain release output fixes and scenario coverage (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: `0bd5a12..79218bf` on `peter/lead-dev-2`; reviewer found two P2s; fixes are uncommitted in the worktree; supplemental `TestSemanticAlignment` passed on CPUs 4–15 with `-p 2`
-    * next: format graph-validation target IDs with `ExactValue`; check and propagate overflow in `unitCost` additions and test each fix; then request re-review, including the semantic alignment run
+    * range/status: `0bd5a12..965ed58` on `peter/lead-dev-2`; reviewer and architect approve with no findings; branch clean and contains master `1161d16`
+    * next: @operator merges the approved range
 
 - [ ] pbrain final skill/README audit (@lead-dev-2)
     * owner: @lead-dev-2
     * range/status: prior gap fixed on master `0bd5a12`; audit target now includes branch head `79218bf`, recheck pending
     * next: report audit findings or approval to @operator and @pm; `-p 2`, no model/index runs
 
-- [ ] pbrain testscript harness and scenarios 1–20 (@architect-2)
-    * owner: @architect-2
-    * range/status: committed `502db3c` on `peter/scenarios`, based on `0bd5a12`; harness and scenarios 1–20 pass reported checks
-    * next: reviewer checks `0bd5a12..502db3c` after the output fixes; operator applies PTY patch `2ba91a38` after both ranges integrate
-
 - [ ] pbrain executable scenarios 21–41 (@lead-dev)
     * owner: @lead-dev
-    * range/status: based on committed harness `502db3c` on `peter/lead-dev`; scenarios 21–29 are untracked worktree files, scenario 35 and boundary coverage are planned
+    * range/status: master now includes approved harness `502db3c`; @lead-dev is rebasing and has scenario 21–29 work in progress on `peter/lead-dev`
     * next: finish scenarios 21–41, including damaged-passage/shared-view and 39–41; `-p 2`, CPUs 4–15; embedtest indexes are allowed, no real model/full-size runs
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
-    * range/status: output review `0bd5a12..79218bf` requires two P2 fixes; supplemental `TestSemanticAlignment` passed per @architect-2; harness/scenario range `0bd5a12..502db3c` awaits review
-    * next: re-review output fixes and run semantic alignment; then review scenario ranges 1–20 and 21–41
+    * range/status: scenarios 1–20 and output range `0bd5a12..965ed58` approved; semantic alignment, scenarios and PTY checks pass
+    * next: review scenarios 21–41 when submitted
 
 ## Backlog
 
@@ -52,6 +47,8 @@ TODO
 - @operator (2026-11-21): do not touch goinfer tags; the imported v0.4.0 tag is under owner review, and the next fork release awaits approval.
 
 ## Done
+
+- [x] pbrain testscript harness and scenarios 1–20 (@architect-2) `502db3c`
 
 - [x] pbrain CLI/render finding re-check (@architect-2) `029ff48..f65bf43`
     * All eight findings resolved; replay and focused tests passed on CPUs 4–15 with `-p 2`; reviewer full-range verdict remains pending.
