@@ -112,14 +112,16 @@ func budgetErr(limit, minimum int) error {
 	}
 }
 
-// runesCounted, when set by a test, receives the length of every string runes counts.
-var runesCounted func(n int)
+// runesHook, when set by a test, sees every string runes counts with its count, and returns the
+// count to use: a test can tally the work or stand in a size no memory could hold.
+var runesHook func(s string, n int) int
 
 func runes(s string) int {
-	if runesCounted != nil {
-		runesCounted(len(s))
+	n := utf8.RuneCountInString(s)
+	if runesHook != nil {
+		n = runesHook(s, n)
 	}
-	return utf8.RuneCountInString(s)
+	return n
 }
 
 // encodeJSON is the one encoder of every JSON piece: compact, HTML escaping off, no final newline.
@@ -203,9 +205,12 @@ func (p *page) unitCost(i int) int {
 	if p.f == JSON {
 		return runes(p.rowEnc[i])
 	}
-	n := runes(p.chosen[i].Text) + 1
+	n := 0
+	p.grow(&n, runes(p.chosen[i].Text))
+	p.grow(&n, 1)
 	for j := range p.extras[i] {
-		n += runes(p.d.Units[i].Extras[j].Text) + 1
+		p.grow(&n, runes(p.d.Units[i].Extras[j].Text))
+		p.grow(&n, 1)
 	}
 	return n
 }
