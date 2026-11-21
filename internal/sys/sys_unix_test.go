@@ -444,3 +444,30 @@ func inode(t *testing.T, path string) uint64 {
 	}
 	return uint64(st.Ino)
 }
+
+// A lock file that already exists with group or other permissions is made owner-only before it is
+// used, and a lock file that is not a regular file is refused.
+func TestLockTightensPermissiveFile(t *testing.T) {
+	p, d := tempRoot(t)
+	lockPath := filepath.Join(p, "lock")
+	must(t, os.WriteFile(lockPath, nil, 0o600))
+	must(t, os.Chmod(lockPath, 0o666))
+	l, err := Native().Lock(context.Background(), d, "lock")
+	must(t, err)
+	defer l.Close()
+	st, err := os.Stat(lockPath)
+	if err != nil || st.Mode().Perm() != 0o600 {
+		t.Fatalf("lock file mode %v after Lock, want 0600 (%v)", st.Mode().Perm(), err)
+	}
+	must(t, unix.Mkfifo(filepath.Join(p, "fifo"), 0o600))
+	if _, err := Native().Lock(context.Background(), d, "fifo"); !errors.Is(err, ErrUnsafe) {
+		t.Fatalf("a FIFO as the lock file: %v", err)
+	}
+	// A new lock file is created owner-only.
+	l2, err := Native().Lock(context.Background(), d, "fresh")
+	must(t, err)
+	defer l2.Close()
+	if st, _ := os.Stat(filepath.Join(p, "fresh")); st.Mode().Perm() != 0o600 {
+		t.Fatalf("new lock file mode %v", st.Mode().Perm())
+	}
+}

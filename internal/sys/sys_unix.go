@@ -472,12 +472,8 @@ func (native) Lock(ctx context.Context, x Dir, name string) (io.Closer, error) {
 	}); err != nil {
 		return nil, pathErr("lock", d.child(name), err)
 	}
-	var st unix.Stat_t
-	if err := unix.Fstat(fd, &st); err != nil || st.Mode&unix.S_IFMT != unix.S_IFREG {
+	if err := ownerOnly(fd); err != nil {
 		unix.Close(fd)
-		if err == nil {
-			err = ErrUnsafe
-		}
 		return nil, &fs.PathError{Op: "lock", Path: d.child(name), Err: err}
 	}
 	for {
@@ -501,4 +497,23 @@ func (native) Lock(ctx context.Context, x Dir, name string) (io.Closer, error) {
 		case <-t.C:
 		}
 	}
+}
+
+// ownerOnly checks that fd is a regular file this user owns and that no one else may read or write
+// it. A lock file that already exists with group or other permissions is tightened to owner-only
+// before it is used: otherwise another local user could take the lock and stall every writer.
+func ownerOnly(fd int) error {
+	var st unix.Stat_t
+	if err := unix.Fstat(fd, &st); err != nil {
+		return err
+	}
+	if st.Mode&unix.S_IFMT != unix.S_IFREG || int(st.Uid) != unix.Geteuid() {
+		return ErrUnsafe
+	}
+	if st.Mode&0o077 != 0 {
+		if err := retry(func() error { return unix.Fchmod(fd, uint32(st.Mode&0o700)) }); err != nil {
+			return ErrUnsafe
+		}
+	}
+	return nil
 }
