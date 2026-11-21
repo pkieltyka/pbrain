@@ -2,13 +2,13 @@ package semantic
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"io"
 	"io/fs"
 	"math"
@@ -36,7 +36,7 @@ const (
 var maxDatabaseSize int64 = math.MaxInt32
 
 const (
-	indexFormat  = 2
+	indexFormat  = 3
 	manifestName = "manifest"
 	maxManifest  = 4096
 	// cutoffMargin widens the query's distance bound so that search, which applies the cut-off
@@ -47,6 +47,7 @@ const (
 var (
 	dbName  = regexp.MustCompile(`^[0-9a-f]{16}\.db$`)
 	hex64   = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	hex8    = regexp.MustCompile(`^[0-9a-f]{8}$`)
 	errBad  = errors.New("semantic: not a usable index")
 	errGone = errors.New("semantic: the database file is gone")
 )
@@ -59,7 +60,7 @@ type manifest struct {
 	Dim         int    `json:"dim"`
 	DB          string `json:"db"`
 	Size        int64  `json:"size"`
-	SHA256      string `json:"sha256"`
+	CRC32C      string `json:"crc32c"` // of the database file, as %08x
 }
 
 // scoreSQL is the one scoring query (semantic.md, "Scoring"). CROSS JOIN makes SQLite start from
@@ -81,8 +82,8 @@ type indexDB struct {
 }
 
 type storedItem struct {
-	id      int64
-	content [32]byte
+	id    int64
+	check Check
 }
 
 // storedPassage is one passage row.
@@ -151,7 +152,9 @@ func newIndex(ctx context.Context, fingerprint, model string, dim int) (*indexDB
 		`CREATE TABLE item (
     id      INTEGER PRIMARY KEY,
     path    TEXT NOT NULL UNIQUE,
-    content BLOB NOT NULL CHECK (length(content) = 32)
+    content BLOB NOT NULL CHECK (length(content) = 32),
+    crc     INTEGER NOT NULL CHECK (crc BETWEEN 0 AND 4294967295),
+    size    INTEGER NOT NULL CHECK (size >= 8)
 )`,
 		fmt.Sprintf(`CREATE TABLE passage (
     id      INTEGER PRIMARY KEY,
@@ -209,7 +212,7 @@ func vectorBlob(v []float32) []byte {
 
 // putItem replaces the item at path, with all its passages, in one transaction: an item is in the
 // index with all its old passages or all its new ones, never half.
-func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, passages []storedPassage) error {
+func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, check Check, passages []storedPassage) error {
 	tx, err := x.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -218,7 +221,7 @@ func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, pa
 	if _, err := tx.ExecContext(ctx, `DELETE FROM item WHERE path = ?`, path); err != nil {
 		return err
 	}
-	res, err := tx.ExecContext(ctx, `INSERT INTO item (path, content) VALUES (?, ?)`, path, content[:])
+	res, err := tx.ExecContext(ctx, `INSERT INTO item (path, content, crc, size) VALUES (?, ?, ?, ?)`, path, content[:], int64(check.CRC), check.Size)
 	if err != nil {
 		return err
 	}
@@ -238,7 +241,7 @@ func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, pa
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	x.items[path] = storedItem{id: id, content: content}
+	x.items[path] = storedItem{id: id, check: check}
 	return nil
 }
 
@@ -433,19 +436,19 @@ func readManifest(files sys.Files, dir sys.Dir) (manifest, IndexState) {
 	fingerprint, ok4 := text("fingerprint")
 	model, ok5 := text("model")
 	db, ok6 := text("db")
-	sum, ok7 := text("sha256")
+	sum, ok7 := text("crc32c")
 	if !ok1 || !ok2 || !ok3 || !ok4 || !ok5 || !ok6 || !ok7 || format != indexFormat || dim < 1 || dim > 1<<16 {
 		return manifest{}, IndexUnreadable
 	}
-	if !dbName.MatchString(db) || !hex64.MatchString(sum) || size < 1 || size > maxDatabaseSize {
+	if !dbName.MatchString(db) || !hex8.MatchString(sum) || size < 1 || size > maxDatabaseSize {
 		return manifest{}, IndexUnreadable
 	}
-	m := manifest{Format: int(format), Fingerprint: fingerprint, Model: model, Dim: int(dim), DB: db, Size: size, SHA256: sum}
+	m := manifest{Format: int(format), Fingerprint: fingerprint, Model: model, Dim: int(dim), DB: db, Size: size, CRC32C: sum}
 	return m, IndexOK
 }
 
 // readDatabase reads exactly m.Size bytes of m.DB, after the open file's own size agrees, and
-// checks their SHA-256. Nothing is allocated for a size the file does not have.
+// checks their CRC-32C. Nothing is allocated for a size the file does not have.
 func readDatabase(files sys.Files, dir sys.Dir, m manifest) ([]byte, error) {
 	f, err := files.OpenRegular(dir, m.DB)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -466,12 +469,14 @@ func readDatabase(files sys.Files, dir sys.Dir, m manifest) ([]byte, error) {
 	if n, _ := f.Read(make([]byte, 1)); n != 0 {
 		return nil, errBad
 	}
-	sum := sha256.Sum256(data)
-	if hex.EncodeToString(sum[:]) != m.SHA256 {
+	if fileCRC(data) != m.CRC32C {
 		return nil, errBad
 	}
 	return data, nil
 }
+
+// fileCRC is the manifest's crc32c of a database file: its CRC-32C as eight lower-case hex digits.
+func fileCRC(data []byte) string { return fmt.Sprintf("%08x", crc32.Checksum(data, castagnoli)) }
 
 // openIndex reads a section's index from its index folder (semantic.md, "Reading"). With full set
 // (the build and the status) every stored row is checked as well.
@@ -540,21 +545,22 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 		if x.prepare(ctx) != nil {
 			return false
 		}
-		items, err := x.conn.QueryContext(ctx, `SELECT id, path, content FROM item`)
+		// content is checked for its form and not kept; crc and size are the item's Check.
+		items, err := x.conn.QueryContext(ctx, `SELECT id, path, crc, size,
+    typeof(content) = 'blob' AND length(content) = 32 AND typeof(crc) = 'integer' AND typeof(size) = 'integer'
+FROM item`)
 		if err != nil {
 			return false
 		}
 		for items.Next() {
-			var id int64
+			var id, crc, size int64
 			var path string
-			var content []byte
-			if items.Scan(&id, &path, &content) != nil || len(content) != 32 {
+			var typed bool
+			if items.Scan(&id, &path, &crc, &size, &typed) != nil || !typed || crc < 0 || crc > math.MaxUint32 || size < 8 {
 				items.Close()
 				return false
 			}
-			var c [32]byte
-			copy(c[:], content)
-			x.items[path] = storedItem{id: id, content: c}
+			x.items[path] = storedItem{id: id, check: Check{CRC: uint32(crc), Size: size}}
 		}
 		err = items.Err()
 		items.Close()
@@ -627,8 +633,7 @@ func (x *indexDB) publish(ctx context.Context, files sys.Files, dir sys.Dir, rnd
 	if err := dir.Sync(); err != nil {
 		return manifest{}, ioErr("the index cannot be written")
 	}
-	sum := sha256.Sum256(data)
-	m := manifest{Format: indexFormat, Fingerprint: x.fingerprint, Model: x.model, Dim: x.dim, DB: name, Size: int64(len(data)), SHA256: hex.EncodeToString(sum[:])}
+	m := manifest{Format: indexFormat, Fingerprint: x.fingerprint, Model: x.model, Dim: x.dim, DB: name, Size: int64(len(data)), CRC32C: fileCRC(data)}
 	mdata, _ := json.Marshal(m)
 	mtmp, err := stageFile(files, dir, mdata)
 	if err != nil {

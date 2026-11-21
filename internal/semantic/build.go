@@ -184,7 +184,8 @@ func (b *builder) close() {
 // work is one item to do and the vectors of its passages as they are found.
 type work struct {
 	path    string
-	content [32]byte
+	content [32]byte // ContentDigest, written beside the check
+	check   Check
 	ps      []Passage
 	vecs    [][]float32
 	reused  int
@@ -226,11 +227,11 @@ func (b *builder) run() (BuildResult, error) {
 		if err != nil {
 			continue // changed since the scan: left for the next run
 		}
-		content := ContentDigest(it.Header.Title, body)
-		if st, ok := x.items[rel]; ok && st.content == content {
+		check := ContentCheck(it.Header.Title, body)
+		if st, ok := x.items[rel]; ok && st.check == check {
 			continue
 		}
-		w := &work{path: rel, content: content}
+		w := &work{path: rel, content: ContentDigest(it.Header.Title, body), check: check}
 		todo = append(todo, w)
 		bodies[w] = struct {
 			title string
@@ -359,7 +360,7 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		for i, p := range w.ps {
 			stored[i] = storedPassage{Ord: i, Start: p.Start, Stop: p.End, Digest: p.Digest, Vector: w.vecs[i]}
 		}
-		if err := b.x.putItem(ctx, w.path, w.content, stored); err != nil {
+		if err := b.x.putItem(ctx, w.path, w.content, w.check, stored); err != nil {
 			return ctxOr(ctx, buildIOErr("the index cannot be updated"))
 		}
 		b.changed = true

@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"hash/crc32"
 	"math"
 	mrand "math/rand/v2"
 	"os"
@@ -115,12 +117,22 @@ func fill(t *testing.T, x *indexDB, r *mrand.Rand, items, per int) map[string][]
 			p.Digest = sha256.Sum256([]byte(path + strconv.Itoa(o)))
 			ps = append(ps, p)
 		}
-		if err := x.putItem(context.Background(), path, sha256.Sum256([]byte(path)), ps); err != nil {
+		if err := x.putItem(context.Background(), path, sha256.Sum256([]byte(path)), checkOf(path), ps); err != nil {
 			t.Fatal(err)
 		}
 		want[path] = ps
 	}
 	return want
+}
+
+// checkOf is the Check fill stores for path: the CRC-32C and count of path's own bytes and eight more.
+func checkOf(path string) Check {
+	return Check{CRC: crc32.Checksum([]byte(path), crc32.MakeTable(crc32.Castagnoli)), Size: 8 + int64(len(path))}
+}
+
+// crcHex is a database file's CRC-32C as the manifest writes it, computed here independently.
+func crcHex(data []byte) string {
+	return fmt.Sprintf("%08x", crc32.Checksum(data, crc32.MakeTable(crc32.Castagnoli)))
 }
 
 func published(t *testing.T, f indexFolder, items, per int) (manifest, map[string][]storedPassage) {
@@ -147,8 +159,7 @@ func TestIndexRoundTrip(t *testing.T) {
 		t.Fatalf("index/ holds %q", names)
 	}
 	data := f.read(t, m.DB)
-	sum := sha256.Sum256(data)
-	if m.Size != int64(len(data)) || m.SHA256 != hex.EncodeToString(sum[:]) || m.Format != indexFormat || m.Dim != testDim {
+	if m.Size != int64(len(data)) || m.CRC32C != crcHex(data) || m.Format != 3 || m.Dim != testDim {
 		t.Fatalf("manifest %+v for %d bytes", m, len(data))
 	}
 	var onDisk manifest
@@ -165,7 +176,7 @@ func TestIndexRoundTrip(t *testing.T) {
 		}
 		for path, ps := range want {
 			it, ok := x.items[path]
-			if !ok || it.content != sha256.Sum256([]byte(path)) {
+			if !ok || it.check != checkOf(path) {
 				t.Fatalf("item %s: %+v", path, it)
 			}
 			got, err := x.passagesOf(ctx, it.id)
@@ -216,6 +227,10 @@ func manifestWith(t *testing.T, m manifest, change map[string]any) []byte {
 	b, _ := json.Marshal(m)
 	json.Unmarshal(b, &fields)
 	for k, v := range change {
+		if v == nil {
+			delete(fields, k)
+			continue
+		}
 		fields[k] = v
 	}
 	out, err := json.Marshal(fields)
@@ -247,10 +262,9 @@ func TestIndexRejects(t *testing.T) {
 	changed := slices.Clone(good)
 	changed[len(changed)/2] ^= 1
 	longer := append(slices.Clone(good), 0)
-	// A database whose own header is broken but whose digest the manifest names.
+	// A database whose own header is broken but whose checksum the manifest names.
 	broken := slices.Clone(good)
 	copy(broken, "not a database!!")
-	brokenSum := sha256.Sum256(broken)
 
 	cases := []struct {
 		name     string
@@ -264,9 +278,10 @@ func TestIndexRejects(t *testing.T) {
 		{"JSON null", nil, []byte("null")},
 		{"over 4096 bytes", nil, append(slices.Clone(goodManifest[:len(goodManifest)-1]), []byte(strings.Repeat(" ", 4096)+"}")...)},
 		{"format 1", nil, manifestWith(t, m, map[string]any{"format": 1})},
-		{"format as text", nil, manifestWith(t, m, map[string]any{"format": "2"})},
-		{"no format", nil, bytes.Replace(goodManifest, []byte(`"format":2,`), nil, 1)},
-		{"broken header", broken, manifestWith(t, m, map[string]any{"sha256": hex.EncodeToString(brokenSum[:])})},
+		{"format 2", nil, manifestWith(t, m, map[string]any{"format": 2})},
+		{"format as text", nil, manifestWith(t, m, map[string]any{"format": "3"})},
+		{"no format", nil, bytes.Replace(goodManifest, []byte(`"format":3,`), nil, 1)},
+		{"broken header", broken, manifestWith(t, m, map[string]any{"crc32c": crcHex(broken)})},
 	}
 	for _, c := range cases {
 		restore()
@@ -282,7 +297,7 @@ func TestIndexRejects(t *testing.T) {
 	}
 
 	// Rows that contradict the manifest, and a database without the passage table, each published
-	// with a manifest that names their true digest.
+	// with a manifest that names their true checksum.
 	for _, c := range []struct {
 		name string
 		sql  string
@@ -294,6 +309,13 @@ func TestIndexRejects(t *testing.T) {
 		{"no meta row", "DELETE FROM meta WHERE key = 'model'"},
 		{"no passage table", "DROP TABLE passage"},
 		{"short content digest", "PRAGMA ignore_check_constraints = ON; UPDATE item SET content = x'00' WHERE id = 1"},
+		{"content digest as text", "UPDATE item SET content = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' WHERE id = 1"},
+		{"crc above 32 bits", "PRAGMA ignore_check_constraints = ON; UPDATE item SET crc = 4294967296 WHERE id = 1"},
+		{"crc negative", "PRAGMA ignore_check_constraints = ON; UPDATE item SET crc = -1 WHERE id = 1"},
+		{"crc as text", "PRAGMA ignore_check_constraints = ON; UPDATE item SET crc = 'x' WHERE id = 1"},
+		{"crc as a real", "UPDATE item SET crc = 5.5 WHERE id = 1"},
+		{"size below 8", "PRAGMA ignore_check_constraints = ON; UPDATE item SET size = 7 WHERE id = 1"},
+		{"size as text", "UPDATE item SET size = 'x' WHERE id = 1"},
 		{"wrong-length vector", "PRAGMA ignore_check_constraints = ON; UPDATE passage SET vector = x'0000' WHERE id = 1"},
 		{"stop below start", "PRAGMA ignore_check_constraints = ON; UPDATE passage SET stop = start - 1 WHERE id = 1"},
 		{"passage without its item", "PRAGMA foreign_keys = OFF; DELETE FROM item WHERE id = 1"},
@@ -337,7 +359,7 @@ func TestIndexRejects(t *testing.T) {
 	}
 	defer x.Close()
 	bad := []storedPassage{{Ord: 0, Start: 0, Stop: 1, Vector: make([]float32, testDim+1)}}
-	if err := x.putItem(ctx, "a.md", [32]byte{}, bad); err == nil {
+	if err := x.putItem(ctx, "a.md", [32]byte{}, Check{Size: 8}, bad); err == nil {
 		t.Fatal("putItem stored a vector of the wrong length")
 	}
 	if _, ok := x.items["a.md"]; ok {
@@ -348,7 +370,19 @@ func TestIndexRejects(t *testing.T) {
 	if n != 0 {
 		t.Fatalf("a failed putItem left %d item rows", n)
 	}
-	x.conn.ExecContext(ctx, "INSERT INTO item (id, path, content) VALUES (1, 'b.md', zeroblob(32))")
+	if _, err := x.conn.ExecContext(ctx, "INSERT INTO item (id, path, content, crc, size) VALUES (1, 'b.md', zeroblob(32), 0, 8)"); err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{
+		"INSERT INTO item (path, content, crc, size) VALUES ('c.md', zeroblob(32), 4294967296, 8)",
+		"INSERT INTO item (path, content, crc, size) VALUES ('c.md', zeroblob(32), -1, 8)",
+		"INSERT INTO item (path, content, crc, size) VALUES ('c.md', zeroblob(32), 0, 7)",
+		"INSERT INTO item (path, content) VALUES ('c.md', zeroblob(32))",
+	} {
+		if _, err := x.conn.ExecContext(ctx, s); err == nil {
+			t.Fatalf("the schema took %s", s)
+		}
+	}
 	if _, err := x.conn.ExecContext(ctx, "INSERT INTO passage (item_id, ord, start, stop, digest, vector) VALUES (1, 0, 0, 1, zeroblob(32), zeroblob(36))"); err == nil {
 		t.Fatal("the schema took a vector of the wrong length")
 	}
@@ -388,8 +422,11 @@ func TestManifestIsNotTrusted(t *testing.T) {
 		{"size with an exponent", raw("size", "1e3")},
 		{"dim as text", raw("dim", `"8"`)},
 		{"db as a number", raw("db", "1234")},
-		{"sha256 short", manifestWith(t, m, map[string]any{"sha256": m.SHA256[2:]})},
-		{"sha256 upper-case", manifestWith(t, m, map[string]any{"sha256": strings.ToUpper(m.SHA256)})},
+		{"crc32c short", manifestWith(t, m, map[string]any{"crc32c": m.CRC32C[2:]})},
+		{"crc32c long", manifestWith(t, m, map[string]any{"crc32c": "0" + m.CRC32C})},
+		{"crc32c upper-case", manifestWith(t, m, map[string]any{"crc32c": strings.ToUpper(strings.Repeat("a", 8))})},
+		{"crc32c as a number", raw("crc32c", "12345678")},
+		{"sha256 in place of crc32c", manifestWith(t, m, map[string]any{"crc32c": nil, "sha256": strings.Repeat("0", 64)})},
 	}
 	before := f.names(t)
 	for _, c := range cases {

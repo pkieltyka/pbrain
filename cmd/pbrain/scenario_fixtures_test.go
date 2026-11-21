@@ -1,10 +1,10 @@
 package main
 
 import (
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"hash/crc32"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,7 +62,7 @@ func scenarioTestModel(ts *testscript.TestScript, neg bool, args []string) {
 	ts.Check(os.WriteFile(ts.MkAbs("docs/brain/personal.toml"), []byte("model_path = "+strconv.Quote(model)+"\n"), 0600))
 }
 
-// damage-index publishes a digest-consistent generation containing a passage
+// damage-index publishes a checksum-consistent generation containing a passage
 // with a malformed vector. Readers reach the database and its scoring query.
 func scenarioDamageIndex(ts *testscript.TestScript, neg bool, args []string) {
 	if neg || len(args) != 1 {
@@ -96,8 +96,8 @@ func scenarioDamageIndex(ts *testscript.TestScript, neg bool, args []string) {
 	ts.Check(db.Close())
 	data, err := os.ReadFile(path)
 	ts.Check(err)
-	digest := sha256.Sum256(data)
-	fields["sha256"] = json.RawMessage(strconv.Quote(hex.EncodeToString(digest[:])))
+	sum := fmt.Sprintf("%08x", crc32.Checksum(data, crc32.MakeTable(crc32.Castagnoli)))
+	fields["crc32c"] = json.RawMessage(strconv.Quote(sum))
 	fields["size"] = json.RawMessage(strconv.Itoa(len(data)))
 	encoded, err := json.Marshal(fields)
 	ts.Check(err)

@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -305,7 +306,8 @@ func (b blockingOpen) Open(ctx context.Context, a *embed.Artifact) (embed.Embedd
 	return b.Registry.Open(ctx, a)
 }
 
-// TestCoverage: an entry covers an item only with the same path and content digest.
+// TestCoverage: an entry covers an item only with the same path and content check, and a search
+// and Status compute ContentCheck, never ContentDigest.
 func TestCoverage(t *testing.T) {
 	ctx := context.Background()
 	e, s := built(t)
@@ -318,7 +320,36 @@ func TestCoverage(t *testing.T) {
 			t.Fatalf("missing %d, want %d (%+v)", res.Missing, want, res)
 		}
 	}
+	// notScored: the item is not covered, so it is never scored and counts in Missing.
+	notScored := func(what string) {
+		t.Helper()
+		src, items := e.source(ctx, e.opts(), "alpha", s)
+		res, _ := src.Score(ctx, "alpha", items)
+		src.Close()
+		for _, h := range res.Hits {
+			if h.Item.ID == "notes/a.md" {
+				t.Fatalf("%s: an uncovered item was scored", what)
+			}
+		}
+		if res.Missing != 1 {
+			t.Fatalf("%s: missing %d", what, res.Missing)
+		}
+	}
+
+	// A search and Status: one ContentCheck per item with an entry, and no ContentDigest.
+	checks, digests := contentCalls.check.Load(), contentCalls.digest.Load()
 	check(0)
+	in, _ := s.scan(ctx)
+	if _, err := Status(ctx, e.opts(), []SectionInput{in}); err != nil {
+		t.Fatal(err)
+	}
+	if n := contentCalls.check.Load() - checks; n != 6 {
+		t.Fatalf("%d ContentCheck calls for two commands over three items", n)
+	}
+	if contentCalls.digest.Load() != digests {
+		t.Fatal("a search or Status computed ContentDigest")
+	}
+
 	s.put("notes/a.md", "Alpha", "alpha text edited\n") // an edited body
 	check(1)
 	s.put("notes/a.md", "Alpha renamed", "alpha text\n") // an edited title
@@ -331,19 +362,72 @@ func TestCoverage(t *testing.T) {
 	check(1)
 	s.del("notes/moved.md") // a deleted file: nothing to cover
 	check(0)
-	// Same length, other text: not covered, never scored.
-	s.put("notes/a.md", "Alpha", "alphX text\n")
-	src, items := e.source(ctx, e.opts(), "alpha", s)
-	res, _ := src.Score(ctx, "alpha", items)
-	src.Close()
-	for _, h := range res.Hits {
-		if h.Item.ID == "notes/a.md" {
-			t.Fatal("an uncovered item was scored")
+
+	// Another length, and four consecutive bytes changed at the same length: not covered.
+	s.put("notes/a.md", "Alpha", "alpha text!\n")
+	notScored("another length")
+	s.put("notes/a.md", "Alpha", "XXXXa text\n")
+	notScored("four bytes changed")
+
+	// The accepted limit (architecture 17): other text of the same length with the same CRC-32C is
+	// covered. A change at byte 0 is cancelled by four bytes chosen at byte 5.
+	same := sameCheck(t, "Alpha", []byte("alpha text\n"), 0, 5)
+	if string(same) == "alpha text\n" || ContentCheck("Alpha", same) != ContentCheck("Alpha", []byte("alpha text\n")) {
+		t.Fatalf("no colliding body: %q", same)
+	}
+	s.put("notes/a.md", "Alpha", string(same))
+	check(0)
+}
+
+// sameCheck returns body with byte at changed and the four bytes at fix altered so that its
+// ContentCheck with title is the original's. A CRC is linear over GF(2) for a fixed length, and the
+// 32 bits at fix map one to one onto the CRC, so they can cancel any change made elsewhere.
+func sameCheck(t *testing.T, title string, body []byte, changed, fix int) []byte {
+	t.Helper()
+	crc := func(b []byte) uint32 { return ContentCheck(title, b).CRC }
+	base := crc(body)
+	flipped := func(bits map[int]bool) []byte {
+		b := slices.Clone(body)
+		for k := range bits {
+			b[k/8] ^= 1 << (k % 8)
+		}
+		return b
+	}
+	target := crc(flipped(map[int]bool{8*changed + 5: true})) ^ base
+	type row struct{ v, combo uint32 }
+	var pivot [32]row
+	var have [32]bool
+	for k := range 32 {
+		r := row{crc(flipped(map[int]bool{8*fix + k: true})) ^ base, 1 << k}
+		for b := 31; b >= 0; b-- {
+			if r.v>>b&1 == 0 {
+				continue
+			}
+			if !have[b] {
+				pivot[b], have[b] = r, true
+				break
+			}
+			r.v ^= pivot[b].v
+			r.combo ^= pivot[b].combo
 		}
 	}
-	if res.Missing != 1 {
-		t.Fatalf("missing %d", res.Missing)
+	var combo uint32
+	for b := 31; b >= 0; b-- {
+		if target>>b&1 == 1 {
+			if !have[b] {
+				t.Fatal("the four bytes do not span the CRC")
+			}
+			target ^= pivot[b].v
+			combo ^= pivot[b].combo
+		}
 	}
+	bits := map[int]bool{8*changed + 5: true}
+	for k := range 32 {
+		if combo>>k&1 == 1 {
+			bits[8*fix+k] = true
+		}
+	}
+	return flipped(bits)
 }
 
 // TestSourceSectionFailure: a section whose index is unusable adds its items to Missing; the other

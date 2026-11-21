@@ -248,7 +248,7 @@ func wait(ctx context.Context, done chan struct{}) error {
 }
 
 // covers reports whether the index holds the item's present text: the same path and the same
-// content digest of its title and body as scanned.
+// ContentCheck of its title and body as scanned. It never computes ContentDigest.
 func covers(x *indexDB, in SectionInput, it *item.Item) (storedItem, bool) {
 	rel, ok := relPath(in.Root, it.Path)
 	if !ok {
@@ -259,7 +259,7 @@ func covers(x *indexDB, in SectionInput, it *item.Item) (storedItem, bool) {
 		return storedItem{}, false
 	}
 	body, err := in.Body(it)
-	if err != nil || ContentDigest(it.Header.Title, body) != st.content {
+	if err != nil || ContentCheck(it.Header.Title, body) != st.check {
 		return storedItem{}, false
 	}
 	return st, true

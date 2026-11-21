@@ -2,6 +2,8 @@ package semantic
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
+	"hash/crc32"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -180,6 +182,25 @@ func TestContentDigestFraming(t *testing.T) {
 	}
 	if first, again := ContentDigest("t", []byte("b")), ContentDigest("t", []byte("b")); first != again {
 		t.Fatal("not deterministic")
+	}
+
+	// ContentCheck is the CRC-32C and count of the same framed bytes.
+	for i, p := range pairs {
+		framed := binary.LittleEndian.AppendUint64(nil, uint64(len(p[0])))
+		framed = append(append(framed, p[0]...), p[1]...)
+		want := Check{CRC: crc32.Checksum(framed, crc32.MakeTable(crc32.Castagnoli)), Size: int64(len(framed))}
+		if got := ContentCheck(p[0], []byte(p[1])); got != want {
+			t.Fatalf("pair %d: %+v, want %+v", i, got, want)
+		}
+	}
+	// Moving bytes between the title's end and the body's start changes the CRC, not the size; one
+	// added byte changes the size.
+	a, b := ContentCheck("ab", []byte("c")), ContentCheck("a", []byte("bc"))
+	if a.Size != b.Size || a.CRC == b.CRC {
+		t.Fatalf("a moved byte: %+v and %+v", a, b)
+	}
+	if c := ContentCheck("ab", []byte("cd")); c.Size != a.Size+1 {
+		t.Fatalf("an added byte: %+v", c)
 	}
 }
 
