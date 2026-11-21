@@ -50,13 +50,6 @@ type CacheOptions struct {
 
 var ErrCacheExposed = errors.New("cache folder is exposed")
 
-// OpenCache tests the folder and opens it. With create false a missing folder gives a Cache
-// that holds nothing. Every folder a Cache later opens is tested again for a nested repository.
-// Errors: ErrCacheExposed; git_required; a file-system error.
-func OpenCache(ctx context.Context, opt CacheOptions, create bool) (*Cache, error) {
-	panic("not implemented")
-}
-
 // Start needs no scan and never fails. It runs the cheap checks and, when they pass, begins
 // in the background to verify the model, open it and embed text as a query.
 func Start(ctx context.Context, opt Options, text string, dirs []SectionDir) *Source {
@@ -90,15 +83,6 @@ type Progress struct {
 	Waiting     bool // waiting for another build's lock
 }
 
-// Build brings one section's index up to date. It calls scan after it holds the index lock and
-// works from that scan alone. An item whose body cannot be read as scanned is left for the next run.
-// Errors, all *errs.Error: no_model; invalid_config (unknown model, a model_path folder that is
-// incomplete or fails Verify, an exposed cache, or neither a cache folder nor a model_path);
-// fetch_failed from the download; io for the file system, the lock and a failed embedding.
-func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl embed.Downloader, notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error) {
-	panic("not implemented")
-}
-
 type SectionStatus struct {
 	Section        item.Section
 	Items, Indexed int
@@ -115,10 +99,6 @@ type StatusResult struct {
 // Status loads no model and writes nothing. It returns only file-system errors (io).
 func Status(ctx context.Context, opt Options, secs []SectionInput) (StatusResult, error) {
 	panic("not implemented")
-}
-
-// Cache is the per-user vector cache (semantic.md).
-type Cache struct { /* unexported */
 }
 
 // Source is the search.Semantic implementation for one command (semantic.md).
