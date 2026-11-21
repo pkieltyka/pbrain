@@ -36,6 +36,8 @@ GitHub's `macos-latest` runner is a real Mac: push a branch and CI runs on it.
 
 ## Phase 28 measurements still owed
 
+> **Update 2026-11-21 (owner):** EmbeddingGemma 2 is on hold until the owner clears it (goinfer is being made faster for it elsewhere). Its full-size run and docs delta (#3 gemma part, #4) are on the Backlog; bge-small is the only model tested or measured. Items below that concern gemma are deferred.
+
 Everything measured so far is committed in `internal/cli/README.measure.md`, `internal/semantic/calibrate/README.md` and the README speed table.
 
 - **bge-small (default), done:** 5,000 items / 50 MB on 4 Linux CPUs: first index 1 h 41 m (7.99 passages/s, peak 1,351 MiB); one-note reindex 0.77 s; `search --semantic` 302–333 ms warm (298–335 ms with `--bm25`), up to 549 MiB.

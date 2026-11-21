@@ -55,7 +55,7 @@ The default model is `bge-small-en-v1.5`: a 134 MB download, quick to load.
 `embeddinggemma-2` is the larger option. On our fixture it found the expected item for two
 more questions of 47, and it costs far more. With it on four CPUs, the first build of the
 5,000-item, 50 MB test brain ran at 0.902 passages a second (a passage there averaged about
-1,000 characters): a projected 15 hours, with a peak of about 2 GB of memory observed so far.
+1,000 characters): a projected 15 hours, with a peak of about 2 GB of memory observed; that build was not run to the end.
 That generated text is token-heavy, so ordinary notes may go faster. The default built the
 same index in 1 hour 41 minutes, with a peak of about 1.4 GB of memory. To use `embeddinggemma-2`,
 set the model in `docs/brain/pbrain.toml` and run `pbrain index` again.
@@ -91,6 +91,6 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 | BGE semantic search, personal view | 332–333 ms | Not yet measured |
 | BGE semantic + BM25, shared / personal view | 298 ms / 335 ms | Not yet measured |
 | BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
-| EmbeddingGemma 2, full-size measurements | Pending | Not yet measured |
+| EmbeddingGemma 2, full-size measurements | Deferred until the model is cleared for use | Not yet measured |
 
 Search and get figures are warm medians on four CPUs. [Method and peak memory](internal/cli/README.measure.md)

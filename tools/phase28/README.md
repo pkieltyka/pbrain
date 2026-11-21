@@ -54,6 +54,8 @@ tools/phase28/run-linux.sh full "$work" bge "$bge" &&
 
 ## Resume and provenance
 
+> **On hold (owner decision, 2026-11-21):** no EmbeddingGemma 2 build, resume or measurement runs until the owner clears the model; a separate effort is making goinfer faster for it. bge-small is the only model measured. The gemma steps below are kept for that time.
+
 The live old-machine Gemma process resumed under `pbrain-phase28-gemma-resume.service` at 17:45:50 UTC on 2026-11-21. The first portion had run for 5,873.416 s and peaked at 2,068,220 KiB. The initial checkpoint had 545 shared items and 5,251 published passages, with 5,272 cached vectors. The saved pause record, resume start, sampled checkpoint progress, and separate rule-3 measurements are in `evidence/`.
 
 A true continuation requires the original retained `gemma-corpus` directory, including its `personal` Git checkout, `.pbrain/index` folders, `git` shim, and sibling `personal-model-cache`, plus its matching pause record. Without those files the new host starts a fresh `full gemma` as shown above. Report that fresh duration independently of the partial run on the old host. Avoid adding old-host active time to a new full build.
