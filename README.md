@@ -45,11 +45,11 @@ Use `pbrain search --semantic 'where is login state kept'` to find related wordi
 Exact hits come first. When the model or index is unavailable, search returns
 the lexical results and a notice. Search never downloads a model or builds an index.
 
-**The first index on a machine is a person's step.** Check `pbrain index --status`,
-then run `pbrain index` when ready. It downloads the selected model if needed and
+**The first index on a machine is a person's step.** Check `pbrain sync --status`,
+then run `pbrain sync` when ready. It downloads the selected model if needed and
 embeds items locally. A small brain takes minutes; a large one takes hours. You can
-stop the build. The next `pbrain index` resumes from the last saved checkpoint.
-After writes or a pull, rerun `pbrain index` to pick up changes.
+stop the build. The next `pbrain sync` resumes from the last saved checkpoint.
+After writes or a pull, rerun `pbrain sync` to pick up changes.
 
 The default model is `bge-small-en-v1.5`: a 134 MB download, quick to load.
 `embeddinggemma-2` is the larger option. On our fixture it found the expected item for two
@@ -58,7 +58,7 @@ more questions of 47, and it costs far more. With it on four CPUs, the first bui
 1,000 characters): a projected 15 hours, with a peak of about 2 GB of memory observed; that build was not run to the end.
 That generated text is token-heavy, so ordinary notes may go faster. The default built the
 same index in 1 hour 41 minutes, with a peak of about 1.4 GB of memory. To use `embeddinggemma-2`,
-set the model in `docs/brain/pbrain.toml` and run `pbrain index` again.
+set the model in `docs/brain/pbrain.toml` and run `pbrain sync` again.
 
 ```toml
 [semantic]

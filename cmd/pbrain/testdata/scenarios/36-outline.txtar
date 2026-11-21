@@ -64,7 +64,7 @@ stderr '^usage: --history cannot be used with --outline$'
 
 # The outline is the same with a model, an index and a cache on the machine as without them.
 testmodel test-model
-pbrain-test index
+pbrain-test sync
 pbrain-test get long --outline
 cmp stdout $WORK/outline.txt
 

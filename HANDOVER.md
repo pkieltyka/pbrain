@@ -48,7 +48,7 @@ Everything measured so far is committed in `internal/cli/README.measure.md`, `in
 - **Rerun kit:** branch `peter/lead-dev` (`f285545`), `tools/phase28/README.md`: a portable runner (`run-linux.sh init|provision|full|warm|resume`), model provisioning and gemma packing, progress sampler, and the bge and partial gemma raw evidence. Not yet reviewed or on master. Run full gemma from scratch on the new machine; the old checkpoint and cache are not in Git. Use the v0.1.1 candidate commit for the warm check.
 - **When both land:** the architect replaces the remaining EmbeddingGemma projections (spec §16, architecture §8.7/§17, semantic.md, the semantic skill topic, the README).
 
-Model files are not in the repo. `pbrain index` downloads them from Hugging Face at pinned revisions (bge-small ~135 MB; EmbeddingGemma 2 source ~1.52 GB, derived into a 552 MB pack). The adapter tests take the files via `PBRAIN_TEST_BGE_MODEL` and the gemma equivalents (see `internal/embed/*/testdata/README.md`).
+Model files are not in the repo. `pbrain sync` downloads them from Hugging Face at pinned revisions (bge-small ~135 MB; EmbeddingGemma 2 source ~1.52 GB, derived into a 552 MB pack). The adapter tests take the files via `PBRAIN_TEST_BGE_MODEL` and the gemma equivalents (see `internal/embed/*/testdata/README.md`).
 
 ## Backlog (on the board)
 
@@ -80,7 +80,7 @@ Model files are not in the repo. `pbrain index` downloads them from Hugging Face
 ## Environment gotchas (from the old machine)
 
 - **Heavy checks:** `go test -p 2`; `-race` only on changed packages plus one final full run; one fuzz target at a time with `-parallel 2` and a short `-fuzztime`; the four cross-builds in sequence. Parallel heavy runs once got every agent session OOM-killed on a 62 GB machine.
-- **pbrain index downloads** dial Hugging Face directly; inside Claude Code's sandbox they fail in ~30 ms with `fetch_failed`. Run that one step outside the sandbox.
+- **pbrain sync downloads** dial Hugging Face directly; inside Claude Code's sandbox they fail in ~30 ms with `fetch_failed`. Run that one step outside the sandbox.
 - **Signed tags:** the global git config signs tags, so tests that run `git tag` (goinfer's cmd/gate) need `GIT_CONFIG_GLOBAL=/dev/null`.
 - **Pushing from a sandbox** that blocks SSH: `GIT_CONFIG_GLOBAL=/dev/null git -c credential.helper='!gh auth git-credential' push https://github.com/pkieltyka/pbrain.git HEAD:refs/heads/<branch>`.
 - **goinfer** builds its sub-modules through an untracked `go.work`: keep the workspace on for goinfer, off for pbrain. Point `GOINFER_TIMING_LOCK_FILE` and `XDG_CACHE_HOME` at scratch when home paths are read-only.

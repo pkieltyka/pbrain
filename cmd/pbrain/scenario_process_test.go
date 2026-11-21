@@ -113,7 +113,7 @@ func killedIndex(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("usage: killed-index")
 	}
 	ts.Setenv("PBRAIN_TEST_FAULT", "kill-index")
-	err := ts.Exec("pbrain-test", "index")
+	err := ts.Exec("pbrain-test", "sync")
 	ts.Setenv("PBRAIN_TEST_FAULT", "")
 	var exit *exec.ExitError
 	if !errors.As(err, &exit) || exit.Sys().(syscall.WaitStatus).Signal() != syscall.SIGKILL {

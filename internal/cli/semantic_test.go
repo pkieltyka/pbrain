@@ -45,26 +45,26 @@ func semanticBrain(t *testing.T) (*readBrain, *embedtest.Kit) {
 func TestCLISemanticCommands(t *testing.T) {
 	rb, kit := semanticBrain(t)
 	// Before any build: the status, and a search with its notice and lexical results.
-	expect(t, rb, "model: test-model, on this machine\nshared: 0 of 2 items indexed\n", "index", "--status")
+	expect(t, rb, "model: test-model, on this machine\nshared: 0 of 2 items indexed\n", "sync", "--status")
 	status, out, errOut := rb.run("search", "alpha", "--semantic")
-	if status != 0 || !strings.Contains(out, "alpha-a1a1") || errOut != "semantic_not_ready: no index for this model: run pbrain index\n" {
+	if status != 0 || !strings.Contains(out, "alpha-a1a1") || errOut != "semantic_not_ready: no index for this model: run pbrain sync\n" {
 		t.Fatalf("before the build: %d %q %q", status, out, errOut)
 	}
 	if kit.Opens.Load() != 0 {
 		t.Fatal("a not-ready search opened the model")
 	}
 	// The build.
-	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\n", "index")
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\n", "sync")
 	var built struct {
 		Model    string
 		Sections []map[string]any
 	}
-	_, out, _ = rb.run("index", "--json")
+	_, out, _ = rb.run("sync", "--json")
 	oneJSON(t, out, &built)
 	if built.Model != "test-model" || len(built.Sections) != 1 || built.Sections[0]["passages_embedded"] != 0.0 || built.Sections[0]["items"] != 2.0 {
 		t.Fatalf("index JSON: %s", out)
 	}
-	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\n", "index", "--status")
+	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\n", "sync", "--status")
 	// A search by meaning: "beta" is not in the first note, but the query vector of a text with no
 	// keyword is the fixed unit vector, so ask for a word that matches nothing lexically.
 	status, out, errOut = rb.run("search", "beta", "material", "zzz", "--semantic")
@@ -74,7 +74,7 @@ func TestCLISemanticCommands(t *testing.T) {
 	// A new item not yet indexed: the partial notice counts it.
 	rb.put("notes/20261103-000000-gamma-c1c1.md", []string{"kind: note", "title: Third", "created: 2026-11-03T00:00:00Z", "author: agent:x"}, "gamma\n")
 	_, _, errOut = rb.run("search", "zzz", "--semantic")
-	if errOut != "semantic_partial: 1 item is not in the index: run pbrain index\n" {
+	if errOut != "semantic_partial: 1 item is not in the index: run pbrain sync\n" {
 		t.Fatalf("partial: %q", errOut)
 	}
 	_, _, errOut = rb.run("--personal", "search", "zzz", "--semantic", "--json")
@@ -82,25 +82,25 @@ func TestCLISemanticCommands(t *testing.T) {
 		Notice struct{ Code, Message string }
 	}
 	oneJSON(t, errOut, &n)
-	if n.Notice.Code != "semantic_partial" || !strings.HasSuffix(n.Notice.Message, "run pbrain index --personal") {
+	if n.Notice.Code != "semantic_partial" || !strings.HasSuffix(n.Notice.Message, "run pbrain sync --personal") {
 		t.Fatalf("personal hint: %q", errOut)
 	}
 	// Status JSON, and a stale index after the model changes.
 	var st map[string]any
-	_, out, _ = rb.run("index", "--status", "--json")
+	_, out, _ = rb.run("sync", "--status", "--json")
 	json.Unmarshal([]byte(out), &st)
 	if st["model"] != "test-model" || st["model_present"] != true {
 		t.Fatalf("status JSON: %s", out)
 	}
 	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"test-model-b\"\n"), 0o644)
-	expect(t, rb, "model: test-model-b, not on this machine\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	expect(t, rb, "model: test-model-b, not on this machine\nshared: 0 of 3 items indexed (built for another model)\n", "sync", "--status")
 	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"nope\"\n"), 0o644)
-	expect(t, rb, "model: nope, not supported by this pbrain\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	expect(t, rb, "model: nope, not supported by this pbrain\nshared: 0 of 3 items indexed (built for another model)\n", "sync", "--status")
 	_, _, errOut = rb.run("search", "zzz", "--semantic")
 	if !strings.HasPrefix(errOut, "semantic_not_ready: this pbrain does not support") {
 		t.Fatalf("unsupported: %q", errOut)
 	}
-	status, _, errOut = rb.run("index")
+	status, _, errOut = rb.run("sync")
 	if status != 1 || !strings.HasPrefix(errOut, "invalid_config: the model \"nope\" is not supported; supported models: test-model") {
 		t.Fatalf("index with an unknown model: %d %q", status, errOut)
 	}
@@ -111,12 +111,12 @@ func TestCLISemanticCommands(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(rb.dir, "personal.toml"), []byte(`model_path = "missing"`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	expect(t, rb, "model: none\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	expect(t, rb, "model: none\nshared: 0 of 3 items indexed (built for another model)\n", "sync", "--status")
 	_, _, errOut = rb.run("search", "zzz", "--semantic")
 	if errOut != "semantic_not_ready: semantic search is off: pbrain.toml sets model = \"none\"\n" {
 		t.Fatalf("no model: %q", errOut)
 	}
-	status, _, errOut = rb.run("index")
+	status, _, errOut = rb.run("sync")
 	if status != 1 || !strings.HasPrefix(errOut, "no_model: ") {
 		t.Fatalf("index without a model: %d %q", status, errOut)
 	}
@@ -131,13 +131,13 @@ func TestCLISemanticCommands(t *testing.T) {
 func TestCLIIndexPersonal(t *testing.T) {
 	rb, _ := semanticBrain(t)
 	// A default personal folder that does not exist: zero, and nothing created.
-	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\npersonal: 0 items indexed, 0 items removed; 0 passages embedded, 0 reused\n", "--personal", "index")
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\npersonal: 0 items indexed, 0 items removed; 0 passages embedded, 0 reused\n", "--personal", "sync")
 	if _, err := os.Stat(filepath.Join(rb.dir, "personal")); !os.IsNotExist(err) {
 		t.Fatal("the personal folder was created")
 	}
 	rb.put("personal/notes/20261104-000000-mine-m1m1.md", []string{"kind: note", "title: Mine", "created: 2026-11-04T00:00:00Z", "author: agent:x"}, "delta mine\n")
-	expect(t, rb, "shared: 2 items indexed, 0 items removed; 0 passages embedded, 0 reused\npersonal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused\n", "--personal", "index")
-	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\npersonal: 1 of 1 item indexed\n", "--personal", "index", "--status")
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 0 passages embedded, 0 reused\npersonal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused\n", "--personal", "sync")
+	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\npersonal: 1 of 1 item indexed\n", "--personal", "sync", "--status")
 }
 
 func TestDownloadMessage(t *testing.T) {
@@ -160,13 +160,13 @@ func TestSemanticNoticeTable(t *testing.T) {
 		msg  string
 	}{
 		{&shared, search.SemanticState{Asked: true, Reason: search.NoModel}, "semantic_not_ready", "semantic search is off: pbrain.toml sets model = \"none\""},
-		{&shared, search.SemanticState{Asked: true, Reason: search.UnsupportedModel}, "semantic_not_ready", "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.UnsupportedModel}, "semantic_not_ready", "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"},
 		{&shared, search.SemanticState{Asked: true, Reason: search.CacheExposed}, "semantic_not_ready", "the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them"},
-		{&personal, search.SemanticState{Asked: true, Reason: search.ModelAbsent}, "semantic_not_ready", "the model is not on this machine: run pbrain index --personal, or set model_path"},
-		{&shared, search.SemanticState{Asked: true, Reason: search.NoIndex}, "semantic_not_ready", "no index for this model: run pbrain index"},
-		{&personal, search.SemanticState{Asked: true, Reason: search.ModelFailed}, "semantic_not_ready", "the model could not be used: run pbrain index --personal to check it"},
-		{&shared, search.SemanticState{Asked: true, Ready: true, Missing: 1}, "semantic_partial", "1 item is not in the index: run pbrain index"},
-		{&personal, search.SemanticState{Asked: true, Ready: true, Missing: 7}, "semantic_partial", "7 items are not in the index: run pbrain index --personal"},
+		{&personal, search.SemanticState{Asked: true, Reason: search.ModelAbsent}, "semantic_not_ready", "the model is not on this machine: run pbrain sync --personal, or set model_path"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.NoIndex}, "semantic_not_ready", "no index for this model: run pbrain sync"},
+		{&personal, search.SemanticState{Asked: true, Reason: search.ModelFailed}, "semantic_not_ready", "the model could not be used: run pbrain sync --personal to check it"},
+		{&shared, search.SemanticState{Asked: true, Ready: true, Missing: 1}, "semantic_partial", "1 item is not in the index: run pbrain sync"},
+		{&personal, search.SemanticState{Asked: true, Ready: true, Missing: 7}, "semantic_partial", "7 items are not in the index: run pbrain sync --personal"},
 	}
 	for _, c := range cases {
 		n, ok := semanticNotice(c.in, c.st)
@@ -211,7 +211,7 @@ func semanticAlignment(t *testing.T, layout func(string) string) {
 		t.Fatal(err)
 	}
 	fileLines := strings.Split(string(stored), "\n")
-	if status, _, errOut := rb.run("index"); status != 0 {
+	if status, _, errOut := rb.run("sync"); status != 0 {
 		t.Fatal(errOut)
 	}
 	var ol struct {

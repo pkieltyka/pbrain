@@ -79,7 +79,7 @@ func (m modelRun) withCutoff(cutoff float32) *modelRun {
 }
 
 func (s session) buildIndex(personal bool) error {
-	args := []string{"index", "--json"}
+	args := []string{"sync", "--json"}
 	if personal {
 		args = append(args, "--personal")
 	}

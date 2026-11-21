@@ -1,13 +1,17 @@
 # Functional spec §15, scenario 35.
 pbrain init
-pbrain index --status --json
+pbrain sync --status --json
 stdout '"model":"'$PBRAIN_DEFAULT_MODEL'"'
 cp stdout $WORK/default-status
 exec sh -c 'printf "semantic.model = \"%s\"\n" "$PBRAIN_DEFAULT_MODEL" > docs/brain/pbrain.toml'
+pbrain sync --status --json
+cmp stdout $WORK/default-status
+! stderr .
 pbrain index --status --json
 cmp stdout $WORK/default-status
+stderr '^\{"notice":\{"code":"command_renamed","message":"pbrain index is now pbrain sync: the old name will be removed in the next release"\}\}$'
 cp $WORK/name-gemma docs/brain/pbrain.toml
-pbrain index --status --json
+pbrain sync --status --json
 stdout '"model":"embeddinggemma-2"'
 ! exists docs/brain/.pbrain
 ! exists $PBRAIN_CACHE
@@ -16,13 +20,13 @@ pbrain-test search alpha --semantic --json
 stdout '"id":"exact"'
 stderr '"code":"semantic_not_ready"'
 stderr 'semantic search is off'
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"no_model"'
 cp $WORK/empty-name docs/brain/pbrain.toml
-status 1 pbrain-test index --status --json
+status 1 pbrain-test sync --status --json
 stderr '"code":"invalid_config"'
 cp $WORK/unknown-name docs/brain/pbrain.toml
-pbrain-test index --status
+pbrain-test sync --status
 stdout 'not supported by this pbrain'
 cp $WORK/name-a docs/brain/pbrain.toml
 pbrain-test search alpha --semantic --json
@@ -30,15 +34,15 @@ stderr 'not on this machine'
 ! exists docs/brain/.pbrain
 ! exists $PBRAIN_CACHE
 env PBRAIN_TEST_HTTP=offline-model
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"fetch_failed"'
 env PBRAIN_TEST_HTTP=
-pbrain-test index --status
+pbrain-test sync --status
 stdout 'not on this machine'
 testmodel test-model
 pbrain-test search alpha --semantic --json
 stderr 'no index for this model'
-pbrain-test index
+pbrain-test sync
 stdout '2 items indexed'
 pbrain-test search 'alpha query' --semantic --json
 ids results exact related
@@ -55,31 +59,31 @@ stderr '"code":"semantic_partial"'
 stderr '1 item is not in the index'
 
 # With the personal index damaged, only its rows are dropped.
-pbrain-test --personal index
+pbrain-test --personal sync
 stdout 'personal: 1 item indexed'
 damage-index docs/brain/personal/.pbrain/index
 pbrain-test --personal search 'alpha query' --semantic --json
 ids results exact related
 stderr '"code":"semantic_partial"'
 stderr '1 item is not in the index'
-pbrain-test --personal index --status --json
+pbrain-test --personal sync --status --json
 stdout '"indexed":2,"items":2,"section":"shared"'
 stdout '"indexed":0,"items":1,"section":"personal","unreadable":true'
-pbrain-test --personal index
+pbrain-test --personal sync
 stdout 'personal: 1 item indexed, 0 items removed; 1 passage embedded'
 cmp docs/brain/personal/mine.md $WORK/private
 pbrain-test --personal search 'alpha query' --semantic --json
 stdout '"id":"mine"'
 ! stderr .
 
-pbrain-test --personal index
+pbrain-test --personal sync
 stdout -count=2 '0 passages embedded, 0 reused'
 pbrain-test add --title 'Another note' --body 'beta addition' --json
 jsonenv ADDED id
 pbrain-test search 'beta sense' --semantic --json
 ids results
 stderr '1 item is not in the index'
-pbrain-test index
+pbrain-test sync
 stdout '1 passage embedded'
 pbrain-test search 'beta sense' --semantic --json
 ids results $ADDED
@@ -90,7 +94,7 @@ cp $WORK/updated docs/brain/related.md
 pbrain-test search 'alpha query' --semantic --json
 ids results exact
 stderr '1 item is not in the index'
-pbrain-test index
+pbrain-test sync
 stdout '1 passage embedded'
 pbrain-test search 'gamma sense' --semantic --json
 ids results related
@@ -105,7 +109,7 @@ cmp stdout $WORK/ready
 pbrain-test search alpha --json
 cp stdout $WORK/lexical
 env PBRAIN_CACHE=$WORK/repo/unignored-cache
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 ! exists unignored-cache
 pbrain-test search alpha --semantic --json
@@ -115,13 +119,13 @@ pbrain-test search alpha --json
 cmp stdout $WORK/lexical
 ! stderr .
 env PBRAIN_CACHE=$WORK/repo/docs/brain/new-cache
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 ! exists docs/brain/new-cache
 mkdir $WORK/repo/unignored
 symlink $WORK/cache-alias -> $WORK/repo/unignored
 env PBRAIN_CACHE=$WORK/cache-alias/new-cache
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 ! exists unignored/new-cache
 env PBRAIN_CACHE=$WORK/cache
@@ -139,20 +143,20 @@ stderr '"code":"semantic_not_ready"'
 testmodel test-model-packed
 cp docs/brain/personal.toml $WORK/packed-settings
 cp $WORK/raw-settings docs/brain/personal.toml
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 ! exists $WORK/test-model-packed-source/keywords.txt
 cp $WORK/packed-settings docs/brain/personal.toml
 killed-index
 ! exists docs/brain/.pbrain/index/manifest
-pbrain-test index
+pbrain-test sync
 stdout '3 items indexed'
 stdout '0 passages embedded, 3 reused'
 pbrain-test search 'gamma sense' --semantic --json
 ids results related
 ! stderr .
 exec sh -c 'printf "corrupt" > "$WORK/test-model-packed/keywords.txt"'
-status 1 pbrain-test index --json
+status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 
 # Exercise two fresh builds with the same verified offline BGE fixture, one
@@ -162,11 +166,11 @@ cp docs/brain/pbrain.toml $WORK/named-default
 cp $WORK/no-model-key docs/brain/pbrain.toml
 rm -r docs/brain/.pbrain/index
 env PBRAIN_CACHE=$WORK/default-cache
-pbrain-test index --status --json
+pbrain-test sync --status --json
 stdout '"model":"bge-small-en-v1\.5"'
 stdout '"model_present":true'
 cp stdout $WORK/unnamed-status
-pbrain-test index --json
+pbrain-test sync --json
 stdout '"model":"bge-small-en-v1\.5"'
 stdout '"passages_embedded":3'
 cp stdout $WORK/unnamed-build
@@ -179,9 +183,9 @@ cp stdout $WORK/unnamed-search
 cp $WORK/named-default docs/brain/pbrain.toml
 rm -r docs/brain/.pbrain/index
 env PBRAIN_CACHE=$WORK/named-cache
-pbrain-test index --status --json
+pbrain-test sync --status --json
 cmp stdout $WORK/unnamed-status
-pbrain-test index --json
+pbrain-test sync --json
 cmp stdout $WORK/unnamed-build
 pbrain-test search 'gamma sense' --semantic --json
 cmp stdout $WORK/unnamed-search
@@ -193,9 +197,9 @@ testmodel test-model
 symlink $WORK/model-link -> $WORK/test-model
 modelpath $WORK/model-link
 env PBRAIN_CACHE=$WORK/link-cache
-pbrain-test index --status
+pbrain-test sync --status
 stdout '^model: test-model, on this machine$'
-pbrain-test index
+pbrain-test sync
 stdout '^shared: '
 ! stderr .
 

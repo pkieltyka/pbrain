@@ -100,7 +100,7 @@ func TestSingularNotices(t *testing.T) {
 	for p, want := range map[semantic.Progress]string{
 		{Section: item.Shared, Done: 0, Total: 1}:       "shared: 0 of 1 item",
 		{Section: item.Personal, Done: 3, Total: 7}:     "personal: 3 of 7 items",
-		{Section: item.Shared, Waiting: true, Total: 1}: "shared: waiting for another pbrain index",
+		{Section: item.Shared, Waiting: true, Total: 1}: "shared: waiting for another pbrain sync",
 	} {
 		if got := progressMessage(p); got != want {
 			t.Errorf("%+v: %q, want %q", p, got, want)

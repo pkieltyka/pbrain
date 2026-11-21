@@ -1,7 +1,7 @@
 # Functional spec §15, scenario 37: fingerprint change, a second work tree, incremental rebuilds.
 pbrain init
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 1 item indexed, 0 items removed; 12 passages embedded, 0 reused$'
 countfiles $PBRAIN_CACHE/vectors 12
 pbrain-test search alphas --semantic
@@ -11,16 +11,16 @@ stdout '^guide  source  provisional  2026-11-01  semantic$'
 testmodel test-model-b $WORK/table.json
 pbrain-test search alphas --semantic
 stdout '^0 results\.'
-stderr '^semantic_not_ready: no index for this model: run pbrain index$'
-pbrain-test index --status
+stderr '^semantic_not_ready: no index for this model: run pbrain sync$'
+pbrain-test sync --status
 stdout '^model: test-model-b, on this machine$'
 stdout '^shared: 0 of 1 item indexed \(built for another model\)$'
 
-# pbrain index builds a new index and removes the old one.
-pbrain-test index
+# pbrain sync builds a new index and removes the old one.
+pbrain-test sync
 stdout '^shared: 1 item indexed, 0 items removed; 12 passages embedded, 0 reused$'
 countfiles docs/brain/.pbrain/index 3
-pbrain-test index --status
+pbrain-test sync --status
 stdout '^shared: 1 of 1 item indexed$'
 pbrain-test search alphas --semantic
 stdout '^guide  source  provisional  2026-11-01  semantic$'
@@ -36,7 +36,7 @@ cd ../wt2
 testmodel test-model-b $WORK/table.json
 mkdir docs/brain/personal
 cp $WORK/mine.md docs/brain/personal/mine.md
-pbrain-test index --personal
+pbrain-test sync --personal
 stdout '^shared: 1 item indexed, 0 items removed; 0 passages embedded, 12 reused$'
 stdout '^personal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused$'
 countfiles $PBRAIN_CACHE/vectors 24
@@ -45,12 +45,12 @@ cd ../repo
 # One edited paragraph of a long indexed source: one passage embedded, the others reused. One added
 # short note: one passage. Run again at once: none.
 cp $WORK/edited.md docs/brain/sources/guide.md
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 1 item indexed, 0 items removed; 1 passage embedded, 11 reused$'
 pbrain-test add --title 'Short note' --body 'gamma words'
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 2 items indexed, 0 items removed; 1 passage embedded, 0 reused$'
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 2 items indexed, 0 items removed; 0 passages embedded, 0 reused$'
 countfiles $PBRAIN_CACHE/vectors 26
 

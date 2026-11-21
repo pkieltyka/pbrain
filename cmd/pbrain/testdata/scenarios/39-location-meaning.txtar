@@ -3,7 +3,7 @@
 # snippet fields.
 pbrain init
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 
 pbrain-test search gammas --semantic
 stdout '^20261101-000000-body-b1b1  note  provisional  2026-11-01  semantic$'

@@ -38,7 +38,8 @@ func TestCLIArgumentMatrix(t *testing.T) {
 		{"audience list", []string{"audience", "--limit", "20"}, "audience"},
 		{"audience set", []string{"audience", "set", "github.com/you", "shared", "--personal"}, "audience"},
 		{"audience unset", []string{"audience", "unset", "github.com/you"}, "audience"},
-		{"index", []string{"index", "--status"}, "index"},
+		{"sync", []string{"sync", "--status"}, "sync"},
+		{"index alias", []string{"--personal", "index", "--status", "--json"}, "sync"},
 		{"literal", []string{"search", "--", "--json"}, "search"},
 		{"leading delimiter", []string{"--", "search", "--json"}, "search"},
 	} {
@@ -67,6 +68,11 @@ func TestCLIArgumentMatrix(t *testing.T) {
 			case "linked empty summary":
 				if !in.has("summary") || in.string("summary") != "" {
 					t.Error("the explicitly empty summary was lost")
+				}
+			case "sync", "index alias":
+				alias := tc.name == "index alias"
+				if !in.boolean("status") || in.indexAlias != alias || in.json != alias || (in.view == brain.PersonalView) != alias {
+					t.Errorf("bad sync parse: %+v", in)
 				}
 			case "literal", "leading delimiter":
 				if in.json || in.query != "--json" {
@@ -97,7 +103,7 @@ func TestWrongUsageBeforeDiscovery(t *testing.T) {
 		"search query --status fake", "list --limit 201", "list --context 1", "list --color", "list --semantic",
 		"prime --limit 10", "tags --limit 201", "check --offset 999999999999999999999999",
 		"audience set foo shared --limit 1", "audience unset foo --offset 0", "audience set foo anything",
-		"audience wrong", "skill one two", "verify", "delete a b", "index extra", "search --ver query",
+		"audience wrong", "skill one two", "verify", "delete a b", "sync extra", "index extra", "search --ver query",
 	} {
 		t.Run(tc, func(t *testing.T) {
 			_, err := parseOptions(strings.Fields(tc), Features{})

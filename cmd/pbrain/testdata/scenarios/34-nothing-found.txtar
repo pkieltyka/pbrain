@@ -3,7 +3,7 @@
 # 0.5 cut-off; the one with four scores 1/sqrt(5), about 0.447, just below.
 pbrain init
 testmodel test-model $WORK/table.json
-pbrain-test index
+pbrain-test sync
 stdout '^shared: 3 items indexed'
 
 # A question unrelated to anything returns 0 results with exit code 0: every item has a score, and
