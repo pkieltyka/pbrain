@@ -19,7 +19,7 @@ import (
 // faultFiles is the native seam with chosen failures in the folder operations of a write.
 type faultFiles struct {
 	sys.Files
-	failLink, failRemove, failSync bool
+	failLink, failRemove, failSync, failReplace bool
 }
 
 type faultDir struct {
@@ -65,6 +65,12 @@ func (d faultDir) LinkNew(temp, name string) error {
 		return errInjected
 	}
 	return d.Dir.LinkNew(temp, name)
+}
+func (d faultDir) Replace(temp, name string) error {
+	if d.f.failReplace {
+		return errInjected
+	}
+	return d.Dir.Replace(temp, name)
 }
 func (d faultDir) Remove(name string) error {
 	if d.f.failRemove {
@@ -151,4 +157,53 @@ func TestOriginalReadIsBounded(t *testing.T) {
 	if time.Since(start) > 2*time.Second {
 		t.Fatal("the sparse file was read")
 	}
+}
+
+// A failed rename of personal.toml leaves no staged copy of the new settings beside the brain.
+func TestReplaceSettingsFailureLeavesNoTemp(t *testing.T) {
+	w := newWorld(t)
+	w.write("p/docs/brain/personal.toml", "author = \"human:old\"\n")
+	ff := &faultFiles{Files: sys.Native()}
+	b := w.openWith(ff)
+	tx, err := Begin(context.Background(), b, item.Shared)
+	must(t, err)
+	defer tx.Close()
+	ff.failReplace = true
+	if _, err := tx.ReplaceSettings([]byte("author = \"human:new\"\n")); code(err) != "io" {
+		t.Fatalf("a failed rename: %v", err)
+	}
+	entries, _ := os.ReadDir(w.brainPath(""))
+	for _, e := range entries {
+		if e.Name() != "pbrain.toml" && e.Name() != ".gitignore" && e.Name() != "personal.toml" && e.Name() != ".pbrain" {
+			t.Fatalf("left beside the brain: %s", e.Name())
+		}
+	}
+	if data, _ := os.ReadFile(w.brainPath("personal.toml")); string(data) != "author = \"human:old\"\n" {
+		t.Fatalf("the settings changed: %q", data)
+	}
+}
+
+// A sync failure of the new originals folder's parent, or of the originals folder after the link,
+// is io before the referencing item can be published.
+func TestOriginalSyncFailures(t *testing.T) {
+	w := newWorld(t)
+	ff := &faultFiles{Files: sys.Native()}
+	b := w.openWith(ff)
+	tx, err := Begin(context.Background(), b, item.Shared)
+	must(t, err)
+	defer tx.Close()
+	data := []byte("orig")
+	digest := sha256.Sum256(data)
+	ff.failSync = true
+	if err := tx.PutOriginal(digest, data); code(err) != "io" {
+		t.Fatalf("the parent sync after creating originals: %v", err)
+	}
+	ff.failSync = false
+	must(t, os.MkdirAll(w.brainPath(".pbrain/originals"), 0o700))
+	ff.failSync = true
+	if err := tx.PutOriginal(sha256.Sum256([]byte("other")), []byte("other")); code(err) != "io" {
+		t.Fatalf("the originals sync after the link: %v", err)
+	}
+	ff.failSync = false
+	must(t, tx.PutOriginal(digest, data))
 }

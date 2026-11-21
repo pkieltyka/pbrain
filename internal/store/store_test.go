@@ -524,3 +524,47 @@ func TestLocalSettingsConcurrentSetters(t *testing.T) {
 		t.Fatalf("after 8 setters: %+v %v", l, err)
 	}
 }
+
+// A kind folder replaced, after the scan, by another ordinary folder holding the same bytes with
+// the same modification time is not the scanned item: replace and remove are conflict and the
+// replacement is untouched.
+func TestMutationFollowsScannedIdentity(t *testing.T) {
+	w := newWorld(t)
+	w.write("p/docs/brain/notes/a.md", note("A"))
+	b := w.open()
+	c, err := Scan(context.Background(), b, brain.SharedView, KeepAll)
+	must(t, err)
+	it := c.Items()[0]
+	tx, err := Begin(context.Background(), b, item.Shared)
+	must(t, err)
+	defer tx.Close()
+	st, _ := os.Stat(w.brainPath("notes/a.md"))
+	must(t, os.Rename(w.brainPath("notes"), w.brainPath("notes-old")))
+	w.write("p/docs/brain/notes/a.md", note("A"))
+	must(t, os.Chtimes(w.brainPath("notes/a.md"), st.ModTime(), st.ModTime()))
+	if _, _, err := tx.ReadFile(it); code(err) != "conflict" {
+		t.Fatalf("ReadFile through a swapped folder: %v", err)
+	}
+	if _, err := tx.ReplaceItem(it, it.Version, []byte(note("B"))); code(err) != "conflict" {
+		t.Fatalf("ReplaceItem through a swapped folder: %v", err)
+	}
+	if _, err := tx.RemoveItem(it); code(err) != "conflict" {
+		t.Fatalf("RemoveItem through a swapped folder: %v", err)
+	}
+	if data, _ := os.ReadFile(w.brainPath("notes/a.md")); string(data) != note("A") {
+		t.Fatal("the replacement folder's file changed")
+	}
+	// The file itself replaced by one with the same bytes and time, in the same folder.
+	must(t, os.RemoveAll(w.brainPath("notes")))
+	must(t, os.Rename(w.brainPath("notes-old"), w.brainPath("notes")))
+	must(t, os.Remove(w.brainPath("notes/a.md")))
+	w.write("p/docs/brain/notes/a.md", note("A"))
+	must(t, os.Chtimes(w.brainPath("notes/a.md"), st.ModTime(), st.ModTime()))
+	if _, err := tx.RemoveItem(it); code(err) != "conflict" {
+		t.Fatalf("RemoveItem of a replaced file: %v", err)
+	}
+	// An item no scan made is refused.
+	if _, _, err := tx.ReadFile(&item.Item{Section: item.Shared, Path: w.brainPath("notes/a.md")}); code(err) != "invalid" {
+		t.Fatalf("an item from no scan: %v", err)
+	}
+}

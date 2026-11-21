@@ -213,55 +213,59 @@ func (tx *Tx) Publish(ctx context.Context, kind item.Kind, id string, data []byt
 	return settle(dir, tmp), nil
 }
 
-// itemRoute is an item's route from the locked section's root: only an item of this section.
+// itemRoute is the route a scan read the item by: only an item of the locked section, made by Scan.
 func (tx *Tx) itemRoute(it *item.Item) (route, error) {
-	if it.Section != tx.section {
+	v, ok := scanned.Load(it)
+	if !ok || it.Section != tx.section {
 		return route{}, invalidErr("the item is not in the locked section")
 	}
-	rel, err := filepath.Rel(tx.rootDir, it.Path)
-	if err != nil || rel == "." || strings.HasPrefix(rel, "..") || filepath.IsAbs(rel) {
+	r := v.(route)
+	if r.section != tx.section {
 		return route{}, invalidErr("the item is not in the locked section")
 	}
-	parts := strings.Split(rel, string(filepath.Separator))
-	return route{section: tx.section, dirs: parts[:len(parts)-1], name: parts[len(parts)-1]}, nil
+	return r, nil
 }
 
-// openItemDir reaches the item's folder; with no listed identities it checks no folder identity,
-// but every step still refuses a link.
-func (tx *Tx) openItemDir(it *item.Item) (sys.Dir, func(), string, error) {
+// openItemDir reaches the item's folder along its scanned route, comparing every folder with the
+// identity it had when listed; a link anywhere is refused by the handles themselves.
+func (tx *Tx) openItemDir(it *item.Item) (sys.Dir, func(), route, error) {
 	r, err := tx.itemRoute(it)
 	if err != nil {
-		return nil, nil, "", err
+		return nil, nil, route{}, err
 	}
 	dir, done, err := openChain(tx.files, tx.root, r)
 	if err != nil {
-		return nil, nil, "", conflict("the item's folder changed since it was read")
+		return nil, nil, route{}, conflict("the item's folder changed since it was read")
 	}
-	return dir, done, r.name, nil
+	return dir, done, r, nil
 }
 
-func (tx *Tx) current(dir sys.Dir, name string) ([]byte, item.Version, error) {
-	if info, err := tx.files.Stat(dir, name); err == nil && !info.Mode.IsRegular() {
+// current reads the item's file now: it must still be the file that was listed.
+func (tx *Tx) current(dir sys.Dir, r route) ([]byte, item.Version, error) {
+	if info, err := tx.files.Stat(dir, r.name); err == nil && !info.Mode.IsRegular() {
 		return nil, item.Version{}, invalidErr("the item's file is a link or not a regular file")
 	}
-	data, info, err := readBounded(tx.files, dir, name, MaxItemBytes)
+	data, info, err := readBounded(tx.files, dir, r.name, MaxItemBytes)
 	switch {
 	case errors.Is(err, ErrChanged), errors.Is(err, errTooLarge):
 		return nil, item.Version{}, conflict("the item changed since it was read")
 	case err != nil:
 		return nil, item.Version{}, err
 	}
+	if info.Identity != r.id {
+		return nil, item.Version{}, conflict("the item changed since it was read")
+	}
 	return data, versionOf(info, data), nil
 }
 
 // ReadFile reads the item's file under the lock; it must be the version the item was scanned at.
 func (tx *Tx) ReadFile(it *item.Item) ([]byte, item.Version, error) {
-	dir, done, name, err := tx.openItemDir(it)
+	dir, done, r, err := tx.openItemDir(it)
 	if err != nil {
 		return nil, item.Version{}, err
 	}
 	defer done()
-	data, v, err := tx.current(dir, name)
+	data, v, err := tx.current(dir, r)
 	if err != nil {
 		return nil, item.Version{}, err
 	}
@@ -274,7 +278,7 @@ func (tx *Tx) ReadFile(it *item.Item) ([]byte, item.Version, error) {
 // ReplaceItem writes data over the item, which must still be at version want: the new bytes are
 // staged next to it, the version is checked again just before the rename, and the rename commits.
 func (tx *Tx) ReplaceItem(it *item.Item, want item.Version, data []byte) (Commit, error) {
-	dir, done, name, err := tx.openItemDir(it)
+	dir, done, r, err := tx.openItemDir(it)
 	if err != nil {
 		return Commit{}, err
 	}
@@ -283,14 +287,14 @@ func (tx *Tx) ReplaceItem(it *item.Item, want item.Version, data []byte) (Commit
 	if err != nil {
 		return Commit{}, err
 	}
-	if _, v, err := tx.current(dir, name); err != nil || v != want {
+	if _, v, err := tx.current(dir, r); err != nil || v != want {
 		dir.Remove(tmp) //nolint:errcheck
 		if err != nil {
 			return Commit{}, err
 		}
 		return Commit{}, conflict("the item changed since it was read")
 	}
-	if err := dir.Replace(tmp, name); err != nil {
+	if err := dir.Replace(tmp, r.name); err != nil {
 		dir.Remove(tmp) //nolint:errcheck
 		return Commit{}, ioError("the item cannot be replaced")
 	}
@@ -299,18 +303,18 @@ func (tx *Tx) ReplaceItem(it *item.Item, want item.Version, data []byte) (Commit
 
 // RemoveItem deletes the item's file, which must still be the scanned version.
 func (tx *Tx) RemoveItem(it *item.Item) (Commit, error) {
-	dir, done, name, err := tx.openItemDir(it)
+	dir, done, r, err := tx.openItemDir(it)
 	if err != nil {
 		return Commit{}, err
 	}
 	defer done()
-	if _, v, err := tx.current(dir, name); err != nil || v != it.Version {
+	if _, v, err := tx.current(dir, r); err != nil || v != it.Version {
 		if err != nil {
 			return Commit{}, err
 		}
 		return Commit{}, conflict("the item changed since it was read")
 	}
-	if err := dir.Remove(name); err != nil {
+	if err := dir.Remove(r.name); err != nil {
 		return Commit{}, ioError("the item cannot be removed")
 	}
 	return settle(dir, ""), nil
@@ -323,7 +327,10 @@ func (tx *Tx) originals(create bool) (sys.Dir, error) {
 		return nil, err
 	}
 	if created {
-		tx.data.Sync() //nolint:errcheck
+		if err := tx.data.Sync(); err != nil {
+			d.Close()
+			return nil, err
+		}
 	}
 	return d, nil
 }
@@ -381,7 +388,9 @@ func (tx *Tx) PutOriginal(digest [32]byte, data []byte) error {
 	if lerr != nil && !errors.Is(lerr, fs.ErrExist) {
 		return ioError("the original cannot be stored")
 	}
-	dir.Sync() //nolint:errcheck
+	if err := dir.Sync(); err != nil {
+		return ioError("the stored original cannot be made durable")
+	}
 	return tx.verifyOriginal(dir, name, digest, int64(len(data)))
 }
 
@@ -429,18 +438,18 @@ func (tx *Tx) ReplaceSettings(data []byte) (Commit, error) {
 	}
 	if exists {
 		err = dir.Replace(tmp, "personal.toml")
-		tmp = ""
 	} else {
 		err = dir.LinkNew(tmp, "personal.toml")
 	}
 	if err != nil {
-		if tmp != "" {
-			dir.Remove(tmp) //nolint:errcheck
-		}
+		dir.Remove(tmp) //nolint:errcheck // the staged settings must not stay beside the brain
 		if errors.Is(err, fs.ErrExist) {
 			return Commit{}, conflict("personal.toml was created by another command; try again")
 		}
 		return Commit{}, ioError("personal.toml cannot be written")
+	}
+	if exists {
+		tmp = "" // the rename consumed it
 	}
 	return settle(dir, tmp), nil
 }

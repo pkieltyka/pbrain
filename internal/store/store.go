@@ -72,6 +72,11 @@ const (
 
 var castagnoli = crc32.MakeTable(crc32.Castagnoli)
 
+// scanned holds, for every item a scan made, the route it was read by: each folder's identity and
+// the file's. A write reaches an item only along that route, so a folder or file swapped since the
+// scan, even for one holding the same bytes, is a conflict.
+var scanned sync.Map // *item.Item -> route
+
 func ioError(msg string) error    { return &errs.Error{Code: "io", Message: msg, Exit: 1} }
 func conflict(msg string) error   { return &errs.Error{Code: "conflict", Message: msg, Exit: 1} }
 func invalidErr(msg string) error { return &errs.Error{Code: "invalid", Message: msg, Exit: 1} }
@@ -409,6 +414,7 @@ func (c *Catalog) read(ctx context.Context, cands []candidate) error {
 		case r.it != nil:
 			c.items = append(c.items, r.it)
 			c.routes[r.it] = cands[i].r
+			scanned.Store(r.it, cands[i].r)
 			if c.keep == KeepAll {
 				c.bodies[r.it] = r.body
 			}
