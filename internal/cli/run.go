@@ -160,6 +160,14 @@ func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, fe
 		return runSearch(ctx, env, in, b, features)
 	case "get":
 		return runGet(ctx, env, in, b)
+	case "list":
+		return runList(ctx, env, in, b)
+	case "prime":
+		return runPrime(ctx, env, in, b)
+	case "tags":
+		return runTags(ctx, env, in, b)
+	case "check":
+		return runCheck(ctx, env, in, b)
 	case "add":
 		return runAddCommand(ctx, in, newWriteContext(env, in, b))
 	case "verify":
