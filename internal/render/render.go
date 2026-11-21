@@ -194,6 +194,7 @@ type page struct {
 	sum       int
 	headCost  int
 	headLines int
+	overflow  bool // a count overflowed: size fails
 }
 
 // unitCost is unit i's share of the page size: its encoded row in JSON; in text, its chosen line
@@ -209,12 +210,32 @@ func (p *page) unitCost(i int) int {
 	return n
 }
 
+// addChecked is a + b, and false when the sum does not fit in an int.
+func addChecked(a, b int) (int, bool) {
+	c := a + b
+	if (b > 0 && c < a) || (b < 0 && c > a) {
+		return 0, false
+	}
+	return c, true
+}
+
+// grow adds d to *n; an overflow marks the page, whose size then fails (a size past MaxInt cannot
+// be counted, so it is an internal error rather than a wrapped, negative size that would fit).
+func (p *page) grow(n *int, d int) {
+	v, ok := addChecked(*n, d)
+	if !ok {
+		p.overflow = true
+		return
+	}
+	*n = v
+}
+
 // resync measures the head and every unit and recomputes the shown sum from the page's fields.
 func (p *page) resync() {
-	p.headCost, p.headLines = 0, 0
+	p.headCost, p.headLines, p.overflow = 0, 0, false
 	for _, h := range p.d.Head {
 		if h.Text != "" {
-			p.headCost += runes(h.Text) + 1
+			p.grow(&p.headCost, runes(h.Text)+1)
 			p.headLines++
 		}
 	}
@@ -223,7 +244,7 @@ func (p *page) resync() {
 	for i := range p.d.Units {
 		p.cost[i] = p.unitCost(i)
 		if i < p.shown {
-			p.sum += p.cost[i]
+			p.grow(&p.sum, p.cost[i])
 		}
 	}
 }
@@ -231,12 +252,12 @@ func (p *page) resync() {
 // setShown shows the first k units, keeping the sum current.
 func (p *page) setShown(k int) {
 	for p.shown < k {
-		p.sum += p.cost[p.shown]
+		p.grow(&p.sum, p.cost[p.shown])
 		p.shown++
 	}
 	for p.shown > k {
 		p.shown--
-		p.sum -= p.cost[p.shown]
+		p.grow(&p.sum, -p.cost[p.shown])
 	}
 }
 
@@ -245,7 +266,7 @@ func (p *page) recost(i int) {
 	old := p.cost[i]
 	p.cost[i] = p.unitCost(i)
 	if i < p.shown {
-		p.sum += p.cost[i] - old
+		p.grow(&p.sum, p.cost[i]-old)
 	}
 }
 
@@ -368,30 +389,40 @@ func (p *page) size() (int, error) {
 		}
 		n := runes(skel) + 1
 		if p.shown > 0 {
-			n += -1 + 2 + max(0, p.shown-1) + p.sum
+			p.grow(&n, 1+max(0, p.shown-1))
+			p.grow(&n, p.sum)
 		}
 		if p.hints > 0 {
 			h, err := p.hintsArray()
 			if err != nil {
 				return 0, err
 			}
-			n += -1 + runes(h)
+			p.grow(&n, -1+runes(h))
 		}
-		return n, nil
+		return p.checked(n)
 	}
-	n := p.headCost + p.sum
+	n := p.headCost
+	p.grow(&n, p.sum)
 	last := foot.Text
 	if last != "" {
-		n += runes(last) + 1
+		p.grow(&n, runes(last)+1)
 	}
 	if p.hints > 0 {
 		if last == "" && p.headLines == 0 && p.shown == 0 {
-			n++ // the hints make a line of their own
+			p.grow(&n, 1) // the hints make a line of their own
 		}
-		n += runes(" Alone: ") + runes(".") + 2*(p.hints-1)
+		p.grow(&n, runes(" Alone: ")+runes(".")+2*(p.hints-1))
 		for i := range p.hints {
-			n += runes(p.d.Hints[i].Text)
+			p.grow(&n, runes(p.d.Hints[i].Text))
 		}
+	}
+	return p.checked(n)
+}
+
+// checked is the page's size, or an internal error once any count on the way overflowed.
+func (p *page) checked(n int) (int, error) {
+	if p.overflow {
+		return 0, internalErr("the page size does not fit in an int")
 	}
 	return n, nil
 }

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
 	"strconv"
@@ -446,5 +447,33 @@ func TestFitSizesIncrementally(t *testing.T) {
 		if large > 12*small {
 			t.Fatalf("format %d: %d bytes counted for 200 rows, %d for 1600", f, small, large)
 		}
+	}
+}
+
+// A page whose counts pass MaxInt fails with an internal error instead of wrapping to a size that
+// would fit, in both formats; rolling back keeps the error until the page is measured again.
+func TestPageSizeOverflowIsChecked(t *testing.T) {
+	for _, f := range []Format{Text, JSON} {
+		p := &page{d: &Doc{Units: make([]Unit, 2)}, f: f, cost: []int{math.MaxInt - 1, 5}}
+		p.setShown(1)
+		if _, err := p.size(); err != nil && f == Text {
+			t.Fatalf("format %d: one unit below MaxInt: %v", f, err)
+		}
+		p.setShown(2)
+		if n, err := p.size(); err == nil {
+			t.Fatalf("format %d: size %d past MaxInt", f, n)
+		} else if e := (*errs.Error)(nil); !errors.As(err, &e) || e.Code != "io" {
+			t.Fatalf("format %d: %v", f, err)
+		}
+		p.setShown(1)
+		if _, err := p.size(); err == nil {
+			t.Fatalf("format %d: the overflow was forgotten", f)
+		}
+	}
+	if _, ok := addChecked(math.MinInt, -1); ok {
+		t.Fatal("negative overflow")
+	}
+	if n, ok := addChecked(math.MaxInt-1, 1); !ok || n != math.MaxInt {
+		t.Fatal("MaxInt itself")
 	}
 }
