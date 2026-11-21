@@ -18,16 +18,22 @@ Set `PBRAIN_TEST_BGE_MODEL` to the absolute directory containing the
 five pinned bge-small files to add model cases. To measure a release that
 lists EmbeddingGemma 2, run separately with `PBRAIN_TEST_GEMMA2_PACK` set
 to the pinned pack directory and use `-timeout=18h`. The binary must
-register the selected model. The test builds a fresh index in each of two 5,000-item,
-50 MB fixtures, one shared and one including 500 personal items. It
-times semantic searches on both indexes and runs the combined search
-when the executable exposes BM25. It then adds one short note and times
-the next index. The local checkpoint stays untouched. The index, vector
+register the selected model. To measure both views after one index build,
+select `-run '^TestMeasureReads$/^personal$'`. It builds one 5,000-item,
+50 MB fixture with 4,500 shared and 500 personal items. The timed shared
+and personal searches use that same index. The separate `shared` subtest
+measures a checkout with all 5,000 items shared.
+
+The fixture's short session-storage note must be absent from the strict
+page and present with its ID and `semantic: true` in the timed paraphrase
+pages, including the combined search when the executable exposes BM25.
+The test then adds one short note and times the next index. The local
+checkpoint stays untouched. The index, vector
 cache and generated items are temporary. Each index command has its own
 timeout, configurable with `PBRAIN_MEASURE_INDEX_TIMEOUT`. The defaults
 are four hours for bge-small and eight hours for EmbeddingGemma 2. The
 generated corpus contains many invented words that split into several
-tokens. The two first builds can take hours on this workload.
+tokens. A first build can take hours on this workload.
 
 The table records latency, Git invocations and child peak resident memory.
 `PBRAIN_MEASURE_RUNS` sets the number of warm samples per row. To measure

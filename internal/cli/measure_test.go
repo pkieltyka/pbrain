@@ -101,11 +101,11 @@ func TestMeasureReads(t *testing.T) {
 			} else if bm25 {
 				for _, row := range rows {
 					if row.args[0] == "search" {
-						rows = append(rows, readMeasureCase{row.name + " BM25", append(slices.Clone(row.args), "--bm25"), row.want})
+						rows = append(rows, readMeasureCase{name: row.name + " BM25", args: append(slices.Clone(row.args), "--bm25"), want: row.want})
 					}
 				}
 				rows = append(rows, readMeasureCase{
-					"search admitted 5/6 BM25", []string{"search", measurePartialQuery, "--bm25", "--json"}, `"partial":true`,
+					name: "search admitted 5/6 BM25", args: []string{"search", measurePartialQuery, "--bm25", "--json"}, want: `"partial":true`,
 				})
 			}
 			harness.timeReads(t, fixture, rows, "")
@@ -139,14 +139,25 @@ func (h readMeasureHarness) timeReads(t *testing.T, fixture readMeasureFixture, 
 	t.Log("case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]")
 	for _, row := range rows {
 		args := fixture.viewArgs(row.args)
+		measure := func() readMeasureSample {
+			t.Helper()
+			sample, err := h.measureRead(t, fixture, row, args)
+			if err != nil {
+				t.Fatalf("%s: %v", row.name, err)
+			}
+			if slices.Contains(args, "--semantic") && sample.elapsed >= time.Second {
+				t.Logf("%s exceeded 1 second: %.1f ms", row.name, millis(sample.elapsed))
+			}
+			return sample
+		}
 		h.chill(t, fixture, modelPath)
-		first := h.measureRead(t, fixture, row, args)
-		h.measureRead(t, fixture, row, args) // Prime this row's cache.
+		first := measure()
+		measure() // Prime this row's cache.
 		durations := make([]time.Duration, h.runs)
 		minGit, maxGit := math.MaxInt, 0
 		var maxRSS uint64
 		for i := range durations {
-			sample := h.measureRead(t, fixture, row, args)
+			sample := measure()
 			durations[i] = sample.elapsed
 			minGit, maxGit = min(minGit, sample.git), max(maxGit, sample.git)
 			maxRSS = max(maxRSS, sample.peakBytes)
@@ -168,27 +179,28 @@ exec "$PBRAIN_MEASURE_GIT" "$@"
 `
 
 type readMeasureCase struct {
-	name string
-	args []string
-	want string
+	name       string
+	args       []string
+	want       string
+	semanticID string
 }
 
 func measureCases(id string) []readMeasureCase {
 	return []readMeasureCase{
-		{"search common", []string{"search", "readbenchcommon"}, "more: --offset"},
-		{"search two words JSON", []string{"search", "readbenchcommon readbenchaux", "--json"}, `"more":`},
-		{"search rare", []string{"search", "readbenchrare"}, id},
-		{"search phrase", []string{"search", `"readbenchrare readbenchsignpost"`}, id},
-		{"search prefix", []string{"search", "readbenchr*"}, id},
-		{"search all", []string{"search", "readbenchcommon", "--all"}, "more: --offset"},
-		{"search window", []string{"search", "readbenchcommon", "--since", "2025-01-01", "--until", "2026-01-01"}, "more: --offset"},
-		{"search context", []string{"search", "readbenchcommon", "--context", "2"}, "more: --offset"},
-		{"search miss", []string{"search", "zzzzreadbenchmissing"}, "0 results."},
-		{"get", []string{"get", id}, id},
-		{"get outline", []string{"get", id, "--outline"}, id},
-		{"get history", []string{"get", id, "--history"}, id},
-		{"list JSON", []string{"list", "--json"}, `"results":`},
-		{"prime JSON", []string{"prime", "--json"}, `"decisions":`},
+		{name: "search common", args: []string{"search", "readbenchcommon"}, want: "more: --offset"},
+		{name: "search two words JSON", args: []string{"search", "readbenchcommon readbenchaux", "--json"}, want: `"more":`},
+		{name: "search rare", args: []string{"search", "readbenchrare"}, want: id},
+		{name: "search phrase", args: []string{"search", `"readbenchrare readbenchsignpost"`}, want: id},
+		{name: "search prefix", args: []string{"search", "readbenchr*"}, want: id},
+		{name: "search all", args: []string{"search", "readbenchcommon", "--all"}, want: "more: --offset"},
+		{name: "search window", args: []string{"search", "readbenchcommon", "--since", "2025-01-01", "--until", "2026-01-01"}, want: "more: --offset"},
+		{name: "search context", args: []string{"search", "readbenchcommon", "--context", "2"}, want: "more: --offset"},
+		{name: "search miss", args: []string{"search", "zzzzreadbenchmissing"}, want: "0 results."},
+		{name: "get", args: []string{"get", id}, want: id},
+		{name: "get outline", args: []string{"get", id, "--outline"}, want: id},
+		{name: "get history", args: []string{"get", id, "--history"}, want: id},
+		{name: "list JSON", args: []string{"list", "--json"}, want: `"results":`},
+		{name: "prime JSON", args: []string{"prime", "--json"}, want: `"decisions":`},
 	}
 }
 
@@ -198,20 +210,23 @@ type readMeasureSample struct {
 	git       int
 }
 
-func (h readMeasureHarness) measureRead(t *testing.T, fixture readMeasureFixture, row readMeasureCase, args []string) readMeasureSample {
+func (h readMeasureHarness) measureRead(t *testing.T, fixture readMeasureFixture, row readMeasureCase, args []string) (readMeasureSample, error) {
 	t.Helper()
 	got, sample := h.measureCLI(t, fixture, 3*time.Minute, args)
 	if len(got.stderr) != 0 {
-		t.Fatalf("%s: unexpected stderr: %s", row.name, got.stderr)
+		return sample, fmt.Errorf("unexpected stderr: %s", got.stderr)
 	}
 	out := got.stdout
 	if len(out) == 0 || row.want != "" && !strings.Contains(string(out), row.want) {
-		t.Fatalf("%s: expected output for %q, got %q", row.name, row.want, out)
+		return sample, fmt.Errorf("expected output for %q, got %q", row.want, out)
 	}
 	if slices.Contains(args, "--json") && !json.Valid(out) {
-		t.Fatalf("%s: invalid JSON output %q", row.name, out)
+		return sample, fmt.Errorf("invalid JSON output %q", out)
 	}
-	return sample
+	if row.semanticID != "" {
+		return sample, checkMeasuredHit(out, row.semanticID, true)
+	}
+	return sample, nil
 }
 
 func (h readMeasureHarness) measureCLI(t *testing.T, f readMeasureFixture, timeout time.Duration, args []string) (readMeasureCommand, readMeasureSample) {
@@ -302,10 +317,10 @@ func measureBinary(t *testing.T, root string) string {
 }
 
 type readMeasureFixture struct {
-	dir, brain, id   string
-	size             int
-	shared, personal int
-	hasGit           bool
+	dir, brain, id, sharedID, semanticID string
+	size                                 int
+	shared, personal                     int
+	hasGit                               bool
 }
 
 func (f readMeasureFixture) viewArgs(args []string) []string {
@@ -333,7 +348,8 @@ func makeMeasureCheckout(t *testing.T, root, mode, pbrain, git string, env []str
 		personal = measurePersonalItems
 		shared -= personal
 	}
-	id, size := genBrain(t, brain, shared, measureMeanFileBytes, "shared")
+	sharedID, semanticID, size := genBrain(t, brain, shared, measureMeanFileBytes, "shared")
+	id := sharedID
 	if hasGit {
 		runMeasureCommand(t, git, dir, env, "add", "--", "docs/brain")
 		runMeasureCommand(t, git, dir, env, "-c", "user.name=Read Bench", "-c", "user.email=readbench@example.invalid",
@@ -341,16 +357,16 @@ func makeMeasureCheckout(t *testing.T, root, mode, pbrain, git string, env []str
 	}
 	if personal > 0 {
 		var extra int
-		id, extra = genBrain(t, filepath.Join(brain, "personal"), personal, measureMeanFileBytes, "personal")
+		id, _, extra = genBrain(t, filepath.Join(brain, "personal"), personal, measureMeanFileBytes, "personal")
 		size += extra
 	}
-	return readMeasureFixture{dir: dir, brain: brain, id: id, size: size, shared: shared, personal: personal, hasGit: hasGit}
+	return readMeasureFixture{dir: dir, brain: brain, id: id, sharedID: sharedID, semanticID: semanticID, size: size, shared: shared, personal: personal, hasGit: hasGit}
 }
 
 // genBrain builds a reproducible section with varying item lengths and the
-// requested mean file size, including the header. It returns a current id
-// with a short replacement history for the get and rare-search cases.
-func genBrain(t testing.TB, dir string, n, meanBytes int, prefix string) (id string, size int) {
+// requested mean file size, including the header. It returns the current ID
+// for get and rare search, and the shared semantic control's ID when present.
+func genBrain(t testing.TB, dir string, n, meanBytes int, prefix string) (id, semanticID string, size int) {
 	t.Helper()
 	rng := rand.New(rand.NewPCG(7, uint64(len(prefix))))
 	vocab := make([]string, 20_000)
@@ -372,7 +388,7 @@ func genBrain(t testing.TB, dir string, n, meanBytes int, prefix string) (id str
 	}
 	start := time.Date(2024, time.January, 1, 0, 0, 0, 0, time.UTC)
 	var previous string
-	spread := 0
+	spread, extra := 0, 0
 	for i := range n {
 		kind := kinds[rng.IntN(len(kinds))]
 		created := start.Add(time.Duration(i*5+rng.IntN(5)) * time.Hour)
@@ -381,13 +397,17 @@ func genBrain(t testing.TB, dir string, n, meanBytes int, prefix string) (id str
 			Kind: kind, Created: created, Title: strings.Join([]string{word(), word(), word(), word()}, " "),
 			Author: "agent:readbench", Tags: []string{word(), word()},
 		}
+		if i == 0 && n > 3 && prefix == "shared" {
+			draft.Kind, draft.Title = item.Note, "Login session storage"
+			semanticID = id
+		}
 		if i >= n-3 {
 			draft.Kind = item.Decision
 			if previous != "" {
 				draft.Replaces = []string{previous}
 			}
 			previous = id
-		} else if kind == item.Source {
+		} else if draft.Kind == item.Source {
 			draft.Source = fmt.Sprintf("https://example.invalid/%s", id)
 		}
 		if draft.Kind == item.Decision {
@@ -406,15 +426,21 @@ func genBrain(t testing.TB, dir string, n, meanBytes int, prefix string) (id str
 		default:
 			spread = 0
 		}
-		budget := meanBytes + spread - len(data)
-		data = append(data, measureBody(rng, word, budget, i == n-1)...)
+		budget := meanBytes + spread - len(data) + extra
+		extra = 0
+		if id == semanticID {
+			data = append(data, measureSemanticBody...)
+			extra = budget - len(measureSemanticBody)
+		} else {
+			data = append(data, measureBody(rng, word, budget, i == n-1)...)
+		}
 		path := filepath.Join(dir, draft.Kind.String()+"s", id+".md")
 		if err := os.WriteFile(path, data, 0o644); err != nil {
 			t.Fatal(err)
 		}
 		size += len(data)
 	}
-	return id, size
+	return id, semanticID, size
 }
 
 func measureBody(rng *rand.Rand, word func() string, budget int, anchor bool) string {
