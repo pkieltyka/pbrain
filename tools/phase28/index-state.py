@@ -5,6 +5,7 @@ from pathlib import Path
 import argparse
 import json
 import os
+import select
 import signal
 import sqlite3
 import time
@@ -35,35 +36,38 @@ def process_memory(proc):
             if line.startswith(('VmRSS:', 'VmHWM:'))}
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('action', choices=('sample', 'pause'))
-    parser.add_argument('work', type=Path)
-    parser.add_argument('model', choices=('bge', 'gemma'))
-    parser.add_argument('pid', type=int)
-    args = parser.parse_args()
+def observe(args, pidfd):
     work = args.work.resolve(strict=True)
     corpus = work / f'{args.model}-corpus'
     checkout = corpus / 'personal'
     brain = checkout / 'docs/brain'
     cache = corpus / 'personal-model-cache'
     proc = Path(f'/proc/{args.pid}')
-    expected = [str(work / 'pbrain-baseline'), '--personal', 'index', '--json']
-    actual = (proc / 'cmdline').read_bytes().rstrip(b'\0').decode().split('\0')
-    if actual != expected or (proc / 'cwd').resolve(strict=True) != checkout:
-        raise SystemExit('PID does not name the requested benchmark index process')
+    exited = select.poll()
+    exited.register(pidfd, select.POLLIN)
+    expected = [os.fsencode(work / 'pbrain-baseline'), b'--personal', b'index', b'--json']
+    invalid_pid = 'PID does not name a live benchmark index process for this fixture'
+    try:
+        actual = (proc / 'cmdline').read_bytes().rstrip(b'\0').split(b'\0')
+        cwd = (proc / 'cwd').resolve(strict=True)
+    except (FileNotFoundError, ProcessLookupError):
+        raise SystemExit(invalid_pid) from None
+    # If the PID was recycled during the /proc reads, the original pidfd is readable.
+    if exited.poll(0) or actual != expected or cwd != checkout:
+        raise SystemExit(invalid_pid)
     if args.action == 'sample':
         while True:
             try:
                 memory = process_memory(proc)
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
                 break
-            if not memory:
+            if not memory or exited.poll(0):
                 break
             print(json.dumps({'observed_at': datetime.now(UTC).isoformat(),
                               'rss_kib': memory['VmRSS'], 'peak_rss_kib': memory['VmHWM'],
                               'shared': progress(brain), 'personal': progress(brain / 'personal')}), flush=True)
-            time.sleep(60)
+            if exited.poll(60_000):
+                break
         return
 
     output = work / 'gemma-paused.json'
@@ -71,18 +75,21 @@ def main():
         raise SystemExit('pause requires a first Gemma segment and its retained cache')
     if progress(brain) is None or progress(brain / 'personal') is not None:
         raise SystemExit('pause requires a published shared checkpoint before the personal build')
-    ticks = int((proc / 'stat').read_text().rpartition(') ')[2].split()[19])
-    peak = process_memory(proc)['VmHWM']
+    already_exited = 'benchmark index process exited before it could be paused'
+    try:
+        ticks = int((proc / 'stat').read_text().rpartition(') ')[2].split()[19])
+        peak = process_memory(proc).get('VmHWM')
+    except (FileNotFoundError, ProcessLookupError):
+        raise SystemExit(already_exited) from None
+    if peak is None or exited.poll(0):
+        raise SystemExit(already_exited)
     active = time.clock_gettime(time.CLOCK_BOOTTIME) - ticks / os.sysconf('SC_CLK_TCK')
-    os.kill(args.pid, signal.SIGTERM)
+    try:
+        signal.pidfd_send_signal(pidfd, signal.SIGTERM)
+    except ProcessLookupError:
+        raise SystemExit(already_exited) from None
     # Let the child exit before reading the final immutable generation.
-    while True:
-        try:
-            if not (proc / 'cmdline').read_bytes():
-                break
-        except FileNotFoundError:
-            break
-        time.sleep(.05)
+    exited.poll()
     saved = progress(brain)
     if saved is None:
         raise SystemExit('no checkpoint after stopping the child')
@@ -94,6 +101,25 @@ def main():
               'cache_vectors': sum(1 for p in (cache / 'vectors').rglob('*') if p.is_file())}
     output.write_text(json.dumps(record, indent=2) + '\n')
     print(output)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('action', choices=('sample', 'pause'))
+    parser.add_argument('work', type=Path)
+    parser.add_argument('model', choices=('bge', 'gemma'))
+    parser.add_argument('pid', type=int)
+    args = parser.parse_args()
+    if args.pid < 1:
+        parser.error('pid must be positive')
+    try:
+        pidfd = os.pidfd_open(args.pid)
+    except OSError as err:
+        raise SystemExit(f'cannot open pidfd for {args.pid}: {err.strerror}') from None
+    try:
+        observe(args, pidfd)
+    finally:
+        os.close(pidfd)
 
 
 if __name__ == '__main__':
