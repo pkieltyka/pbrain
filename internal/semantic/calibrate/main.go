@@ -162,6 +162,7 @@ type report struct {
 	ReleaseCheck       bool         `json:"held_out_release_check"`
 	SharedOutputStable bool         `json:"shared_output_stable_with_personal"`
 	PersonalReads      int          `json:"personal_controls_read"`
+	PersonalSearches   int          `json:"personal_controls_found_by_search"`
 	Arms               []armReport  `json:"arms"`
 	Partial            gate         `json:"partial_gate"`
 	Model              *modelReport `json:"model,omitempty"`
@@ -253,8 +254,23 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 		}
 	}
 	result.SharedOutputStable = true
-	for _, id := range personal {
-		got, err := s.get(id, nil, true)
+	for _, control := range personal {
+		page, err := s.searchJSON(control.query, "--personal")
+		if err != nil {
+			return report{}, err
+		}
+		found := false
+		for _, hit := range page.page.Results {
+			if hit.ID == control.id && hit.Personal {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return report{}, fmt.Errorf("personal search did not return control %s", control.id)
+		}
+		result.PersonalSearches++
+		got, err := s.get(control.id, nil, true)
 		if err != nil {
 			return report{}, err
 		}
@@ -262,8 +278,8 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 			ID       string `json:"id"`
 			Personal bool   `json:"personal"`
 		}
-		if err := json.Unmarshal(got.out, &obj); err != nil || obj.ID != id || !obj.Personal {
-			return report{}, fmt.Errorf("personal control %s did not return its own item", id)
+		if err := json.Unmarshal(got.out, &obj); err != nil || obj.ID != control.id || !obj.Personal {
+			return report{}, fmt.Errorf("personal control %s did not return its own item", control.id)
 		}
 		result.PersonalReads++
 	}
