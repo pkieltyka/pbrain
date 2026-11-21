@@ -295,10 +295,18 @@ func TestCatchUpLock(t *testing.T) {
 
 	// Two searches at once: each answers with or without the item, the index stays whole.
 	s.put("notes/e.md", "Echo", "alpha echo\n")
+	in, _ := s.scan(ctx) // the fake scan is not safe for concurrent use; both searches share one
 	var wg sync.WaitGroup
 	for range 2 {
 		wg.Go(func() {
-			res, err := e.search(ctx, e.opts(), "alpha", s)
+			src := Start(ctx, e.opts(), "alpha", []SectionDir{s.sectionDir()})
+			defer src.Close()
+			src.Attach([]SectionInput{in})
+			if err := src.CatchUp(ctx); err != nil {
+				t.Error(err)
+				return
+			}
+			res, err := src.Score(ctx, "alpha", in.Items)
 			if err != nil || !res.Ready || res.Missing > 1 {
 				t.Errorf("two searches: %+v %v", res, err)
 			}
