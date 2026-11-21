@@ -5,567 +5,190 @@ TODO
 
 ## In progress
 
-- [ ] pbrain phase 18: The calibration tool without a model, and the `--bm25` gates (@lead-dev)
-    * description: **18. The calibration tool without a model, and the `--bm25` gates.** @lead-dev. After 11 and 17; beside 19 to 22. The model-free arms and the "reaching the evidence" reader (`semantic.md`); the partial tier's own gates (architecture 8.8). A pass lets `--bm25` ship in a release that lists no model; `Release.BM25` is set in the change that records it.
-    * criteria: run the test plan in components/semantic.md “Calibration” and architecture.md §8.8 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; keep Release.BM25 off until the gate result is recorded
-    * owner lane: @lead-dev
-    * after: phases 11 and 17
-    * work: @operator decided to accept calibrated `minInformative=5, dfDivisor=4, shareDivisor=2` for releases without a model. The frozen rule passed held-out (30/30 empty; first-page expected IDs 16/47 to 22/47, none lost); minimum 2 failed calibration (26/30 empty, regression u029). @lead-dev submitted tool range `686e877..39cdb75` and release/skill/report range `c76082f..e39fe31` on `peter/lead-dev`; the branch includes master `2606da2` and phase 11 handlers. The committed report reproduces both gate stages, shared-output/privacy checks, and 5,000-item BM25 medians (153–223 ms; max warm sample 267 ms). Author reports gofmt, full vet/plain/CGO-disabled tests, focused race, calibration runs and cross-builds; no non-Linux runtime measurement.
-    * verdict: review pending; operator accepted the calibrated constants and enabled `Release.BM25` for a no-model release
-    * next: @reviewer proceeds with both Phase 18 ranges; @operator integrates after approval. When the Phase 23 fix arrives, @reviewer takes it first. Init selector review follows Phase 18. Phase 25 runs combined BGE gates before any release listing both model and `--bm25`.
-
-- [ ] pbrain phase 23: Semantic (b3): source and commands (@lead-dev-2)
-    * description: **23. Semantic (b3): source and commands.** Source/status/score lifecycle, model and index readiness, coverage, semantic search notices, index and status commands (`semantic.md`, `cli.md`). Model registry wiring is deliberately deferred to phase 25 until its gates pass.
-    * criteria: run the test plan in components/semantic.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 16, 18, 19, 20, 21 and 22
-    * work: submitted base range `3bd8614..33b9e17` (commits `7590969` and `33b9e17`, with master merge `ab54b43`; report identifies head `0106ebb` with master `17734d4`). Test-only fix `a278c0c`, exact range `f36a28a..a278c0c`, adds source-level and CLI `TestPassageAlignment`: repeated Setup headings under different parents, fenced pseudo-heading, multibyte text, outline section/start correspondence, passage text correspondence, semantic snippet offset/line and `get --offset`. Author reports gofmt, full vet/tests, semantic/CLI race and CGO-disabled tests, Darwin/arm64 vet; no macOS runtime. The worktree also has separate uncommitted Phase 25 BGE wiring/model changes outside this review range.
-    * verdict: changes required on `3bd8614..33b9e17`; finding 1 withdrawn by @operator because `semantic.md` specifies omitting `model_present` when false. Finding 2's test fix is submitted; re-review pending.
-    * next: @reviewer re-reviews `f36a28a..a278c0c`; Phase 25's BGE run/wiring waits for Phase 23 approval.
+- [ ] Goinfer upstream sync (@lead-dev-2)
+    * owner: @lead-dev-2
+    * branch: `pkieltyka/sync-upstream`, with merge `13851908` and parity refresh `2ba9f26`; worktree is clean
+    * next: finish the serialized repository checks and pbrain Gemma parity via scratch replace; report the reviewed branch head
 
 - [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
-    * description: **25. BGE gates.** Calibrate bge-small, run its individual and combined gates with `--bm25`, wire the release registry and run the semantic end-to-end gate. A combined-only failure withholds `--bm25` while a qualifying model may ship.
-    * criteria: run the calibration, source and release test plans in components/semantic.md and architecture.md §§8.7, 8.8, 14 and the applicable scenarios in functional_spec.md §15; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; list only individually qualifying models and enable combined release flags only when the combined gate passes for every listed model
-    * owner lane: @lead-dev-2 for real BGE gates and registry wiring; @lead-dev for gate tooling
-    * after: phases 18, 23 and 24
-    * work: gate-tool commit `8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, exact range `f66c2685a5402a36d7d688530e37015695cafba2..8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, on `peter/lead-dev`; built on Phase 18 and Phase 23 at `33b9e17`. It adds scratch-index calibration, production-score negative cutoff selection, standalone/combined gates on rendered CLI JSON, incomplete-view abort, RRF comparison and private overlay search/get checks. Author reports gofmt, diff, mod verify, full vet/plain/CGO-disabled suites, focused race tests and serial Linux/Darwin amd64/arm64 CGO-disabled tool builds, including targeted cutoff/held-out/combined-rejection cases. The real BGE run and registry wiring remain @lead-dev-2's work.
-    * verdict: gate-tool portion submitted for review after phase 18; BGE run and release wiring wait for Phase 23 approval
-    * next: @reviewer reviews `f66c268..8ecfb9e` after Phase 18; @lead-dev-2 starts the real BGE fixture and registry/end-to-end wiring only after Phase 23 is approved.
+    * owner: @lead-dev-2 for BGE; @lead-dev for gate tooling
+    * ranges/evidence: tool `f66c268..8ecfb9e`, registry follow-up `50816cd..e62c2b7`, BGE wiring `a278c0c..eebe8b0`; Gemma replay passed at 0.72 (report `abd42f40`), cutoff reruns pending
+    * next: @lead-dev fixes the nil-score cutoff denominator and adds private-ID personal-search checks; then @lead-dev-2 reruns BGE and @architect-2 reruns Gemma before re-review.
 
-- [ ] pbrain implementation: init selector usable from caller's directory (@architect-2)
-    * description: `init` reports the brain's project-root-relative location and, when different, the selector that works from the caller's resolved directory; the selector is an argument value, not a shell command.
-    * criteria: follow components/brain.md Init and functional_spec.md §§6.2, 9.2, scenario 27; compute both values after symlink resolution; use `render.ExactPath`; withhold invalid UTF-8 selectors; cover root, subdirectory, symlinked cwd, absolute/relative targets, invalid UTF-8 and exact text/JSON forms; run gofmt, vet and tests; obtain reviewer approval
+- [ ] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2)
     * owner: @architect-2 (patch flow)
-    * decision: @operator approved root-relative location plus a selector usable from the caller's directory; root prints one line, absolute outside target is echoed unchanged, and no derived absolute path is emitted
-    * work: patch SHA-256 `6f51bdd574cd30d5ff0a67764ef00ce150bf9f30634e457f2de911d39c807845` on base `2606da2`; committed on `peter/init-selector` as `5a4c806` plus spec/brain clarifications `9ed8766`, exact range `db929d2..9ed8766`. Covers relative selector resolution from the physical caller directory, exact text/JSON output, raw path rendering and invalid UTF-8. Author reports gofmt, full vet/plain/CGO-disabled tests and brain/CLI race tests pass; no macOS run.
-    * verdict: review pending after phase 18
-    * next: @reviewer reviews `db929d2..9ed8766` after phase 18; @operator integrates on approval.
+    * branch/base: master `05f788e`; adapter merged `2ab7d56`, four-target audit `eb0441f`
+    * next: after Phase 25 tool fixes, use Gemma rerun's cutoff; coordinate report with @lead-dev and patch registry/default resolution/`none`/skill text/tests, then request review
 
-- [ ] aikit fork documentation follow-up (@architect-2)
-    * description: update active fork pin examples and release instructions to aikit v1.79.0 / GPU v0.36.x, preserving upstream measurements as history.
-    * criteria: address @reviewer's post-merge findings and stale example module versions/nested module claims against fork main; preserve license attribution and historical context; obtain @reviewer review and @operator merge after green CI
+- [ ] pbrain phase 28: measurement before a release (@lead-dev)
+    * owner: @lead-dev
+    * ranges: harness prep `e62c2b7..ce26bef`, report `ce26bef..eedbe8a` on `peter/lead-dev`
+    * next: @reviewer reviews after base measurement harness; full model timings, Mac runtime and tagged install remain
+
+- [ ] pbrain init selector usable from caller's directory (@architect-2)
     * owner: @architect-2 (patch flow)
-    * work: PR #4 `pkieltyka/docs-pins`, range `0b1b868..1f7bd74` (original `0f8fd988` plus follow-up `1f7bd74`). Follow-up patch SHA-256 `a70a2be614d14b4466313e10c597a7e06ff4dc40f937024b21f451d23044a80b`; fixes stale example module versions/nested module release claims. Author reports gpupins for all four backends, 58 device-script tests, shell syntax, release assets (31 at each tag) and metadata checks (29 checksums). PR open; no fork CI result recorded.
-    * verdict: PR submitted; reviewer verdict pending
-    * next: @reviewer reviews PR #4 when there is a gap after priority pbrain reviews; @operator merges after green CI.
+    * range: `db929d2..9ed8766` on `peter/init-selector`
+    * next: @reviewer reviews after phase 18; @operator integrates on approval
 
-- [ ] goinfer fork documentation follow-up (@architect-2)
-    * description: point active goinfer user/release documentation to github.com/pkieltyka/goinfer; remove unsupported instructions and preserve attribution/history.
-    * criteria: address @reviewer's post-merge findings in README.md, RELEASING.md, demo/chat/README.md and docs/ARCHITECTURE.md; ensure regenerated workspace has no stale checksum; obtain @reviewer review and @operator merge after green CI
-    * owner: @architect-2 (patch flow)
-    * work: PR #5 `pkieltyka/fork-docs-v0.2`, range `a759890b..93adb19f3`; rebased/final patch SHA-256 `a43f4d172765ef322cb2aa9b1ee2663042e8c13d9c3b60a7393732d5cab19443`. Release/download/attestation/live tooling steps point to the fork; unsupported issue directions removed; release checkout instructions distinguish root tags from nested modules. Workspace regenerated without stale checksum. Separate ignored local cleanup patch SHA-256 `49f47c085733969d9f91a719fe297f8d179067681aa343aa23ec1f602b638e6d` remains out of PR. PR open.
-    * verdict: PR submitted; reviewer verdict pending
-    * next: @reviewer reviews PR #5 when there is a gap after priority pbrain reviews; @operator merges after green CI.
-
-- [ ] pbrain architecture: audience-rule host matching (@architect-2)
-    * description: verify exact audience-rule keys preserve non-default ports while mixed-host classification uses canonical DNS host names.
-    * criteria: test both directions of :8443 rule/source matching and default-port non-matches; retain existing table-side mixed-host tests
+- [ ] Aikit fork documentation follow-up (@architect-2)
     * owner: @architect-2
-    * work: test-only commit `790a1ea` on top of adapter commit `0ed1330`, exact range `0ed1330..790a1ea`; covers exact-port match/non-match in both directions and explicit :443 default. Audience tests pass per author. Reviewer will take it with phase 27 after phase 16.
-    * verdict: review pending
-    * next: @reviewer reviews `0ed1330..790a1ea` with phase 27; close when merged.
+    * PR #4: `0b1b868..1f7bd74` (`pkieltyka/docs-pins`)
+    * next: @reviewer reviews when there is a gap; @operator merges after green CI
 
-- [ ] pbrain phase 28: Measurement before a release (@lead-dev)
-    * description: **28. Measurement before a release.** Extend the repeatable built-binary harness for release cases: semantic search with BGE, index build, `--bm25` beside the model and personal view; measure on arm64 Mac and Linux, including model rule 3, first index, one-note update and peak memory. Build four targets with `CGO_ENABLED=0`, test `go install` from a tagged version and publish results; repeat for releases adding modes/models.
-    * criteria: run architecture.md §§8.6, 8.7, 14 and applicable functional scenarios; extend `internal/cli/measure_test.go` to required cases, then run it after Phase 25 registry wiring; run gofmt, vet, tests and obtain reviewer approval; complete arm64 Mac measurement before release
-    * owner lane: @lead-dev
-    * after: phase 25 registry wiring and the other phases included in each release
-    * work: reassigned by @operator from @lead-dev-2 because @lead-dev owns the existing harness. No Phase 28 code change has been reported yet; current lead-dev worktree tip is `8ecfb9e` with Phase 25 gate tool.
-    * verdict: in progress; harness extension not yet reported
-    * next: @lead-dev extends `measure_test.go` with the release cases, then runs them as soon as Phase 25 registry wiring lands.
+- [ ] Goinfer fork documentation follow-up (@architect-2)
+    * owner: @architect-2
+    * PR #5: `a759890b..93adb19f3` (`pkieltyka/fork-docs-v0.2`)
+    * next: @reviewer reviews when there is a gap; @operator merges after green CI
 
-- [ ] pbrain phase 15: `importer`: files and linked items (@architect-2)
-    * description: **15. `importer`: files and linked items.** @architect-2. After 13; beside 14. `importer.md`.
-    * criteria: run the test plan in components/importer.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @architect-2
-    * after: phase 13
-    * work: patch `/tmp/pbrain-import-zsGH78u2/phase15-files-links.patch`, SHA-256 `40192244b37d3e51bc93796e38b5c463a5cfc1f2c3fa8cfc1cd0852f756bd7b0`, was applied unchanged on peter/architect-2 after master merge `f3dfbcb`; commit `b4a40a5`, exact review range `f3dfbcb..b4a40a5`. Implements file and linked-item import through phase 13 transactions. Author reports gofmt, tidy-diff, mod verify, full vet/plain/CGO-disabled tests, CLI/importer race tests and release-binary checks all pass.
-    * verdict: reviewer verdict pending; pbrain reviews have priority, docs PRs may be taken in a gap
-    * next: @reviewer reviews `f3dfbcb..b4a40a5` against importer.md when the current pbrain review queue permits; then phase 16 part 2 (`698dfab..57c7694`) follows.
+- [ ] pbrain phase 15: importer files and linked items (@architect-2)
+    * owner: @architect-2
+    * range: `f3dfbcb..b4a40a5` on `peter/architect-2`
+    * next: @reviewer reviews after phase 18 and the queued phase 25 reviews
 
-- [ ] pbrain phase 27: The EmbeddingGemma 2 adapter and its gates (@architect-2)
-    * description: **27. The EmbeddingGemma 2 adapter and its gates.** @architect-2. After 25 and 26. `embed/gemma2`: the pack and its derive step, the adapter, parity, rule 3; then its cut-off, its abstention and gain gates, and the combined gate with `--bm25` again for this model, with the same outcome on a combined-only failure.
-    * criteria: run the test plan in components/semantic.md and architecture.md §§8.7, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; run the combined gate for every listed model; on a combined-only failure hold back --bm25 while a qualifying model may ship
-    * owner lane: @architect-2 (patch flow)
-    * after: phases 25 and 26
-    * work: adapter patch `/tmp/pbrain-gemma2-QrgwC0u7/phase27-adapter.patch`, SHA-256 `5d9fea65fefdc667be5fd0a0ab7c28e9e7640a2b7864523a439f8b9529208349`, committed by @operator as `0ed1330`; exact review range `57c7694..0ed1330`. It adds the goinfer v0.2.0 byte-backed gemma2 adapter, tests/reference vectors and buildcheck row. Author reports gofmt, tidy-diff, mod verify, full vet/plain/CGO-disabled tests, adapter/buildcheck race tests, Linux/macOS amd64/arm64 CGO-disabled test-binary builds, and real-checkpoint parity/speed checks (255–376 ms warm open/query, peak RSS about 1.12 GiB). Test-only audience port regression commit `790a1ea` follows, exact range `0ed1330..790a1ea`; it covers exact `:8443` match/non-match in both directions. Separate audit-both patch `/tmp/pbrain-gemma2-QrgwC0u7/audit-both.patch`, SHA-256 `f1a7fb102b2d8be4324b978bbc901fcfa21e49a28e922a24e5060c682058357b`, is to apply after phase 24 and this adapter merge. Cutoff/release calibration waits for phase 25; arm64 Mac timing is phase 28.
-    * verdict: implementation and audience-port test submitted; reviewer verdict pending after phase 16 part 2
-    * next: @reviewer reviews `57c7694..0ed1330` and `0ed1330..790a1ea` after phase 16 part 2; @operator applies audit-both after phases 24 and 27 merge.
-
-- [ ] pbrain phase 16: importer/fetch and URL imports (@architect-2)
-    * description: **16. importer/fetch and URL imports.** Fetch client with Download is already merged; `import <url>` belongs to @architect-2 after phase 15. Released only when scenario 20 passes.
-    * criteria: run the test plan in components/importer.md and architecture.md §8.7 (Downloader) and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; confirm the URL-import release gate, scenario 20
-    * owner lane: @architect-2 (URL imports; fetch client done)
-    * after: phase 15 for URL imports
-    * work: fetch-client patch SHA-256 a2cebcaf7735905984d41075aa4ccbae1bdbf99a1ed23d808b045771450420d9 applied at fcd6d01; reviewer approved range 46ef800..fcd6d01 with no findings. gofmt, diff check, vet and plain/race/CGO-disabled fetch tests passed. @operator merged fetch client to master and pushed ff09776. URL-import patch `/tmp/pbrain-import-zsGH78u2/phase16-url.patch`, SHA-256 `b6f7f1187afecdd7b53a1dcdd6af4739132e08b6ee00e8386d4f0e8dda476812`, applied on top of phase 15 commit `b4a40a5` after master merge `698dfab`; commit `57c7694`, exact review range `698dfab..57c7694`. Uses the existing fetch client, resolves article links from the final URL, and preserves requested locator/original. Author reports scenario 20 through the real command with controlled DNS and local HTTP, failure/no-publication cases, gofmt, full vet/tests, race and CGO-disabled suites, and release build; no public service or macOS run.
-    * verdict: fetch-client part approved and merged; URL-import implementation submitted, reviewer verdict pending after phase 15; overall phase remains open for scenario 20 release gate
-    * next: @reviewer reviews `698dfab..57c7694` against importer.md and scenario 20 after phase 15; phase 23 also uses the merged fetch client.
+- [ ] pbrain phase 16: URL imports (@architect-2)
+    * owner: @architect-2
+    * range: `698dfab..57c7694` on `peter/architect-2`
+    * next: @reviewer reviews after phase 15; scenario 20 remains the release gate
 
 ## Backlog
 
 ## Done
 
-- [x] pbrain architecture: deterministic ordering for same-line check findings
-    * description: check findings have deterministic tie-breaking on identical lines.
-    * work: phase 12 `internal/check/check.go` sorts severity, path, code, field, line, column and message; reviewer approved the phase and @operator merged it at `db929d2`.
-    * verdict: met and integrated
-    * next: none
+- [x] pbrain phase 18: calibration and `--bm25` gates (@lead-dev) `e5aa38a`
+    * Approved and merged as `ad2da67`, `48912a6`, `e5aa38a`; both stages rerun after the snippet fix, with evidence reach updated and retrieval/gate counts unchanged.
 
-- [x] pbrain architecture: anchor printed paths
-    * description: printed item paths use the brain's display-path anchor.
-    * work: functional spec §6.2/scenario 27 and architecture §4.5; `Brain.DisplayPath` in `internal/brain/brain.go` emits project-root-relative or personal-relative paths, used by write/delete, search/get and check. `TestIgnoreAndDisplayUseLiteralPaths` passed for Git, outside Git, external personal items and rejected out-of-section paths. @architect-2 confirmed; @operator accepted closure.
-    * verdict: met
-    * next: none
+- [x] pbrain skill guidance: first index on a machine (@architect) `05f788e`
+    * Five-topic guidance and the 400-word core pointer are in the approved skill design; committed to master.
 
-- [x] pbrain architecture: avoid duplicate brain on bare init
-    * description: bare init refuses to create a second brain when a custom brain marker exists in the project.
-    * work: functional spec §9.2/scenario 27 and architecture §6.5; `brain.Init` and `gitx.BrainMarkers` search tracked/untracked, unignored markers. `TestInitFindsCustomMarkerInGit`, `TestBrainMarkers` and a built-CLI subdirectory smoke passed; @architect-2 confirmed and @operator accepted closure.
-    * verdict: met
-    * next: none
+- [x] pbrain spec: EmbeddingGemma 2 default model (@architect) `7bdf4b2`
+    * Missing key resolves to embeddinggemma-2; exact `none` disables; empty is invalid; BGE remains selectable; downloads still begin only at `pbrain index`.
+
+- [x] pbrain spec: runtime audit covers all release targets (@architect) `20fd0e6`
+
+- [x] pbrain runtime audit: all release targets (@architect-2) `eb0441f`
+
+- [x] pbrain phase 27 adapter: EmbeddingGemma 2 (@architect-2) `2ab7d56`
+
+- [x] pbrain architecture: audience-rule host matching (@architect-2) `1c075b5`
+
+- [x] pbrain architecture: deterministic ordering for same-line check findings (@operator) `db929d2`
+
+- [x] pbrain architecture: anchor printed paths (@architect-2) `met`
+
+- [x] pbrain architecture: avoid duplicate brain on bare init (@architect-2) `met`
 
 - [x] pbrain phase 12: Reading commands II: `list`, `prime`, `tags`, `check` (@lead-dev-2) `db929d2`
-    * description: **12. Reading commands II: `list`, `prime`, `tags`, `check`.** Implements check collection and list/prime/tags/check commands from render.md and cli.md.
-    * criteria: run the design tests and applicable functional scenarios; run gofmt, vet and tests; obtain reviewer approval
-    * owner lane: @lead-dev-2
-    * work: reviewer approved `3df529b..9f450c2` plus fix `af21dc3..08a93e4`. Shared `check.Stored.Fields` projection is used by check and `warnNewItem`; regression tests cover secret-shaped raw kind/status and the full projection. Reviewer ran gofmt, full vet/tests, check/CLI race and CGO-disabled tests, diff check; no macOS run. @operator merged and pushed master at `db929d2`; master go vet and `go test -p 2 ./...` pass.
-    * verdict: approved by @reviewer; merged and pushed to master as `db929d2`
-    * next: none
 
 - [x] pbrain phase 19: Semantic (a): the merge (@lead-dev-2) `f8b21a0`
-    * description: **19. Semantic (a): the merge.** Merge semantic candidates into lexical results, preserving lexical rows and ordering meaning/partial rows, counts, paging, snippets and semantic status.
-    * criteria: run the search.md §6 test plan and applicable scenarios; run gofmt, vet and tests; obtain reviewer approval
-    * owner lane: @lead-dev-2
-    * work: reviewer approved `18bdeeb..3bd8614` plus test-only follow-up `5b2b2bd`, with no findings. Full vet/tests, search/CLI race and CGO-disabled tests, calibrated-minimum regression and diff checks passed; no macOS run. @operator merged and pushed master at `f8b21a0`; master go vet and `go test -p 2 ./...` pass.
-    * verdict: approved by @reviewer; merged and pushed to master as `f8b21a0`
-    * next: none
 
 - [x] pbrain phase 11: Reading commands I: `search` and `get` (@lead-dev-2) `1d44e76`
-    * description: **11. Reading commands I: `search` and `get`.** Includes history/outline, rendering and architecture §8.6 measurements.
-    * criteria: run render.md and cli.md test plans and applicable scenarios; run gofmt, vet and tests; obtain reviewer approval
-    * owner lane: @lead-dev-2
-    * work: reviewer approved `3b49660..3df529b` with no findings. Search/get, history/outline, paging, path/offset/context alignment, privacy and notices met. Reviewer ran full vet/tests, CLI race and CGO-disabled suite; no macOS run. @operator merged and pushed master at `1d44e76`.
-    * verdict: approved by @reviewer; merged and pushed to master as `1d44e76`
-    * next: none
 
 - [x] pbrain phase 22: Semantic (b2): the build (@lead-dev-2) `1cc81c4`
-    * description: **22. Semantic (b2): the build.** @lead-dev-2. After 20 and 21; beside 24. The incremental build, publication, the vector cache, model recovery and their failure tests.
-    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 20 and 21
-    * work: implementation range `936077b..34ac5fd`; process-test follow-up `b8aae53..18bdeeb`, cherry-picked by @operator as `1cc81c4`. Reviewer approved child-process `TestIndexTouchesNoFile`, SIGKILL recovery `TestBuildKilled`, and staggered A/B `TestBuildStaggered`. Focused semantic plain/race/CGO-disabled tests, full vet and diff/gofmt checks passed; author reports full suite and Darwin/arm64 vet. @operator merged implementation (`ffbe2fb`) and follow-up (`1cc81c4`) to master; master full vet and `go test -p 2 ./...` passed.
-    * verdict: approved by @reviewer; merged and pushed to master as `1cc81c4`
-    * next: none
 
 - [x] pbrain phase 24: The bge-small adapter (@lead-dev) `17734d4`
-    * description: **24. The bge-small adapter.** @lead-dev. After 21; beside 22 and 23. `embed/bge` on aikit v1.79.0, with its parity and runtime tests.
-    * criteria: run the test plan in components/semantic.md “The bge-small adapter” and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 21
-    * work: reviewer approved `e9c808f81a94b49e127c484cf58319c3488a99df..f7b2da89c5a9f2c0521886432579a5ed8d7deb31` with no findings; full tests/vet, real-checkpoint parity/race and silent-runtime checks passed; no macOS/arm64 execution. @operator merged and pushed master at `17734d4`; go mod verify, go vet and `go test -p 2 ./...` passed.
-    * verdict: approved by @reviewer; merged and pushed to master as `17734d4`
-    * next: none; Phase 25 is unblocked after Phase 23.
 
 - [x] pbrain phase 14: The `audience` command (@architect-2) `bc89d99`
-    * description: **14. The `audience` command.** @architect-2. After 13; beside 15. `audience.md`: listing and editing the rules.
-    * criteria: run the test plan in components/audience.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @architect-2
-    * after: phase 13
-    * work: @reviewer approved exact range 5f2e410..886220b with no findings; audience listing, edits, budget/paging and scenarios 17/24 met. Reviewer ran gofmt/diff check, full vet/plain/CGO-disabled tests and CLI race tests. @operator merged and pushed master at `bc89d99`; full go vet and `go test -p 2 ./...` passed.
-    * verdict: approved by @reviewer; merged and pushed to master as `bc89d99`
-    * next: none
 
 - [x] pbrain phase 10: `skill` (@architect-2) `06b452a`
-    * description: **10. `skill`.** Third lane, else @lead-dev. The texts and their tests after 0; the command after 9. `skill.md`.
-    * criteria: run the test plan in components/skill.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @architect-2
-    * after: phase 0 for texts/tests; phase 9 for command
-    * work: Part 1 (`46ef800`) was merged and approved. Reviewer approved part 2 range `05c93171..a35918f32181b667fd2fbcebec3634c9f6910116` with no findings; exact-archive tests, vet, CGO-disabled suite, CLI race and no-brain binary checks passed. @operator merged the command to master at `06b452a`.
-    * verdict: both parts approved; merged and pushed to master as `06b452a`
-    * next: none
 
 - [x] pbrain phase 13: Writing commands (@lead-dev) `96c6516`
-    * description: **13. Writing commands.** @lead-dev. After 3, 7 and 9; beside 11 and 12. `writes.md`: `add`, `verify`, `delete`.
-    * criteria: run the test plan in components/writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phases 3, 7 and 9
-    * work: reviewer approved range `6d870c6af021c3c4c6f0c12646bf19d7b6bc77dc..e9c808f81a94b49e127c484cf58319c3488a99df` with no findings. Exact-archive checks: gofmt/diff clean, full vet/plain/CGO-disabled tests, CLI/store race tests and four serial cross-builds. Reviewer did not run macOS or terminal smoke; author reports a real-terminal smoke passed. @operator merged the phase to master at `96c6516`.
-    * verdict: approved by @reviewer; merged and pushed to master as `96c6516`
-    * next: none
 
 - [x] pbrain phase 9: `cli` core (@lead-dev) `05c9317`
-    * description: **9. `cli` core.** @lead-dev. After 5; beside 7 and 8. `cli.md`: dispatch, flags, streams, exit codes, `RunWith`, `init`.
-    * criteria: run the test plan in components/cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 5
-    * work: @reviewer approved the exact phase range `7ad8a028..2828b83f` with no findings. CLI parsing, lifecycle, outputs and scenarios met; full tests/vet, focused race/cgo-disabled checks, four cross-builds and scratch binary checks passed. @operator integrated to master at `05c9317`, resolving go.sum by union plus `go mod tidy` and buildcheck's cmd/pbrain dependency row. Phase 13 later merged separately at `96c6516`.
-    * verdict: approved by @reviewer; merged and pushed to master as `05c9317`
-    * next: none
 
 - [x] pbrain phase 20: Semantic (b1): passages and the index database (@lead-dev-2) `c6641ee`
-    * description: **20. Semantic (b1): passages and the index database.** @lead-dev-2. After 7; beside 19 and 21. semantic.md: fingerprints, passages, the database and the scoring query.
-    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 7
-    * work: reviewer approved full range 9e66477..936077b. Fix 936077b aligns ATX recognition with outline so `#foo\n====\n` yields the title-only passage, and makes fence indentation/closer suffix parsing match outline (only spaces after close); regressions cover both findings. The rows.Err() handling from ac3aa9e remains; its exact error path lacks direct injection coverage. Focused diff check, semantic tests and vet passed; author-reported broader tests passed, and lock-held repair, real 2 GiB build and TestIndexTouchesNoFile were deferred to phase 22. @operator merged phases 20 and 21 together and pushed master at `c6641ee`.
-    * verdict: approved by @reviewer; merged and pushed to master as `c6641ee`
-    * next: none
 
 - [x] pbrain phase 21: `embed`: the model table and provisioning (@lead-dev-2) `c6641ee`
-    * description: **21. `embed`: the model table and provisioning.** @lead-dev-2. After 2; beside 19 and 20. `semantic.md`: the registry, find, verify, download through the `Downloader` interface, and pack, with the test model and a fake downloader.
-    * criteria: run the test plan in components/semantic.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 2; implemented on top of phase 20 per operator assignment
-    * work: reviewer approved range ac3aa9e..9d485ed with no findings. Registry ordering, artifact ownership, folder framing, Find/Verify/Download/Pack, embedtest and buildcheck criteria passed. Diff check, targeted plain/race/CGO-disabled tests and vet passed; author reported full-suite tests and Darwin/arm64 vet. @architect confirmed `.source` layout. Merged with phase 20 and pushed to master at `c6641ee`.
-    * verdict: approved by @reviewer; merged and pushed to master as `c6641ee`
-    * next: none
 
 - [x] pbrain phase 6: `query` and `search`, lexical (@lead-dev) `14f35cc`
-    * description: **6. `query` and `search`, lexical.** @lead-dev. After 4; beside 5, 7 and 8. `search.md`: matching, order, window, counts, snippet with its line, occurrences, context lines, and the partial tier behind `Features.BM25`.
-    * criteria: run the test plan in components/search.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 4
-    * work: reviewer approved `c2f3107c..45a685c748fe58d99c95f6ce221f476c2d617335` with no findings. Query grammar, Unicode offsets, time windows, search ranking/BM25 and named scenarios were met. Diff check, targeted vet/plain/race/CGO-disabled tests passed; author-reported full suite and four cross-builds were not repeated by reviewer. @operator merged and pushed master at `14f35cc`. Worktree has moved on to phase 9; current uncommitted go.mod/go.sum/cli options are outside this phase.
-    * verdict: approved by @reviewer; merged and pushed to master as `14f35cc`
-    * next: none; semantic result rows remain for phase 19.
 
 - [x] pbrain phase 7: store (@lead-dev-2) `9e66477`
-    * description: **7. store.** @lead-dev-2. After 5; beside 6 and 9. store.md: the scan, guarded input, the write primitives.
-    * criteria: run the test plan in components/store.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 5
-    * work: phase range 9970c2c..9e66477 on peter/lead-dev-2, merged and pushed to master at 9e66477. Fix 1648d51 covers scanned-route identity checks, ReplaceSettings temp cleanup and PutOriginal sync errors; 9e66477 releases route entries through weak.Pointer and runtime.AddCleanup. @reviewer approved the full range after the retention P2 was fixed. `git diff --check`, targeted store vet and ordinary/race/CGO-disabled store tests pass. Full suite was author-reported, not rerun in review due to separate uncommitted phase 20 changes; macOS not run.
-    * verdict: approved by @reviewer; merged and pushed to master as `9e66477`
-    * next: none
 
 - [x] pbrain phase 5: brain (@lead-dev-2) `c2f3107`
-    * description: **5. brain.** @lead-dev-2. After 1, 2 and 3; beside 4 and 6. brain.md: discovery, configuration, views, the exposure guard.
-    * criteria: run the test plan in components/brain.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phases 1, 2 and 3
-    * work: base range 31acdb7..9970c2c had P2 at internal/brain/guard.go:97-100. Fix ef69d85 changed checkShape/nearestExisting to fail closed with personal_exposed except on fs.ErrNotExist; TestGuardFailsClosedOnUnreadableParent covers unreadable parent/ancestor and missing parent. Reviewer approved fix-only range 4a2d377..ef69d85; diff-check, plain/race/CGO-disabled brain tests and vet passed. @operator merged the fix into master at c2f3107; branch integration merge is 4ee0cb3. macOS not run.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: none
 
 - [x] pbrain phase 4: graph and secretscan (@lead-dev) `991e646`
-    * description: **4. graph and secretscan.** @lead-dev. After 1; beside 5. graph.md, writes.md.
-    * criteria: run the test plan in components/graph.md and writes.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 1
-    * work: reviewed range ff09776e4234b90efec782cf66f46945fe724be5..224b0390e2f9813ee240e22159ec28e46dc22650 on peter/lead-dev, commits a08bc35 and 224b039. Reviewer found no issues. Diff-check, targeted plain/CGO-disabled tests, vet, race tests, 3-second fuzz and named graph/secret criteria passed; macOS runtime not tested. @operator integrated and pushed master at 991e646.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: none
 
 - [x] pbrain phase 1: outline and item (@lead-dev) 31acdb7
-    * description: **1. outline and item.** @lead-dev. After 0; beside 2 and 3. item.md; architecture 4.1, 7.4.
-    * criteria: run the test plan in components/item.md; architecture.md §§4.1, 7.4 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev
-    * after: phase 0
-    * work: commits 1c88613 and 21db116, range 46ef800..21db116 on peter/lead-dev; @reviewer approved with no findings after master merge 31acdb7. Targeted item/outline vet and plain/race/CGO-disabled tests passed; serialized full vet/test passed. Five fuzz targets and four Linux/Darwin amd64/arm64 cross-builds were reported by @lead-dev, not rerun in review. @operator integrated and pushed master at 31acdb7.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: none
 
 - [x] pbrain phase 8: render (@lead-dev-2) e2a5d01
-    * description: **8. render.** @lead-dev-2. After 0; beside anything. render.md.
-    * criteria: run the test plan in components/render.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 0
-    * work: approved range 86bab2d..7ce83fd on peter/lead-dev-2. Reviewer found no issues; gofmt, diff check, render vet, plain/race/CGO-disabled package tests passed. @operator integrated phases 2 and 8 together to master at e2a5d01 and pushed.
-    * verdict: approved by @reviewer; phases 2 and 8 merged to master and pushed
-    * next: none; macOS runtime was not exercised.
 
 - [x] pbrain phase 2: sys and gitx (@lead-dev-2) e2a5d01
-    * description: **2. sys and gitx.** @lead-dev-2. After 0; beside 1 and 3. store.md, brain.md; architecture 6.3, 10.3.
-    * criteria: run the test plan in components/store.md and brain.md; architecture.md §§6.3, 10.3 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @lead-dev-2
-    * after: phase 0
-    * work: approved phase 2 range dae47b2..713936a (13073fc plus lock fix 713936a), with master 46ef800 merged. Reviewer verified owner-only mode on pre-existing locks; TestLockTightensPermissiveFile covers 0666, FIFO and new lock. Targeted sys tests passed plain/race/CGO-disabled, vet passed native and Darwin/arm64, and diff check passed. @operator integrated phases 2 and 8 together to master at e2a5d01 and pushed.
-    * verdict: approved by @reviewer; phases 2 and 8 merged to master and pushed
-    * next: none; macOS runtime was not exercised.
 
-- [x] pbrain phase 26: goinfer for EmbeddingGemma 2 (@architect (scratch patch; operator applies/PRs))
-    * description: **26. goinfer for EmbeddingGemma 2.** @architect, in github.com/pkieltyka/goinfer. Independent of every pbrain phase; beside anything. The loader from bytes, the encoder constructor from a built model, tokenizer and prompts, and what the text-only pack needs (architecture 8.7; semantic.md, The EmbeddingGemma 2 adapter).
-    * criteria: run the test plan in components/semantic.md The EmbeddingGemma 2 adapter and architecture.md §8.7 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain reviewer approval of the applied patch and PR range; test against the pinned reference; @architect delivers a patch only
-    * owner lane: @architect (scratch patch; operator applies/PRs)
-    * after: none; independent of pbrain phases
-    * work: patch SHA-256 701dea56 applied to goinfer topic branch pkieltyka/eg2-from-bytes; PR #4 merged by @operator as a759890b and tagged v0.2.0 on the owner fork. Reviewer approved code head 0e1687075ac54d6cbcd4438e1e4715986b9af5bd after the layout audit edge fix; package/layout tests, diff check passed. Owner directed merge without waiting for fork CI.
-    * verdict: complete; implementation merged and v0.2.0 tagged
-    * next: none; phase 27 pins goinfer v0.2.0
+- [x] pbrain phase 26: goinfer for EmbeddingGemma 2 (@architect) `a759890b`
 
 - [x] pbrain phase 3: `audience`: the canonical form, the rules and the decision (@architect-2) `6ec6bac`
-    * description: **3. `audience`: the canonical form, the rules and the decision.** Third lane, else @lead-dev-2. After 0; beside 1 and 2. `audience.md`. The package is pure; `add` and linked imports need its decision.
-    * criteria: run the test plan in components/audience.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
-    * owner lane: @architect-2
-    * after: phase 0
-    * work: @architect-2 patch SHA-256 `6b392d0a` applied by @operator; commit `6ec6bacc92060abccc2e546756478af3f5f5db16` on `peter/architect-2`, range `921a1a4..6ec6bac`. @reviewer approved: gofmt, vet, tests, diff check and fresh 320,923-execution fuzz run passed; x/net v0.63.0 pinned. @operator fast-forwarded and pushed master `6ec6bac`.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: none; pure audience rules are integrated; audience command remains phase 14
 
-- [x] pbrain spec pins for goinfer v0.2.0 (@architect)
-    * description: update the factual library pin state after phase 26 merged and tagged goinfer v0.2.0
-    * criteria: update architecture.md §8.7 pins and §15 module row, §17 risk; update semantic.md Our libraries, release row and The pins; record aikit v1.79.0, goinfer v0.2.0 at a759890b and the measured 41 ms weight load, while keeping whole-adapter rule 3 pending
-    * owner: @architect, assigned by @operator
-    * work: factual update committed on master as 8a43469; architecture §8.7/15/17 and semantic.md Our libraries/release/pins now name aikit v1.79.0 and goinfer v0.2.0 at a759890b. The measured 41 ms weight load is recorded; whole-adapter rule 3 remains pending.
-    * verdict: complete; operator committed the factual pin update
-    * next: none; phase 27 builds the remaining pack and adapter, then must demonstrate the whole-adapter gate
+- [x] pbrain spec pins for goinfer v0.2.0 (@architect) `24879e6`
 
 - [x] pbrain phase 17: The evaluation fixture (@architect-2) `921a1a4`
-    * description: **17. The evaluation fixture.** @architect-2, under way; beside everything. The fixture brain and `questions.json`: answerable questions, reworded ones, unanswerable ones in their two halves with regression marks, the question styles, and an evidence quotation for each long-source question. Frozen in one commit, with ids, before any constant or cut-off is tuned (`semantic.md`, "Calibration"; architecture 14). The owner may add questions before the freeze. The harness needs 11.
-    * criteria: run the test plan in components/semantic.md “Calibration” and architecture.md §14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; validate answer IDs, supersession, split membership and unique evidence quotations, then freeze the fixture with IDs before tuning
-    * owner lane: @architect-2
-    * after: none; independent
-    * work: fixture commits `20d02c9` and `cea9a25` reviewed on `peter/architect-2`, with master merge `921a1a4` at HEAD; 35 shared items, 8 isolated personal controls, 107 questions (47 answerable; 30 unanswerables per half), six unique quotations <=120 code points. No model or tuning. @reviewer found no issues; `diff --check 76d16b3..HEAD` passed. @operator fast-forwarded to master and pushed `921a1a4`.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: none; fixture is frozen before tuning
 
 - [x] pbrain phase 0: Skeleton (@lead-dev-2) `86bab2d`
-    * description: **0. Skeleton.** @lead-dev-2. Everything waits for it. The module `github.com/pkieltyka/pbrain` on Go 1.27, the MIT licence, CI (format, vet, tests, the race job, the `CGO_ENABLED=0` builds, the check that `go.mod` has no replace or exclude directive), `errs`, and every exported type and signature of architecture 18 step 0 with empty bodies, compiling together.
-    * criteria: run the test plan in architecture.md §§3–4, 7.3–7.4, 8.5, 9, 10.1, 10.3, 13 and implementation_plan.md phase 0 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; verify the package tree/signatures compile, the replace/exclude guard and CGO_ENABLED=0 cross-builds, and include the MIT licence
-    * owner lane: @lead-dev-2
-    * after: none; all other phases wait for it
-    * work: @reviewer approved branch range `76d16b3..86bab2d` (skeleton commit `38a5ac2`, parser fix `86bab2d`); @operator fast-forwarded it to master and pushed `86bab2d`. gofmt clean; vet, plain/race/CGO-disabled tests, four CGO-disabled cross-builds and planted-violation guard checks passed.
-    * verdict: approved by @reviewer; merged to master and pushed by @operator
-    * next: phases 1, 2 and 8 are merged; phases 4, 5, 7 and 20 are active; phase 16 fetch client is integrated; phase 10 command waits for phase 9
 
 - [x] pbrain implementation plan (@architect) `76d16b3`
-    * description: turn the approved architecture build order into 29 reviewable implementation phases with dependencies, owner lanes and release gates
-    * criteria: obtain @architect-2 and @lead-dev approval; include the fixture, both semantic gates, the later goinfer tag, and arm64 Mac release measurement; commit and push the approved plan
-    * work: final plan SHA-256 `a2d730494fd34e18e48409f45bfd00994b13eb9ba4c4083771777625b216ee7d`; both reviewers approved; committed and pushed on master as `76d16b3`
-    * verdict: complete
-    * next: phases 0–28 are tracked in Ready and In progress above
 
 - [x] pbrain owner-fork module renames and runtime pins (@lead-dev-2) `aikit 0b1b868e; goinfer bdf9daf9`
-    * description: rename aikit and goinfer to the owner module paths, preserve attribution, pin aikit from goinfer and publish the owner-selected tags
-    * criteria: module/import paths and license attribution preserved; requested repository checks run; aikit v1.79.0 and goinfer v0.1.0 tags published to owner-fork origin only
-    * work: aikit main merged at `0b1b868e`, tag v1.79.0; goinfer main merged at `bdf9daf9`, annotated v0.1.0 tag pushed to owner-fork origin. @reviewer confirmed the reviewed goinfer head tree matches the merge. Remaining P2 active-document findings are tracked in the two fork documentation follow-ups above.
-    * verdict: complete; owner accepted the P2 documentation findings as separate follow-ups
-    * next: none
 
 - [x] pbrain architecture, semantic and output-format amendments (@architect) `24879e6`
-    * description: record owner decisions, semantic architecture, accepted amendments and fixed shared interfaces
-    * criteria: preserve the Embedder seam and gates; update §3/8.7/13–17 and semantic.md for accepted BM25, the wider fixture, SQLite/sqlite-vec and both models; include schema, transaction/index-lock model, per-section file, catalog replacement, read validation and in-memory journal. Record renamed owner-fork module paths, version tags/pins and topic branch → fork-main PR → upstream workflow, and `go install @version` support without replace directives. Record the fast tokenizer pack, verified-byte encoder construction and immutable-buffer lifetime. Use aikit's encoder for bge-small; retain hugot only as documented fallback. Remove GOEXPERIMENT=simd, the s3 shim and envguard, while retaining stdout/stderr redirection to null. Add the accepted long-document evidence metrics and section-alignment tests. Record the owner's decision that a lexical snippet names the section where its selected window starts. Add the owner-approved Item definition in §4.1 and the type's doc comment with library pins. Also apply signed output-format joint `1c5a95f0`: `file_chars` included; search default `--max-chars=3000`, `--limit=5`; exact text/JSON hit shapes, coordinates/units, sizes, body-start accounting, occurrence count, `get --offset`, bounded opt-in line context and color, examples and budgets. Update the functional spec and issue the component owners' change list. Requests review from @architect-2 and @lead-dev.
-    * work: fix pass applied in one delta, not staged or committed. Current functional spec SHA-256 `d1ba263730a163d1209dc9a9ab34c88b08aa732fac947c75eaeb950da748e177` (base `ad0a4f74`); architecture `ed3682b8c013d439d98fd30f6f5f74ae98084f85f332c5b4449066d2bcb45f0c` (base `50c865ad`); semantic `5f4a23ca0a1d6e703ec7af0fce4891dbd9107d1bc6d12c81585c2ab67c449294` (base `6a10dfa2`, Our libraries pin update only). All three reported hashes verified against files. Six findings addressed: paths safely escaped or withheld for invalid UTF-8; color/stdin detection and stored body bytes separated; exact required fields survive combined tiers; `FitBody` uses Format and fits inclusive file-line ranges before decoration; item/store expose Layout/Measure and coordinate mapping uses a LineCursor; context boundaries and snippet-less semantic anchors defined. Added combined-mode, path, literal-escape, line-slice and mapping cases. Also applied both library pins and the owner-approved Item definition in architecture §4.1/type comment: aikit `v1.79.0` (author reports verified tag) and goinfer `v0.1.0`; the owner-selected goinfer v0.1.0 tag is in `24879e6`. Author ran sha256, table/escape checks, path escape check and stale-word sweep. Component follow-up list: @lead-dev-2 item/search, @lead-dev store, @lead-dev render, @architect-2 cli/skill; other component docs unchanged.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: brain (@lead-dev) `24879e6`
-    * description: design brain discovery/configuration, scrubbed-environment Git queries and exposure guard
-    * reviewer: @architect-2; `reviews/components/brain-architect-2.md`
-    * work: SHA-256 `2b0cfed0d928e069e2a1db74421f68fb1625faf359371c352fa3cf21ed42009b`; both review findings resolved; included in approved package commit `24879e6`
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: store (@lead-dev) `24879e6`
-    * description: design sys folder handles/locks, parallel scan, guarded inputs and write primitives/hard-link publish
-    * reviewer: @architect-2; `reviews/components/store-architect-2.md`
-    * criteria: preserve approved store design; update the scan to call `item.Measure(data, bodyAt)` after Parse and retain `Item.Layout` on each item; no other store behavior changes
-    * work: output delta SHA-256 `396c02b72096a5cfd48e8b78f476468bf65d22fa97dea594dd989ccdec68dec6` (base `f6d47833`); scan calls `item.Measure` on the validated bytes and bodyAt from the same successful Parse before retention filtering; Layout survives both modes and KeepNone verifies later reads. Full hash confirmed by @architect-2; verdict in `reviews/components/store-architect-2.md` (`f48c135f`); @lead-dev confirms both render and store outputs are done; included in approved package commit `24879e6`.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: writes (@lead-dev) `24879e6`
-    * description: design add/verify/delete, secret scan, WritePlan, commit points and `after_write`
-    * reviewer: @architect-2; `reviews/components/writes-architect-2.md`
-    * work: SHA-256 `b204c350773f5b8d7a52d8a01311295631c2d4599da368f431090273070f9a2b`; verification retains the initial file version, delete preview probes originals read-only, and scanner boundaries/redaction are specified; included in approved package commit `24879e6`
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: item (@lead-dev-2) `24879e6`
-    * description: design front matter parse/emit/edit, ids, standing and fold rule
-    * reviewer: @lead-dev; `reviews/components/item-lead-dev.md`
-    * criteria: preserve current parser/emit design; add `Layout` and `Measure(data, bodyAt)` counts (BodyLine, BodyChars, FileLines, FileChars), `Item.Layout`, `LineOf` and the rising-offset `LineCursor`; keep Parse signature; Measure accepts only the bodyAt from a successful Parse; specify BOM handling before first `---` and add LF/CRLF/BOM/no-final-LF/empty-body tests, plus the Item doc comment
-    * work: final output delta SHA-256 `69970eba83125c3a02d4c19ac0b93e4a065f8408acd75db32ef64259ccdd33bb`; @lead-dev approved after recheck. Measure and FuzzMeasure use the same valid UTF-8 bytes and successful Parse offset. Verdict appended to `reviews/components/item-lead-dev.md`; included in approved package commit `24879e6`.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: graph (@lead-dev-2) `24879e6`
-    * description: design graph, `graph.Effect`, dangling links and `current_again`
-    * reviewer: @lead-dev; `reviews/components/graph-lead-dev.md`
-    * work: current SHA-256 `06c2de16e4cdcf881f30077f4ddd3585203c851f0df7d55c323e6ae46390d12f`; traversal order, view-relative resolution and stamp scoping fixes approved at `935042aa`; generic lookup comment cleanup applied; included in approved package commit `24879e6`
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: search (@lead-dev-2) `24879e6`
-    * description: design query parsing, lexical scan/ranking, time windows, per-clause counts, hybrid merge and BM25 partial tier
-    * reviewer: @lead-dev; `reviews/components/search-lead-dev.md`
-    * criteria: preserve the approved BM25/semantic design; add Request.Context; add snippet Line and Context []ContextLine for every snippet, keeping Section only when Long; omit snippets for title-only semantic hits; add Hit.Occurrences from BM25 tf counting; distinguish corpus-wide BM25 TF from page-row occurrence counts and test the specified behavior
-    * work: final output delta SHA-256 `1c9e64d7bef69533773e59d6413d3040d5156be20f88c8b1268ff33bdc8b8925`; @lead-dev approved after recheck. Context tests distinguish lone CR from CRLF and cover exclusive endpoints; BM25 corpus TF and page-row occurrence counts are separate; no-BM25 test isolates the fast match pass. Verdict appended to `reviews/components/search-lead-dev.md`; included in approved package commit `24879e6`.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: render (@lead-dev) `24879e6`
-    * description: design `render.Doc` fitting/budgets and search/get/list/prime/tags/check output, including `get --outline` and BM25 partial rows
-    * reviewer: @architect; `reviews/components/render-architect.md`
-    * criteria: preserve the approved rendering design and add output-format fields/templates (location, sizes, occurrences, path encoding), get line ranges and outline file line; update Fit/FitBody to Format, add Style/marks, implement context blocks and color fitting, preserve list/prime/history rows, update 3,000-char assumptions and alignment fixture
-    * work: output delta SHA-256 `27d3f1ba6e4f02968891c2b314d8d3c8bc83f912b8b00ed7a711b6efe661b40c` (base `3f204821`), verified against file. @architect reports seven-line fix of four printed-byte findings; verdict in `reviews/components/render-architect.md`. Prior handoff `05b65201` was superseded. No pending review; included in approved package commit `24879e6`.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: semantic (@architect) `24879e6`
-    * description: design the semantic search/index subsystem
-    * reviewer: @architect-2 and @lead-dev; `reviews/components/semantic-architect-2.md`, `reviews/components/semantic-lead-dev.md`
-    * work: SHA-256 `6a10dfa2cae1d81e2897c251483b165aa70a6387960e6c449501e56135703f1d`; exactly five model-file paths and read-attempt accounting are checked before load, with the immutable zero-copy handoff retained. Evidence selection/judging/measuring uses one fitted JSON stream including escaping; `TestCalibrate` tests differing text/JSON fits. Aikit/goinfer use the renamed owner modules without replace directives; final pins await module-path PR merges. Uncommitted.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: cli (@architect-2) `24879e6`
-    * description: design command table, pflag parsing, usage/JSON errors, exit codes and clock/time-zone handling
-    * reviewer: @architect; `reviews/components/cli-architect.md`
-    * criteria: add search-only `--context` (0 by default, explicit 1–3 only; invalid values are usage errors) and `--color` on search/get (usage error with `--json`); pass Context and TextColor through renderer; cover scenarios 39–41
-    * work: output-format delta SHA-256 `563240ef96a1b61d3794ea068f72dd9c141b1f45fb9a405fdd18101da2afee51` against spec `d1ba2637` and architecture `ed3682b8`; registrations, links, fences and navigation checks reported passed; included in approved package commit `24879e6`. Base runtime change at `a0b68d15` removes envguard and retains stdout/stderr redirection.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: audience (@architect-2) `24879e6`
-    * description: design canonical form, rule type/audience decision and audience command
-    * reviewer: @lead-dev-2; `reviews/components/audience-lead-dev-2.md`
-    * work: SHA-256 `58070db6c2b16ee1555318633eb2878f1a0c32fbe5b4670c285ebddf8142b382`; source classification, rule recovery, listing and transaction findings resolved; included in approved package commit `24879e6`
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: importer (@architect-2) `24879e6`
-    * description: design file imports, linked items, fetch and HTML extraction
-    * reviewer: @lead-dev-2; `reviews/components/importer-lead-dev-2.md`
-    * work: SHA-256 `02229ba40dbfcda9c196edb95443910467fcc99fa18ed56fcb55593375db3278`; base and streaming `Download` addendum approved; interrupted downloads restart from zero; included in approved package commit `24879e6`
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component: skill (@architect-2) `24879e6`
-    * description: design skill text layout, go:embed, word limits and topic tests
-    * reviewer: @architect; `reviews/components/skill-architect.md`
-    * criteria: add the navigation sentence from spec 12, distinguishing path:line for file tools from body offset for get; mention optional context and leave color to people; maintain the 400-word core cap
-    * work: output-format delta SHA-256 `763d7e76f94ccbff157ff15e003a6d4e87f10208e14769b7778fb055a3ed6421`; author and reviewer report exactly 400 words in core (including Markdown bullet markers), topics 219/101/79/96; included in approved package commit `24879e6`. Base BM25 delta `fb4cd0c4` remains.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
 - [x] pbrain component consistency and owner acceptance (@architect) `24879e6`
-    * description: reconcile the twelve component designs against fixed shared types, error/notice codes and build order
-    * criteria: every component signature, code and dependency agrees with architecture and functional spec; record all verdicts and hashes
-    * work: current parent hashes: functional spec `d1ba2637`, architecture `ed3682b8`, semantic `5f4a23ca`; parent amendment approved by both reviewers. Current output deltas: cli `563240ef` and skill `763d7e76`, approved by @architect; store `396c02b7`, approved by @architect-2; render `27d3f1ba`, approved by @architect; item `69970eba` and search `1c9e64d7`, approved by @lead-dev. All six assigned output deltas have reviewer approvals. Prior consistency pass at older parent hashes was clean; final pass on these outputs has not run. Files remain included in approved package commit `24879e6`.
-    * verdict: complete; approved design package committed on master as `24879e6`
-    * next: none
 
-- [x] pbrain owner question: Item versus Document naming (@architect, @architect-2, @lead-dev, @lead-dev-2)
-    * description: recommend the term for the addressable knowledge unit
-    * criteria: short independent views, joint recommendation and owner decision; no redesign
-    * work: signed `reviews/naming/joint.md`, SHA-256 `aec237b2a6a8663cc470a60b79a607f8059a62f4ef91c4b8884e1321053738b3`. Owner chose to keep `Item` and approved the definition: “An item is one Markdown file of the brain: one piece of knowledge with its header, cited by its id. It can be a decision, a learning, an observation, a note or a source. A `source` item stands for material from outside, as a copy or as a pointer, with or without a summary; what is reusable in such material can also be recorded as items of the other kinds.”
-    * verdict: complete; owner-approved wording is included in architecture §4.1 and the Item comment in `24879e6`
-    * next: none
+- [x] pbrain owner question: Item versus Document naming (@architect, @architect-2, @lead-dev, @lead-dev-2) `aec2375e`
 
-- [x] pbrain owner question: output-format hit shape (@lead-dev, @architect, @architect-2, @lead-dev-2)
-    * description: jointly define a concrete v1 search-hit output shape for agents
-    * criteria: joint specifies text/JSON fields, coordinate units and get continuation, body-start and file/body sizes, occurrence counts, optional context and color, fit costs and a worked five-hit example; owner resolves remaining choices
-    * work: signed `reviews/output-format/joint.md`, SHA-256 `1c5a95f0da427411feab233c488c5d2c9ce789fd5451a5ea47dd544a04b533d2`; all three peer sign-offs recorded. Owner chose `file_chars` included, search default `--max-chars=3000`, `--limit=5`; example remains 1,214 text / 1,922 compact JSON code points. Owner assigned application as the in-progress architecture/semantic/output-format amendment above.
-    * verdict: complete; owner-approved output shape is included in the spec package commit `24879e6`
-    * next: none
+- [x] pbrain owner question: output-format hit shape (@lead-dev, @architect, @architect-2, @lead-dev-2) `1c5a95f0`
 
 - [x] aikit `encoder.LoadBERTFromFS` implementation (@lead-dev-2) `04b54e26`
-    * description: add the filesystem-backed BERT loader required by the pbrain verified-bytes adapter
-    * criteria: follow aikit contribution rules; compare with `LoadBERT` on bge-small files; verify each model file opens once; preserve immutable buffer lifetime; run repository preflight and relevant tests; do not push/PR without owner approval
-    * work: commit `04b54e26` on `pbrain/load-bert-fs`; owner merged into aikit main as `eb8c5ddd` and opened upstream PR #38. Focused CGO-disabled parity/open-once/missing-file checks passed; real-checkpoint test skipped due to absent scratch model assets. Report appended to `goinfer-bge-small-check.md`, current reported SHA-256 `0d4651e3d0445a530806e7ef3625451024b06283f6b6e27783ed647b40d6d2d0`.
-    * verdict: complete; code merged to owner fork main; module-path rename is tracked separately
-    * next: none for this loader task; final pbrain module pin waits for the separate rename PR
 
-- [x] pbrain source research: ken (@architect-2)
-    * description: assess github.com/townsendmerino/ken for direct adoption or ideas useful to pbrain
-    * criteria: identify maturity, licence, activity, dependencies and relationship to goinfer/aikit; compare storage, retrieval, memory, ergonomics and output-budget fit; recommend adopt/borrow/ignore by pbrain section; read source before running, do not edit specs
-    * work: `specs/projects/pbrain/research/ken-review.md`, SHA-256 `8665fe41ad3a51f09f47876ed17c48825a7493c94097b880f69c58a46d82c99e`; reviewed ken commit `2d21e3d4`, MIT, v1.20.0, active with one human maintainer; no code run, proposals only, uncommitted.
-    * verdict: owner adopted both test-plan proposals only: measure whether long-document questions retrieve the correct item and expose the supporting passage, evidence-reaching fraction and tokens to first evidence including follow-up get reads, with misses separate; test passage offsets against get text and intended outline section using repeated headings, fenced pseudo-headings and multibyte text. No product behavior change.
-    * next: additions are incorporated in the current architecture and semantic design passes; no direct spec edits were made by the researcher
+- [x] pbrain source research: ken (@architect-2) `8665fe41`
 
 - [x] pbrain goinfer fork spike: fast EmbeddingGemma 2 tokenizer (@lead-dev-2) `e98418db`
-    * description: test a prebuilt tokenizer representation to make goinfer's EmbeddingGemma 2 load fast enough for the 8.7 budget
-    * criteria: work in `~/Dev/pkieltyka/goinfer` on local branch `pbrain/fast-tokenizer`; follow repo instructions and read source before running; target tokenizer load in tens of milliseconds and exact IDs against reference text; report pack size and integration with bytes loader; owner later authorized push and fork PR, merged to fork main; upstream PR #1194 remains open
-    * work: report `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-tokenizer-spike.md`, SHA-256 `bcda0e77a23dc2908aa1d6ce5d36594e087af7d57de9f2b23cb03f7d86a80da0`. Owner merged tokenizer work to goinfer main as `2f80ef14`, then changelog update as `2e413ee111048fff90b9c74bdbdaf6f02299bba4`; upstream PR #1194 is open. Topic commits were `6f6806d5`, `bc477653`, `e98418db`. Pack load 24–26 ms vs 441–502 ms JSON, deterministic build 0.75–0.84 s, 9.58 MB, SHA-256 `45a7e7d5…` for tokenizer revision `f9972ac2`. Exact IDs on 48 golden texts, 10,000 random encodings, and 3,052 texts/250,897 tokens vs HF; tests/fuzz/lint passed.
-    * verdict: complete; @operator retires the tokenizer-load risk for the EmbeddingGemma 2 fork path
-    * next: tokenizer pack and constructor are incorporated into the approved semantic/architecture designs; no further tokenizer task remains
 
-- [x] pbrain runtime check: bge-small on goinfer/aikit (@lead-dev-2)
-    * description: determine whether aikit's encoder can replace hugot for bge-small-en-v1.5 under the §8.7 runtime and Artifact rules
-    * criteria: verify parity, no-cgo/runtime behavior, in-memory loading, check+load+query time, indexing speed, memory, binary size, environment/stdout; report bottom-line recommendation
-    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-bge-small-check.md`, SHA-256 `0d4651e3d0445a530806e7ef3625451024b06283f6b6e27783ed647b40d6d2d0`; aikit v1.78.0 matched token IDs/vectors on 22 texts (worst 1−cos 1.7e-13), 13/17 on 20 questions, 124–153 ms verify/load/first query, 0.14 GB search memory, ~0.9 MB binary addition and 2,800 tok/s. The loader gap was implemented as `LoadBERTFromFS` commit `04b54e26`, merged to fork main `eb8c5ddd`; real-checkpoint focused test was skipped because scratch model assets were absent.
-    * verdict: investigation complete; owner accepted the switch to aikit's encoder and dropping hugot, with hugot retained as fallback. The owner fork is `github.com/pkieltyka/aikit`.
-    * next: adapter design is recorded; owner-fork module-path rename and final pin are tracked separately
+- [x] pbrain runtime check: bge-small on goinfer/aikit (@lead-dev-2) `0d4651e3`
 
-- [x] pbrain owner follow-up: BM25 in v1 design, round 2 (@architect, @architect-2, @lead-dev, @lead-dev-2)
-    * description: jointly design BM25 integration after the owner leaned toward keyword + BM25 + semantic
-    * criteria: four independent round-two papers, joint `joint-bm25.md`, and three peer sign-offs; cover placement/order, abstention, engine, deterministic ties, decision-in-force, counts and default/flag behavior without editing product specs
-    * work: final `reviews/search-methods/joint-bm25.md`, SHA-256 `90a5b60b3353c4313d9a03e77de9fff5062c070ec1d573a96820cfaacaf15462`; four notes: @architect `round2-architect.md` `d3714a1b`, @architect-2 `round2-architect-2.md` `30ce16b6`, @lead-dev `round2-lead-dev.md` `e7279aa8`, @lead-dev-2 `round2-lead-dev-2.md` `fe7b4ebc`; approved by @architect, @lead-dev and @lead-dev-2; no commit
-    * verdict: owner accepted the joint proposal: opt-in `--bm25`, exact → semantic → marked partial, Go scoring over the scan, hold partial results unless the held-out gate passes; prior preferences are recorded as splits and the owner resolves the default by choosing opt-in
-    * next: none; implemented in the approved spec package
+- [x] pbrain owner follow-up: BM25 in v1 design, round 2 (@architect, @architect-2, @lead-dev, @lead-dev-2) `90a5b60b`
 
-- [x] pbrain owner question: search methods and lessons from qmd (@architect, @architect-2, @lead-dev, @lead-dev-2)
-    * description: prepare one joint group answer to `specs/projects/pbrain/reviews/search-methods/owner-question.md`
-    * criteria: each member writes an independent concise `reviews/search-methods/round1-<name>.md`; @architect drafts `joint.md`; the other three sign off or object; report final hash to @operator. Evaluate BM25/any-word ranking, RRF, query expansion/reranking, stemming, typos, phrase/proximity, field weights, chunking/context, graph, recency, outline-first and other qmd ideas with evidence/gain, costs and v1/later/never recommendations.
-    * work: final `reviews/search-methods/joint.md`, SHA-256 `c114a55ad9c37cb135255120436fcc4664c827e920340c701272c068f6b5423c`; all four round-one papers are recorded above; three sign-offs verified at this hash; corrected “Four things follow” heading; uncommitted
-    * verdict: round-one recommendation approved by @architect-2, @lead-dev and @lead-dev-2; its “BM25 out of v1” position was superseded by the owner's follow-up request and is answered by the separate round-two joint task below; other recommendations retain no fusion, no expansion inside pbrain, no v1 reranker/stemming/typo mode, and approved chunking, graph, recency and outline behavior
-    * next: none; owner decisions were applied in the approved spec package
+- [x] pbrain owner question: search methods and lessons from qmd (@architect, @architect-2, @lead-dev, @lead-dev-2) `c114a55a`
 
-- [x] pbrain runtime research: rembed EmbeddingGemma 2 (@architect-2)
-    * description: identify and evaluate the pure-Go rembed candidate against the goinfer rig and EmbeddingGemma 2 references
-    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/rembed-embeddinggemma2.md`, SHA-256 `17b7f02875931a7c54c5efbff14878811771cff449bb27abf646b3456b79fc78`; identified fork `f401a554`; source audit, 22-text vectors/token IDs, throughput windows, retrieval fixture, startup/hash timings, clean streams/traces and four CGO-disabled builds reported; uncommitted
-    * verdict: not suitable as runtime now: 21/22 parity (literal `<eos>` mismatch), 1.10–1.13 s load plus first query before verification, 1.62–1.75 GB peak, and 9/20 top-1 and 12/20 top-3; keep bge/hugot interim and goinfer as the EmbeddingGemma 2 reference/conditional base
-    * next: included in the signed joint comparison
+- [x] pbrain runtime research: rembed EmbeddingGemma 2 (@architect-2) `17b7f028`
 
-- [x] pbrain runtime comparison and recommendation (@architect, @architect-2)
-    * description: compare goinfer, rembed and accepted bge-small/hugot interim runtime
-    * criteria: recommend which runtime pbrain should adopt for EmbeddingGemma 2 and when, whether to change the interim choice, and whether the owner's own library should build on one candidate or is unnecessary; preserve the Embedder seam and §8.7 rules unless both authors justify a change
-    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/embeddinggemma2-runtime-comparison.md`, current SHA-256 `e81bacd7d5937a06459b2d8c6133bbd6d98d9a886f577b345865644e9a288fe8`; @architect-2's approval at `18e7c367` carries to the five-word clarification; compares all three runtimes and cross-checks figures against both goinfer reports and the bge spike; uncommitted
-    * verdict: signed by @architect-2; its recommendation was to keep bge-small/hugot interim and conditionally build on goinfer; the owner later superseded the “do not adopt either EG2 runtime” recommendation by deciding to support both models, pending an architecture amendment and goinfer-path choice
-    * next: owner-directed follow-up tracked in the active architecture and BM25 tasks
+- [x] pbrain runtime comparison and recommendation (@architect, @architect-2) `e81bacd7`
 
-- [x] pbrain runtime architecture review: goinfer EmbeddingGemma 2 (@architect)
-    * description: assess whether measured goinfer can meet architecture §8.7 and the hashed-bytes Artifact contract
-    * work: current `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-architecture-review.md` SHA-256 `d0bd03c86e9601659277cc562c0798fe88af6e0e0129d023c1179756ebc5a105`; source reviewed before scratch prototype; keeping BF16 resident cut weight loading from about 1 s to 97–137 ms and memory from 1.87 GB to 1.43 GB, but full Artifact read/hash/load/query remained 948–1,042 ms because tokenizer loading takes 500–550 ms; tokenizer prebuild is also needed to reach estimated 360–450 ms; recommendation separates architecture gates from later adoption; 1.49 GB is a model cost shared by runtimes; not committed
-    * verdict: do not adopt goinfer now and do not change the interim runtime; if the owner chooses EmbeddingGemma 2, build on goinfer rather than start a new library, after the retrieval gates pass
-    * next: incorporated in the signed joint comparison
+- [x] pbrain runtime architecture review: goinfer EmbeddingGemma 2 (@architect) `d0bd03c8`
 
-- [x] pbrain interim-runtime spike: bge-small on hugot pure Go (@lead-dev-2)
-    * description: validate bge-small-en-v1.5 against architecture §8.7 and the semantic adapter contract
-    * work: `research/semantic-search-and-index/embedding-models-and-go-runtime/spike-bge-small-hugot.md`, SHA-256 `ab5fdde36658543289009ef850052cbbf5e6fef16b301a768c0c74e0bcccbc2d`; pure-Go builds, vector parity, Artifact-bytes shim, latency, memory, indexing and paraphrase checks reported; uncommitted
-    * verdict: operator accepts as interim runtime under four conditions: release builds use `GOEXPERIMENT=simd` and arm64 Mac measurement; use the in-memory `s3:` shim (upstream fix preferred); adapter owns tokenization, 510-token truncation, special-token neutralization and CLS pooling; pin module/model digests and test stdout silence while handling `GOMLX_*` so they neither fail commands nor write stdout
-    * next: none; adapter design and reviews are recorded above
+- [x] pbrain interim-runtime spike: bge-small on hugot pure Go (@lead-dev-2) `ab5fdde3`
 
-- [x] pbrain runtime research: goinfer EmbeddingGemma 2 (@lead-dev-2)
-    * description: independently assess `goinfer/embeddinggemma2` as an interim or default EmbeddingGemma 2 runtime
-    * work: report `research/semantic-search-and-index/embedding-models-and-go-runtime/goinfer-embeddinggemma2.md`, SHA-256 `af97e506a666d029ee1c8a4c202e86dc5fd1606ced095eb79bf6edfe73d782a8`; pure-Go MIT implementation reproduces sentence-transformers vectors, but 1.26–1.39 s load fails the 600 ms rule; operator retains it as the best base to extend, not the current runtime
-    * verdict: investigation complete; not accepted as runtime as-is
-    * next: none; interim runtime spike assigned separately
+- [x] pbrain runtime research: goinfer EmbeddingGemma 2 (@lead-dev-2) `af97e506`
 
-- [x] pbrain research: semantic search and index (@lead-dev, @lead-dev-2, @architect)
-    * description: research whether built-in semantic/hybrid retrieval belongs in pbrain v1 and how to design its index and long-document support
-    * criteria: follow `specs/projects/pbrain/research/semantic-search-and-index/research_plan.md`; @lead-dev covers qmd and Go index/hybrid engine; @lead-dev-2 covers embedding models/Go runtime and long documents/PageIndex/references; @architect writes the cross-subtopic `research_summary.md` with recommendation, functional-spec implications and open owner decisions
-    * work: all three subtopics and the top-level `research_summary.md` are complete; research files currently exist as untracked work under `specs/projects/pbrain/research/semantic-search-and-index/`. The owner answered all eight research decisions; the summary informs the owner-approved functional-spec amendment and architecture design.
-    * verdict: research complete; findings accepted as the basis for owner decisions and design
-    * next: none; implementation/design proceeds under the assigned amendment and architecture tasks
+- [x] pbrain research: semantic search and index (@lead-dev, @lead-dev-2, @architect) `complete`
 
 - [x] pbrain spec: functional spec (@architect) `9f9f6c3`
-    * description: draft and refine `specs/projects/pbrain/functional_spec.md` through five owner-directed batches
-    * criteria: record owner Q&A; apply batches 1–5; preserve item front-matter YAML; resolve section references and parse YAML/TOML/JSON examples; obtain targeted approvals from @architect-2 and @lead-dev; status complete on the owner's word
-    * work: batch 5 approved at SHA-256 `41605322ceac5a7edf841528e21bf5940f0a9ca31b6c388751d08d7469bf90d1`; 26 references resolve and all 13 structured samples parse. Owner/operator set status complete; the final owner-approved spec is included in package commit `24879e6`. Iteration commit `9f9f6c3` contains prior spec work; final approved spec and reviewer updates are in package commit `24879e6`.
-    * verdict: complete on the owner's word; batch 5 approved by both targeted reviewers
-    * next: implementation proceeds through phases 0–28 above
 
 - [x] pbrain spec: research, browser use and permission-gated sources (@lead-dev, @lead-dev-2, @architect) `1de8c0a`
-    * description: research browser and harness-native routes to import rendered or permission-gated content into pbrain
-    * criteria: follow `specs/projects/pbrain/research/browser-and-gated-sources/research_plan.md`; @lead-dev covers browser automation over CDP, including agent-browser CLI and anomaly/OpenCode Browse extension; @lead-dev-2 covers harness-native readers for Claude artifacts, Codex, agy/Google Docs, and pbrain skill topics; @architect writes the cross-subtopic `research_summary.md`
-    * work: both subtopics complete with four docs each; summary by @architect complete; gated-source questions answered and audience-rule design adopted by the owner; committed in `1de8c0a`
-    * verdict: complete; research feeds the functional spec
-    * next: none
 
 - [x] factory setup: refresh to the latest factory skill (@operator) `9ea029e`
-    * description: refresh the factory setup guidance and portable sample to match the latest factory skill
-    * criteria: update FACTORY.md Tasks, Project, and Specs sections and make `factory.toml.sample` portable
-    * verdict: complete; committed in `9ea029e`
-    * next: none
 
 - [x] pbrain spec: project overview rewrite (@architect) `4f1988e`
-    * description: rewrite the brain-dump intro into a clean overview
-    * criteria: the owner's criteria sent to @architect; deliver `specs/projects/pbrain/project_overview.md`
-    * verdict: complete; owner approved; no peer review needed for the owner's document
-    * next: none
 
 - [x] pbrain spec: research, knowledge-memory-landscape (@lead-dev, @lead-dev-2, @architect) `4f1988e`
-    * description: five subtopics and the cross-subtopic `research_summary.md`
-    * criteria: @lead-dev covers qmd, beads and Gas Town, and source ingestion; @lead-dev-2 covers Markdown knowledge stores and agent memory systems; @architect writes `specs/projects/pbrain/research/knowledge-memory-landscape/research_summary.md`
-    * verdict: complete; feeds the functional spec
-    * next: none
