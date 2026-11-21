@@ -1,11 +1,10 @@
-// Package search: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package search ranks items in one command view and selects supporting passages.
 package search
 
 import (
 	"context"
 	"time"
 
-	"github.com/pkieltyka/pbrain/internal/graph"
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/query"
 )
@@ -16,10 +15,6 @@ type Corpus interface {
 	Body(*item.Item) ([]byte, error)
 }
 
-func Run(ctx context.Context, c Corpus, g *graph.Graph, req Request) (*Result, error) {
-	panic("not implemented")
-}
-
 type Filters struct {
 	Kinds  []item.Kind  // any of; empty = every kind
 	Tags   []string     // all of; normalised with item.NormTag
@@ -27,11 +22,6 @@ type Filters struct {
 	Window query.Window
 	All    bool // replaced items too
 }
-type Verdict uint8 // Out, In, OutsideWindow
-// Admit applies lifecycle and filters to one item. OutsideWindow means only the window excluded
-// a current item, which feeds the outside-window count. list uses it as search does.
-func (f *Filters) Admit(it *item.Item, current bool) Verdict { panic("not implemented") }
-
 type Request struct {
 	Clauses  []query.Clause
 	Filters  Filters
@@ -119,4 +109,13 @@ type SemanticHit struct {
 	Start, End int // code-point span of the closest passage in the stored body
 }
 
-type NotReady uint8 // NoModel, UnsupportedModel, ModelAbsent, CacheExposed, NoIndex, ModelFailed
+type NotReady uint8
+
+const (
+	NoModel NotReady = iota + 1
+	UnsupportedModel
+	ModelAbsent
+	CacheExposed
+	NoIndex
+	ModelFailed
+)

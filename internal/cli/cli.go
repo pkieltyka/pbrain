@@ -1,8 +1,7 @@
-// Package cli: exported surface from the pbrain specs; bodies are filled in by later phases.
+// Package cli runs one pbrain command with its supplied process inputs.
 package cli
 
 import (
-	"context"
 	"io"
 	"time"
 
@@ -29,6 +28,3 @@ type Env struct {
 type Features struct{ BM25 bool }
 
 var Release = Features{}
-
-func Run(ctx context.Context, env Env) (exit int)                 { panic("not implemented") }
-func RunWith(ctx context.Context, env Env, f Features) (exit int) { panic("not implemented") }

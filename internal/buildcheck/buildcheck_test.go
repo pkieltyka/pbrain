@@ -91,10 +91,10 @@ func TestDirectivesFindsBothForms(t *testing.T) {
 }
 
 // allowed is the import table of architecture section 3: for each package, the pbrain packages it
-// may import. cli may import all of them; cmd/pbrain imports cli only.
+// may import. cli may import all of them. cmd/pbrain also wires native process inputs.
 var allowed = map[string][]string{
-	"internal/cli":             nil, // may import every package
-	"cmd/pbrain":               {"internal/cli"},
+	"internal/cli":             nil,                    // may import every package
+	"cmd/pbrain":               {"cli", "gitx", "sys"}, // process adapter in cli.md §1
 	"internal/check":           {"graph", "item", "secretscan"},
 	"internal/semantic":        {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
 	"internal/embed":           {"sys", "errs"},
@@ -102,7 +102,7 @@ var allowed = map[string][]string{
 	"internal/embed/embedtest": {"embed", "errs"}, // semantic.md "Test plan": the test registry
 	"internal/importer":        {"item", "errs", "importer/fetch"},
 	"internal/importer/fetch":  {"errs"},
-	"internal/search":          {"graph", "item", "query", "outline"},
+	"internal/search":          {"graph", "item", "query", "outline", "errs"},
 	"internal/render":          {"errs"},
 	"internal/store":           {"brain", "item", "gitx", "sys", "errs"},    // errs: store.md "Dependencies"
 	"internal/brain":           {"audience", "item", "gitx", "sys", "errs"}, // errs: brain.md "Dependencies"
