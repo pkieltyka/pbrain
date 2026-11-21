@@ -1,0 +1,20 @@
+# Functional spec §15, scenario 14.
+pbrain init
+parallel-add Original
+pbrain get Original --json
+stdout '"replacement":\["'$WINNER1'"\]'
+pbrain get Original --history --json
+ids history Original $WINNER1
+parallel-add
+pbrain get $WINNER1 --json
+stdout '"created":"2026-11-21T12:00:00Z"'
+pbrain get $WINNER2 --json
+stdout '"created":"2026-11-21T12:00:00Z"'
+
+-- repo/docs/brain/Original.md --
+---
+kind: note
+title: First
+author: human:test
+created: 2026-11-01T00:00:00Z
+---

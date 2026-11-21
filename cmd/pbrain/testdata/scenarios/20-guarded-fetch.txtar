@@ -1,0 +1,48 @@
+# Functional spec §15, scenario 20.
+pbrain init
+env PBRAIN_TEST_HTTP=fixture
+env HTTP_PROXY=http://proxy.invalid:3128
+status 1 pbrain-test import http://pages.test/redirect --shared --json
+stderr '"code":"fetch_blocked"'
+! stdout .
+status 1 pbrain-test import http://127.0.0.1/ --shared --json
+stderr '"code":"fetch_blocked"'
+! stdout .
+status 1 pbrain-test import http://mixed.test/ --shared --json
+stderr '"code":"fetch_blocked"'
+! stdout .
+status 1 pbrain-test import http://pages.test/large --shared --json
+stderr '"code":"too_large"'
+! stdout .
+status 1 pbrain-test import http://pages.test/error --shared --json
+stderr '"code":"fetch_failed"'
+! stdout .
+status 1 pbrain-test import http://pages.test/type --shared --json
+stderr '"code":"unsupported_type"'
+! stdout .
+status 1 pbrain-test import http://pages.test/short --shared --json
+stderr '"code":"no_content"'
+! stdout .
+status 1 pbrain-test import http://pages.test/shell --shared --json
+stderr '"code":"no_content"'
+! stdout .
+env PBRAIN_TEST_DEADLINE=short
+status 1 pbrain-test import http://pages.test/slow --shared --json
+stderr '"code":"fetch_failed"'
+! stdout .
+env PBRAIN_TEST_DEADLINE=
+pbrain list --json
+ids results
+! exists docs/brain/.pbrain/originals
+pbrain-test import http://pages.test/html --shared --json
+jsonenv ID id
+pbrain get $ID --json
+stdout 'factual passage'
+pbrain-test import http://pages.test/markdown --shared --json
+jsonenv ID id
+pbrain get $ID --json
+stdout 'Fixture markdown'
+pbrain-test import http://pages.test/plain --shared --json
+jsonenv ID id
+pbrain get $ID --json
+stdout 'Fixture plain text'

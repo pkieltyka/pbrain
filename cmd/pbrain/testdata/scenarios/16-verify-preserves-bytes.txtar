@@ -1,0 +1,41 @@
+# Functional spec §15, scenario 16.
+pbrain init
+crlf $WORK/before docs/brain/example.md
+crlf $WORK/after $WORK/expected
+pbrain --personal verify example --by human:reviewer --json
+stdout '"section":"shared"'
+cmp docs/brain/example.md $WORK/expected
+! exists docs/brain/personal/.pbrain
+cp $WORK/multi docs/brain/multi.md
+status 1 pbrain verify multi --by human:reviewer --json
+stderr '"code":"unsupported_edit"'
+cmp docs/brain/multi.md $WORK/multi
+
+-- before --
+---
+kind: learning
+status: provisional # keep
+verified: # actor
+unknown: 'untouched'
+---
+
+exact
+
+-- after --
+---
+kind: learning
+status: verified # keep
+verified: human:reviewer # actor
+unknown: 'untouched'
+---
+
+exact
+
+-- multi --
+---
+kind: learning
+status: |
+  provisional
+---
+
+exact

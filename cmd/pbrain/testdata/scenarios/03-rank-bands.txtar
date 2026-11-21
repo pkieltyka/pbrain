@@ -1,0 +1,79 @@
+# Functional spec §15, scenario 3.
+pbrain init
+pbrain-test search clock --json
+ids results fresh verified sameband undated
+pbrain-test search locations --json
+ids results titled bodyonly
+pbrain-test search '"job queue"' --json
+ids results phrase reversed
+pbrain-test search clock
+stdout '^undated  note  provisional  unknown'
+
+-- repo/docs/brain/fresh.md --
+---
+kind: note
+title: clock
+author: human:test
+created: 2026-10-23T12:00:00Z
+---
+
+-- repo/docs/brain/verified.md --
+---
+kind: note
+title: clock
+author: human:test
+created: 2026-10-21T12:00:00Z
+status: verified
+verified: person
+---
+
+-- repo/docs/brain/sameband.md --
+---
+kind: note
+title: clock
+author: human:test
+created: 2026-10-22T00:00:00Z
+---
+
+-- repo/docs/brain/undated.md --
+---
+kind: note
+title: clock
+author: human:test
+---
+
+-- repo/docs/brain/titled.md --
+---
+kind: note
+title: locations
+author: human:test
+created: 2025-01-01T00:00:00Z
+---
+
+-- repo/docs/brain/bodyonly.md --
+---
+kind: note
+title: New
+author: human:test
+created: 2026-11-20T00:00:00Z
+---
+
+locations
+
+-- repo/docs/brain/phrase.md --
+---
+kind: note
+title: actual job queue
+author: human:test
+created: 2025-01-01T00:00:00Z
+---
+
+-- repo/docs/brain/reversed.md --
+---
+kind: note
+title: queue job
+author: human:test
+created: 2026-11-20T00:00:00Z
+---
+
+job queue

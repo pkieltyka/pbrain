@@ -1,0 +1,52 @@
+# Functional spec §15, scenario 1.
+pbrain init
+pbrain-test search session
+stdout '^C  decision  verified  2025-11-21'
+stdout 'decided by human:alex; source: release meeting'
+stdout '^N  note  provisional'
+! stdout '^[AB]  '
+pbrain-test search session --json
+ids results C N
+
+-- repo/docs/brain/A.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+source: archive
+---
+
+-- repo/docs/brain/B.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [A]
+source: v2
+---
+
+-- repo/docs/brain/C.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [B]
+source: release meeting
+---
+
+-- repo/docs/brain/N.md --
+---
+kind: note
+title: Session storage doubt
+author: human:test
+created: 2026-11-01T00:00:00Z
+---

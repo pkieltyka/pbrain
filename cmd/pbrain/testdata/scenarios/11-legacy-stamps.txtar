@@ -1,0 +1,77 @@
+# Functional spec §15, scenario 11.
+pbrain init
+pbrain get old --json
+stdout '"replacement":\["successor"\]'
+pbrain get missing --json
+! stdout '"replacement"'
+pbrain get both --json
+stdout '"replacement":\["real"\]'
+pbrain get cycle-old --history --json
+ids history cycle-old cycle-new
+pbrain get cycle-new --json
+! stdout '"replacement"'
+pbrain list --json
+! stdout '"id":"old"'
+stdout '"id":"missing"'
+
+-- repo/docs/brain/old.md --
+---
+kind: note
+title: Old
+author: human:test
+created: 2026-11-01T00:00:00Z
+status: superseded-by successor
+---
+
+-- repo/docs/brain/successor.md --
+---
+kind: note
+title: Successor
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/missing.md --
+---
+kind: note
+title: Missing
+author: human:test
+created: 2026-11-01T00:00:00Z
+status: superseded-by nowhere
+---
+
+-- repo/docs/brain/both.md --
+---
+kind: note
+title: Both
+author: human:test
+created: 2026-11-01T00:00:00Z
+status: superseded-by successor
+---
+
+-- repo/docs/brain/real.md --
+---
+kind: note
+title: Real
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [both]
+---
+
+-- repo/docs/brain/cycle-old.md --
+---
+kind: note
+title: Cycle old
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/cycle-new.md --
+---
+kind: note
+title: Cycle new
+author: human:test
+created: 2026-11-01T00:00:00Z
+replaces: [cycle-old]
+status: superseded-by cycle-old
+---

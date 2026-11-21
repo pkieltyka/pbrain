@@ -1,0 +1,38 @@
+# Functional spec §15, scenario 19.
+pbrain init
+pbrain import --link-only --shared http://pages.test/markdown --json
+jsonenv L id
+env PBRAIN_TEST_HTTP=fixture
+status 1 pbrain-test import http://pages.test/markdown --json
+stderr '"code":"duplicate"'
+stderr $L
+status 1 pbrain-test import http://pages.test/markdown --replaces X --json
+stderr '"code":"duplicate"'
+cp $WORK/merged docs/brain/merged.md
+status 1 pbrain-test import http://pages.test/markdown --replaces $L --json
+stderr 'merged'
+pbrain-test import http://pages.test/markdown --replaces $L --replaces merged --json
+jsonenv R id
+pbrain get $L --json
+stdout '"replacement":\["'$R'"\]'
+pbrain get merged --json
+stdout '"replacement":\["'$R'"\]'
+
+-- repo/docs/brain/X.md --
+---
+kind: source
+source: http://pages.test/other
+title: Other
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- merged --
+---
+kind: source
+title: Merged
+author: human:test
+created: 2026-11-01T00:00:00Z
+origin: link
+source: http://pages.test/markdown
+---

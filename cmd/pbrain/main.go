@@ -24,7 +24,9 @@ func main() { os.Exit(run()) }
 
 func releaseModels() embed.Registry { return embed.NewRegistry(bge.Entry(), gemma2.Entry()) }
 
-func run() int {
+func run() int { return runWith(cli.Run) }
+
+func runWith(dispatch func(context.Context, cli.Env) int) int {
 	stdout, stderr := os.Stdout, os.Stderr
 	discard, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
@@ -59,5 +61,5 @@ func run() int {
 	if _, err := unix.IoctlGetTermios(int(os.Stdin.Fd()), terminalRequest); err != nil {
 		env.Stdin = os.Stdin
 	}
-	return cli.Run(context.Background(), env)
+	return dispatch(context.Background(), env)
 }

@@ -1,0 +1,22 @@
+# Functional spec §15, scenario 15.
+pbrain init
+env PBRAIN_TEST_FAULT=original
+status 1 pbrain-test import $WORK/transcript.md --json
+stderr '"code":"io"'
+! stdout .
+pbrain list --json
+ids results
+killed-add
+pbrain search entire --json
+jsonenv K results.0.id
+pbrain get $K --json
+stdout '"body":"the entire body(\\n)?"'
+env PBRAIN_TEST_FAULT=after
+status 0 pbrain-test add --title Retained --author person --body cleanup --json
+stderr '"code":"after_write"'
+jsonenv A id
+pbrain get $A --json
+stdout '"body":"cleanup'
+
+-- transcript.md --
+Example file
