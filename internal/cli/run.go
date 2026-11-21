@@ -129,7 +129,13 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 }
 
 // runCommand is the dispatch point for handlers delivered after the CLI core.
-func runCommand(_ context.Context, _ Env, _ *invocation, _ *brain.Brain, _ Features) outcome {
+func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, features Features) outcome {
+	switch in.cmd.name {
+	case "search":
+		return runSearch(ctx, env, in, b, features)
+	case "get":
+		return runGet(ctx, env, in, b)
+	}
 	return notImplemented()
 }
 
