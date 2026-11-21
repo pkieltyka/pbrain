@@ -40,18 +40,19 @@ func directives(gomod string) []string {
 				continue
 			}
 			if block == "replace" || block == "exclude" {
-				found = append(found, block+" "+line)
+				found = append(found, block+" "+strings.Join(strings.Fields(line), " "))
 			}
 			continue
 		}
-		word, rest, _ := strings.Cut(line, " ")
-		rest = strings.TrimSpace(rest)
-		if rest == "(" {
+		// Go's lexer splits a directive on any white space, and "(" is a token of its own.
+		fields := strings.Fields(strings.Replace(line, "(", " ( ", 1))
+		word := fields[0]
+		if len(fields) == 2 && fields[1] == "(" {
 			block = word
 			continue
 		}
 		if word == "replace" || word == "exclude" {
-			found = append(found, line)
+			found = append(found, word+" "+strings.Join(fields[1:], " "))
 		}
 	}
 	return found
@@ -75,6 +76,12 @@ func TestDirectivesFindsBothForms(t *testing.T) {
 		"replace a => ../a\nexclude b v1.2.0\nreplace (\n\tc => ../c\n)\nexclude (\n\td v0.1.0\n)\n"
 	got := directives(gomod)
 	want := []string{"replace a => ../a", "exclude b v1.2.0", "replace c => ../c", "exclude d v0.1.0"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("directives = %q, want %q", got, want)
+	}
+	// Tabs separate a directive's words as well as spaces do, and a block may open with "replace(".
+	gomod = "module x\n\nreplace\ta\t=>\t../a\nexclude\tb v1.2.0\nreplace\t(\n\tc => ../c\n)\nexclude(\n\td\tv0.1.0\n)\n"
+	got = directives(gomod)
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("directives = %q, want %q", got, want)
 	}
