@@ -1,0 +1,176 @@
+package cli
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/pkieltyka/pbrain/internal/brain"
+	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
+	"github.com/pkieltyka/pbrain/internal/search"
+)
+
+// semanticBrain is a brain whose pbrain.toml names the test model, with the model's files at
+// model_path and a cache folder of its own: no command reaches a network.
+func semanticBrain(t *testing.T) (*readBrain, *embedtest.Kit) {
+	t.Helper()
+	rb := newReadBrain(t)
+	kit := embedtest.New(nil)
+	m := kit.Models[embedtest.ModelA]
+	mp := filepath.Join(t.TempDir(), "model")
+	os.MkdirAll(mp, 0o755)
+	for _, f := range m.Files {
+		os.WriteFile(filepath.Join(mp, f.Name), kit.Bytes[f.URL], 0o644)
+	}
+	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"test-model\"\n"), 0o644)
+	os.WriteFile(filepath.Join(rb.dir, "personal.toml"), []byte("model_path = \""+mp+"\"\n"), 0o644)
+	cache := filepath.Join(t.TempDir(), "cache")
+	rb.env.Models = kit.Registry
+	rb.env.Getenv = func(k string) string {
+		if k == "PBRAIN_CACHE" {
+			return cache
+		}
+		return ""
+	}
+	rb.put("notes/20261101-000000-alpha-a1a1.md", []string{"kind: note", "title: First note", "created: 2026-11-01T00:00:00Z", "author: agent:x"},
+		"This note is about alpha topics.\n")
+	rb.put("notes/20261102-000000-beta-b1b1.md", []string{"kind: note", "title: Second note", "created: 2026-11-02T00:00:00Z", "author: agent:x"},
+		"Mostly beta material.\n")
+	return rb, kit
+}
+
+func TestCLISemanticCommands(t *testing.T) {
+	rb, kit := semanticBrain(t)
+	// Before any build: the status, and a search with its notice and lexical results.
+	expect(t, rb, "model: test-model, on this machine\nshared: 0 of 2 items indexed\n", "index", "--status")
+	status, out, errOut := rb.run("search", "alpha", "--semantic")
+	if status != 0 || !strings.Contains(out, "alpha-a1a1") || errOut != "semantic_not_ready: no index for this model: run pbrain index\n" {
+		t.Fatalf("before the build: %d %q %q", status, out, errOut)
+	}
+	if kit.Opens.Load() != 0 {
+		t.Fatal("a not-ready search opened the model")
+	}
+	// The build.
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\n", "index")
+	var built struct {
+		Model    string
+		Sections []map[string]any
+	}
+	_, out, _ = rb.run("index", "--json")
+	oneJSON(t, out, &built)
+	if built.Model != "test-model" || len(built.Sections) != 1 || built.Sections[0]["passages_embedded"] != 0.0 || built.Sections[0]["items"] != 2.0 {
+		t.Fatalf("index JSON: %s", out)
+	}
+	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\n", "index", "--status")
+	// A search by meaning: "beta" is not in the first note, but the query vector of a text with no
+	// keyword is the fixed unit vector, so ask for a word that matches nothing lexically.
+	status, out, errOut = rb.run("search", "beta", "material", "zzz", "--semantic")
+	if status != 0 || errOut != "" || !strings.Contains(out, "20261102-000000-beta-b1b1  note  provisional  2026-11-02  semantic\n") {
+		t.Fatalf("a semantic hit: %d %q %q", status, out, errOut)
+	}
+	// A new item not yet indexed: the partial notice counts it.
+	rb.put("notes/20261103-000000-gamma-c1c1.md", []string{"kind: note", "title: Third", "created: 2026-11-03T00:00:00Z", "author: agent:x"}, "gamma\n")
+	_, _, errOut = rb.run("search", "zzz", "--semantic")
+	if errOut != "semantic_partial: 1 item is not in the index: run pbrain index\n" {
+		t.Fatalf("partial: %q", errOut)
+	}
+	_, _, errOut = rb.run("--personal", "search", "zzz", "--semantic", "--json")
+	var n struct {
+		Notice struct{ Code, Message string }
+	}
+	oneJSON(t, errOut, &n)
+	if n.Notice.Code != "semantic_partial" || !strings.HasSuffix(n.Notice.Message, "run pbrain index --personal") {
+		t.Fatalf("personal hint: %q", errOut)
+	}
+	// Status JSON, and a stale index after the model changes.
+	var st map[string]any
+	_, out, _ = rb.run("index", "--status", "--json")
+	json.Unmarshal([]byte(out), &st)
+	if st["model"] != "test-model" || st["model_present"] != true {
+		t.Fatalf("status JSON: %s", out)
+	}
+	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"test-model-b\"\n"), 0o644)
+	expect(t, rb, "model: test-model-b, not on this machine\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"nope\"\n"), 0o644)
+	expect(t, rb, "model: nope, not supported by this pbrain\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	_, _, errOut = rb.run("search", "zzz", "--semantic")
+	if !strings.HasPrefix(errOut, "semantic_not_ready: this pbrain does not support") {
+		t.Fatalf("unsupported: %q", errOut)
+	}
+	status, _, errOut = rb.run("index")
+	if status != 1 || !strings.HasPrefix(errOut, "invalid_config: the model \"nope\" is not supported; supported models: test-model") {
+		t.Fatalf("index with an unknown model: %d %q", status, errOut)
+	}
+	// No model named.
+	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), nil, 0o644)
+	expect(t, rb, "model: none\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
+	_, _, errOut = rb.run("search", "zzz", "--semantic")
+	if errOut != "semantic_not_ready: semantic search is off: pbrain.toml names no model\n" {
+		t.Fatalf("no model: %q", errOut)
+	}
+	status, _, errOut = rb.run("index")
+	if status != 1 || !strings.HasPrefix(errOut, "no_model: ") {
+		t.Fatalf("index without a model: %d %q", status, errOut)
+	}
+	// A search without the flag never opens the cache or the model.
+	opens := kit.Opens.Load()
+	rb.run("search", "alpha")
+	if kit.Opens.Load() != opens {
+		t.Fatal("a lexical search opened the model")
+	}
+}
+
+func TestCLIIndexPersonal(t *testing.T) {
+	rb, _ := semanticBrain(t)
+	// A default personal folder that does not exist: zero, and nothing created.
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 2 passages embedded, 0 reused\npersonal: 0 items indexed, 0 items removed; 0 passages embedded, 0 reused\n", "--personal", "index")
+	if _, err := os.Stat(filepath.Join(rb.dir, "personal")); !os.IsNotExist(err) {
+		t.Fatal("the personal folder was created")
+	}
+	rb.put("personal/notes/20261104-000000-mine-m1m1.md", []string{"kind: note", "title: Mine", "created: 2026-11-04T00:00:00Z", "author: agent:x"}, "delta mine\n")
+	expect(t, rb, "shared: 2 items indexed, 0 items removed; 0 passages embedded, 0 reused\npersonal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused\n", "--personal", "index")
+	expect(t, rb, "model: test-model, on this machine\nshared: 2 of 2 items indexed\npersonal: 1 of 1 item indexed\n", "--personal", "index", "--status")
+}
+
+func TestDownloadMessage(t *testing.T) {
+	k := embedtest.New(nil)
+	m := k.Models[embedtest.ModelPair]
+	if got := downloadMessage(m, 1_000_001); got != "downloading model test-model-pair, 2 MB, from models.test" {
+		t.Fatalf("%q", got)
+	}
+}
+
+// Every row of the notice table, in both views.
+func TestSemanticNoticeTable(t *testing.T) {
+	shared, _ := parseOptions([]string{"search", "x"}, Features{})
+	personal, _ := parseOptions([]string{"--personal", "search", "x"}, Features{})
+	personal.view = brain.PersonalView
+	cases := []struct {
+		in   *invocation
+		st   search.SemanticState
+		code string
+		msg  string
+	}{
+		{&shared, search.SemanticState{Asked: true, Reason: search.NoModel}, "semantic_not_ready", "semantic search is off: pbrain.toml names no model"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.UnsupportedModel}, "semantic_not_ready", "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.CacheExposed}, "semantic_not_ready", "the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them"},
+		{&personal, search.SemanticState{Asked: true, Reason: search.ModelAbsent}, "semantic_not_ready", "the model is not on this machine: run pbrain index --personal, or set model_path"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.NoIndex}, "semantic_not_ready", "no index for this model: run pbrain index"},
+		{&personal, search.SemanticState{Asked: true, Reason: search.ModelFailed}, "semantic_not_ready", "the model could not be used: run pbrain index --personal to check it"},
+		{&shared, search.SemanticState{Asked: true, Ready: true, Missing: 1}, "semantic_partial", "1 item is not in the index: run pbrain index"},
+		{&personal, search.SemanticState{Asked: true, Ready: true, Missing: 7}, "semantic_partial", "7 items are not in the index: run pbrain index --personal"},
+	}
+	for _, c := range cases {
+		n, ok := semanticNotice(c.in, c.st)
+		if !ok || n.Code != c.code || n.Message != c.msg {
+			t.Errorf("%+v: %+v", c.st, n)
+		}
+	}
+	for _, st := range []search.SemanticState{{}, {Asked: true, Ready: true}} {
+		if _, ok := semanticNotice(&shared, st); ok {
+			t.Errorf("%+v printed a notice", st)
+		}
+	}
+}

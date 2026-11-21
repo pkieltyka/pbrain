@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
@@ -92,6 +93,15 @@ func TestSourceScores(t *testing.T) {
 	}
 	if e.kit.Opens.Load() != opens+1 || e.kit.Calls.Load() != 2 {
 		t.Fatalf("opens %d, calls %d", e.kit.Opens.Load()-opens, e.kit.Calls.Load())
+	}
+	// Of two qualifying passages the closest is kept: for "alpha beta", b's second part.
+	src2, items3 := e.source(ctx, e.opts(), "alpha beta", s)
+	defer src2.Close()
+	res, _ = src2.Score(ctx, "alpha beta", items3)
+	for _, h := range res.Hits {
+		if h.Item.ID == "notes/b.md" && !strings.Contains(string(body[h.Start:h.End]), "alpha and beta") {
+			t.Fatalf("b's closest passage: %q", string(body[h.Start:h.End]))
+		}
 	}
 	// Identical across runs.
 	again, items2 := e.source(ctx, e.opts(), "alpha", s)
@@ -416,5 +426,127 @@ func TestStatus(t *testing.T) {
 	}
 	if e.kit.Opens.Load() != opens {
 		t.Fatal("Status opened a model")
+	}
+}
+
+// A build paused before its scan holds index/lock; an item writer can still take .pbrain/lock.
+func TestBuildHoldsOnlyTheIndexLock(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	s := newSection(t, item.Shared)
+	basic(s)
+	e.mustBuild(s)
+	pb, _ := sys.OpenDir(filepath.Join(s.root, ".pbrain"))
+	defer pb.Close()
+	idx, _ := sys.OpenDir(s.index())
+	defer idx.Close()
+	checked := false
+	scan := func(ctx context.Context) (SectionInput, error) {
+		short, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+		if l, err := sys.Native().Lock(short, idx, "lock"); err == nil {
+			l.Close()
+			t.Error("the index lock is free during the scan")
+		}
+		l, err := sys.Native().Lock(short, pb, "lock")
+		if err != nil {
+			t.Errorf("an item writer cannot lock: %v", err)
+		} else {
+			l.Close()
+		}
+		checked = true
+		return s.scan(ctx)
+	}
+	if _, err := Build(ctx, e.opts(), s.sectionDir(), scan, e.dl, nil, nil); err != nil || !checked {
+		t.Fatalf("%v, checked %v", err, checked)
+	}
+}
+
+// A search during builds that publish reads one whole database, the old or the new.
+func TestReadDuringPublication(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	e.clock.step = 30 * time.Second // every item boundary publishes
+	s := newSection(t, item.Shared)
+	basic(s)
+	e.mustBuild(s)
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for i := range 15 {
+			s.put(fmt.Sprintf("more/n%02d.md", i), "More", fmt.Sprintf("delta %d\n", i))
+			if _, err := e.build(s); err != nil {
+				t.Error(err)
+				return
+			}
+		}
+	}()
+	reads := 0
+	for {
+		select {
+		case <-done:
+			if reads == 0 {
+				t.Fatal("no read overlapped the builds")
+			}
+			return
+		default:
+		}
+		d, err := sys.OpenDir(s.index())
+		if err != nil {
+			t.Fatal(err)
+		}
+		x, state := openIndex(ctx, sys.Native(), d, IndexFingerprint(e.m()), e.m().Dim, true)
+		d.Close()
+		if state != IndexOK {
+			t.Fatalf("read %d during a publication: %v", reads, state)
+		}
+		x.Close()
+		reads++
+	}
+}
+
+// A row whose span passes the body's end is not used; an item not listed is never scored, even
+// with a malformed vector.
+func TestSourceRowsChecked(t *testing.T) {
+	ctx := context.Background()
+	e, s := built(t)
+	damage := func(sql string) {
+		t.Helper()
+		x, _ := s.open(e.m())
+		x.conn.ExecContext(ctx, "PRAGMA ignore_check_constraints = ON")
+		if _, err := x.conn.ExecContext(ctx, sql); err != nil {
+			t.Fatal(err)
+		}
+		d, _ := sys.OpenDir(s.index())
+		if _, err := x.publish(ctx, sys.Native(), d, rand.Reader); err != nil {
+			t.Fatal(err)
+		}
+		d.Close()
+		x.Close()
+	}
+	damage("UPDATE passage SET stop = 9999 WHERE item_id = (SELECT id FROM item WHERE path = 'notes/a.md')")
+	src, items := e.source(ctx, e.opts(), "alpha", s)
+	res, _ := src.Score(ctx, "alpha", items)
+	src.Close()
+	if !res.Ready {
+		t.Fatal(res)
+	}
+	for _, h := range res.Hits {
+		if h.Item.ID == "notes/a.md" {
+			t.Fatalf("a span past the body was used: %+v", h)
+		}
+	}
+	damage("UPDATE passage SET vector = x'01' WHERE item_id = (SELECT id FROM item WHERE path = 'notes/c.md')")
+	src, items = e.source(ctx, e.opts(), "alpha", s)
+	defer src.Close()
+	var listed []*item.Item
+	for _, it := range items {
+		if it.ID != "notes/c.md" {
+			listed = append(listed, it)
+		}
+	}
+	res, err := src.Score(ctx, "alpha", listed)
+	if err != nil || !res.Ready || res.Missing != 0 || len(res.Hits) == 0 {
+		t.Fatalf("an unlisted malformed item broke the query: %+v %v", res, err)
 	}
 }
