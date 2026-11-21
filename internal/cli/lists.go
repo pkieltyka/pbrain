@@ -37,15 +37,21 @@ func newestFirst(a, b *item.Item) int {
 	return strings.Compare(a.Path, b.Path)
 }
 
+// pageEnd is where a page of limit rows from offset ends in n rows; limit 0 is no limit. It never
+// adds offset and limit, so a huge --limit cannot overflow.
+func pageEnd(n, offset, limit int) int {
+	if limit <= 0 || limit >= n-offset {
+		return n
+	}
+	return offset + limit
+}
+
 // page returns the units of rows from the offset, at most limit when limit is positive.
 func page(rows []render.Part, offset, limit int) []render.Unit {
 	if offset >= len(rows) {
 		return nil
 	}
-	end := len(rows)
-	if limit > 0 {
-		end = min(end, offset+limit)
-	}
+	end := pageEnd(len(rows), offset, limit)
 	units := make([]render.Unit, 0, end-offset)
 	for _, p := range rows[offset:end] {
 		units = append(units, render.Unit{Main: p})

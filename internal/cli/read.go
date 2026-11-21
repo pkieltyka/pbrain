@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -72,6 +73,13 @@ func (r *reader) skipped() {
 		msg += " --personal"
 	}
 	emitNotice(r.env.Stderr, r.in.json, errs.Notice{Code: "skipped_files", Message: msg})
+}
+
+// skippedAfterScan is skipped for a command whose scan may have failed: no catalog, no notice.
+func (r *reader) skippedAfterScan() {
+	if r.cat != nil {
+		r.skipped()
+	}
 }
 
 func plural(n int, one, many string) string {
@@ -518,8 +526,12 @@ func (r *reader) blockSize(lines []search.ContextLine) int {
 			}
 			arr = append(arr, obj)
 		}
-		enc, _ := json.Marshal(arr)
-		return utf8.RuneCount(enc) + utf8.RuneCountInString(`,"context":`)
+		// Sized as the renderer encodes it: HTML escaping off, so <, > and & count as one each.
+		var b bytes.Buffer
+		enc := json.NewEncoder(&b)
+		enc.SetEscapeHTML(false)
+		enc.Encode(arr) //nolint:errcheck // a slice of maps of strings and ints always encodes
+		return utf8.RuneCount(bytes.TrimSuffix(b.Bytes(), []byte("\n"))) + utf8.RuneCountInString(`,"context":`)
 	}
 	n := 0
 	for _, l := range lines {
@@ -541,24 +553,24 @@ func runGet(ctx context.Context, env Env, in *invocation, b *brain.Brain) outcom
 			return outcome{err: err}
 		}
 		it, err := r.resolve(id)
+		r.skipped()
 		if err != nil {
 			return outcome{err: err}
 		}
-		r.skipped()
 		return r.fit(r.historyDoc(it))
 	case in.boolean("outline"):
 		it, body, err := r.resolveWithBody(ctx, id)
+		r.skippedAfterScan()
 		if err != nil {
 			return outcome{err: err}
 		}
-		r.skipped()
 		return r.fit(r.outlineDoc(it, body))
 	default:
 		it, body, err := r.resolveWithBody(ctx, id)
+		r.skippedAfterScan()
 		if err != nil {
 			return outcome{err: err}
 		}
-		r.skipped()
 		data, err := render.FitBody(r.getDoc(it, body), in.page.maxChars, in.format)
 		if err != nil {
 			return outcome{err: err}
@@ -658,7 +670,7 @@ func (r *reader) historyDoc(it *item.Item) *render.Doc {
 		Total:  len(hist),
 	}
 	if off < len(hist) {
-		for _, h := range hist[off:min(len(hist), off+r.in.page.limit)] {
+		for _, h := range hist[off:pageEnd(len(hist), off, r.in.page.limit)] {
 			d.Units = append(d.Units, render.Unit{Main: r.historyRow(h)})
 		}
 	}
@@ -714,7 +726,7 @@ func (r *reader) outlineDoc(it *item.Item, body []byte) *render.Doc {
 	}
 	if off < len(secs) {
 		cur := it.Lines(body)
-		for _, s := range secs[off:min(len(secs), off+r.in.page.limit)] {
+		for _, s := range secs[off:pageEnd(len(secs), off, r.in.page.limit)] {
 			line := cur.At(s.Start)
 			heading := "(before the first heading)"
 			row := render.Object{"offset": s.Start, "chars": s.Tree - s.Start, "file_line": line, "level": s.Level}

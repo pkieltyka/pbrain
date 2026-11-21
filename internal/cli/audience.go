@@ -84,7 +84,7 @@ func listAudience(in *invocation, rules []audience.Rule) outcome {
 		Head:  []render.Part{{JSON: render.Envelope{Rows: "rules"}}},
 		Total: len(rules), Offset: in.page.offset,
 		Foot: func(st render.State) render.Part {
-			p := render.Part{Text: fmt.Sprintf("%d rules.", st.Shown)}
+			p := render.Part{Text: counted(st.Shown, "rule", "rules") + "."}
 			if st.More > 0 {
 				p.Text += fmt.Sprintf(" %d more: --offset %d", st.More, st.Next)
 				p.JSON = render.Object{"more": st.More, "next": st.Next}

@@ -263,7 +263,7 @@ func writeSkipped(wc writeContext, cat *store.Catalog) {
 		if wc.View == brain.PersonalView {
 			command += " --personal"
 		}
-		wc.notify("skipped_files", fmt.Sprintf("%d files skipped: run %s", n, command))
+		wc.notify("skipped_files", fmt.Sprintf("%s skipped: run %s", counted(n, "file", "files"), command))
 	}
 }
 
