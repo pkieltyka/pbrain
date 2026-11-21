@@ -52,7 +52,7 @@ func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl e
 	notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error) {
 	res := BuildResult{Section: sec.Section}
 	if opt.ModelName == "" {
-		return res, &errs.Error{Code: "no_model", Message: "no model is named: set semantic.model in pbrain.toml", Exit: 1}
+		return res, &errs.Error{Code: "no_model", Message: "semantic search is off: pbrain.toml sets model = \"none\"", Exit: 1}
 	}
 	m, ok := opt.Registry.Lookup(opt.ModelName)
 	if !ok {

@@ -131,3 +131,18 @@ shared medians were 175–223 ms and personal-view medians were 153–213 ms.
 The slowest warm sample was 267 ms. These harness queries measure the
 scanning and term-frequency cost. The six-clause scenario tests the
 admitted rows separately.
+
+## EmbeddingGemma 2 release gates (phase 27)
+
+The corrected tool at `9695d1b` replayed the frozen questions above with the verified
+local pack. Calibration selected **0.72**. On the held-out check, both
+`--semantic` alone and `--semantic --bm25` returned an expected ID on
+the first page for 42 of 47 answerable questions, preserving all 16 strict
+first-page answers. Each left all 30 unanswerable pages empty and passed
+every regression. Both retrieved the expected item for all six long-document
+questions and showed the supporting quotation for five. Shared output
+matched byte for byte with the personal overlay present, and personal search and get each
+returned all eight private controls.
+
+The gate report SHA-256 is
+`3c9deecf8112c6e5539ed7df07afec7fe6620186cddb35ccacc9be987a0db675`.
