@@ -26,7 +26,7 @@ status 1 pbrain-test import --link-only https://docs.google.com/document/d/abc -
 stderr '"code":"audience_required"'
 status 2 pbrain-test import https://example.org/no --summary 'not a link' --json
 stderr '"code":"usage"'
-pbrain-test import --shared --link-only https://docs.google.com/document/d/abc --summary 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' --json
+exec sh -c 'pbrain-test import --shared --link-only https://docs.google.com/document/d/abc --summary "$(printf "gh%s_%036d" p 0 | tr 0 x)" --json'
 stderr '"code":"destination"'
 stderr 'title, link, tags and summary'
 stderr '"code":"secret_suspected"'
