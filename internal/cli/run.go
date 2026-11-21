@@ -154,6 +154,8 @@ func runSkill(in *invocation) outcome {
 // runCommand is the dispatch point for handlers delivered after the CLI core.
 func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, features Features) outcome {
 	switch in.cmd.name {
+	case "audience":
+		return runAudienceCommand(ctx, env, in, b)
 	case "search":
 		return runSearch(ctx, env, in, b, features)
 	case "get":
@@ -168,8 +170,6 @@ func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, fe
 		return runCheck(ctx, env, in, b)
 	case "index":
 		return runIndex(ctx, env, in, b)
-	case "audience":
-		return runAudienceCommand(ctx, env, in, b)
 	case "add":
 		return runAddCommand(ctx, in, newWriteContext(env, in, b))
 	case "verify":

@@ -16,6 +16,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/item"
+	"github.com/pkieltyka/pbrain/internal/outline"
 	"github.com/pkieltyka/pbrain/internal/search"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
@@ -548,5 +549,57 @@ func TestSourceRowsChecked(t *testing.T) {
 	res, err := src.Score(ctx, "alpha", listed)
 	if err != nil || !res.Ready || res.Missing != 0 || len(res.Hits) == 0 {
 		t.Fatalf("an unlisted malformed item broke the query: %+v %v", res, err)
+	}
+}
+
+// alignBody has the same heading under two parents, a fenced line that looks like a heading and
+// multibyte text before the hits.
+const alignBody = "Préambule ünïcode, ça va.\n\n# Alpha\n\nalpha text\n\n## Setup\n\nfirst setup delta words\n\n" +
+	"\x60\x60\x60\n# not a heading\n\x60\x60\x60\n\n# Beta\n\nbeta text\n\n## Setup\n\nsecond setup gamma words\n"
+
+// TestSourcePassageAlignment: every scored hit starts where a passage starts, inside the intended
+// one of two sections with the same title, and the body from Start begins with the passage text.
+func TestSourcePassageAlignment(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	s := newSection(t, item.Shared)
+	s.put("notes/align.md", "Align", alignBody)
+	e.mustBuild(s)
+	secs := outline.Parse([]byte(alignBody))
+	var setups []int
+	for i, sec := range secs {
+		if sec.Title == "Setup" {
+			setups = append(setups, i)
+		}
+	}
+	if len(setups) != 2 {
+		t.Fatalf("outline: %+v", secs)
+	}
+	passages := Passages("Align", []byte(alignBody))
+	runes := []rune(alignBody)
+	for query, want := range map[string]int{"delta": setups[0], "gamma": setups[1]} {
+		src, items := e.source(ctx, e.opts(), query, s)
+		res, err := src.Score(ctx, query, items)
+		src.Close()
+		if err != nil || !res.Ready || len(res.Hits) != 1 {
+			t.Fatalf("%s: %+v %v", query, res, err)
+		}
+		h := res.Hits[0]
+		if got := outline.At(secs, h.Start); got != want || h.End > secs[want].End {
+			t.Fatalf("%s: the hit [%d,%d) is in section %d, want %d", query, h.Start, h.End, got, want)
+		}
+		if strings.HasPrefix(string(runes[h.Start:]), "# not a heading") {
+			t.Fatalf("%s: the hit starts at the fenced line", query)
+		}
+		found := false
+		for _, p := range passages {
+			if p.Start == h.Start && p.End == h.End {
+				_, text, _ := strings.Cut(p.Text, "\n\n")
+				found = strings.HasPrefix(strings.TrimSpace(string(runes[h.Start:h.End])), strings.TrimSpace(text)[:10])
+			}
+		}
+		if !found {
+			t.Fatalf("%s: the hit [%d,%d) is not the embedded passage", query, h.Start, h.End)
+		}
 	}
 }

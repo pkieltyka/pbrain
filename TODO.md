@@ -3,13 +3,6 @@ TODO
 
 ## Ready
 
-- [ ] pbrain phase 28: Measurement before a release (@lead-dev-2)
-    * description: **28. Measurement before a release.** @lead-dev-2. After the phases a release ships. The built binary on an arm64 Mac and on Linux: the speed targets of spec 16, and for each model rule 3, a first index, an index after one note, and peak memory (architecture 8.6, 8.7, 14). The four targets built with `CGO_ENABLED=0`; `go install` of a tagged version; results published. Repeated for each release that adds a search mode or a model.
-    * criteria: run the test plan in architecture.md §§8.6, 8.7, 14 and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; measure the built binary on an arm64 Mac before each release
-    * owner lane: @lead-dev-2
-    * after: the phases included in each release
-    * next: @operator starts this phase after its listed prerequisites merge and work is ready; owner runs checks and requests @reviewer approval before merge.
-
 ## In progress
 
 - [ ] pbrain phase 18: The calibration tool without a model, and the `--bm25` gates (@lead-dev)
@@ -19,25 +12,25 @@ TODO
     * after: phases 11 and 17
     * work: @operator decided to accept calibrated `minInformative=5, dfDivisor=4, shareDivisor=2` for releases without a model. The frozen rule passed held-out (30/30 empty; first-page expected IDs 16/47 to 22/47, none lost); minimum 2 failed calibration (26/30 empty, regression u029). @lead-dev submitted tool range `686e877..39cdb75` and release/skill/report range `c76082f..e39fe31` on `peter/lead-dev`; the branch includes master `2606da2` and phase 11 handlers. The committed report reproduces both gate stages, shared-output/privacy checks, and 5,000-item BM25 medians (153–223 ms; max warm sample 267 ms). Author reports gofmt, full vet/plain/CGO-disabled tests, focused race, calibration runs and cross-builds; no non-Linux runtime measurement.
     * verdict: review pending; operator accepted the calibrated constants and enabled `Release.BM25` for a no-model release
-    * next: @reviewer reviews both ranges after phase 23; then @operator integrates. Init selector review follows phase 18. Phase 25 runs combined BGE gates before any release listing both model and `--bm25`.
+    * next: @reviewer proceeds with both Phase 18 ranges; @operator integrates after approval. When the Phase 23 fix arrives, @reviewer takes it first. Init selector review follows Phase 18. Phase 25 runs combined BGE gates before any release listing both model and `--bm25`.
 
 - [ ] pbrain phase 23: Semantic (b3): source and commands (@lead-dev-2)
     * description: **23. Semantic (b3): source and commands.** Source/status/score lifecycle, model and index readiness, coverage, semantic search notices, index and status commands (`semantic.md`, `cli.md`). Model registry wiring is deliberately deferred to phase 25 until its gates pass.
     * criteria: run the test plan in components/semantic.md and cli.md and the applicable scenarios in functional_spec.md §15 named by this phase; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range
     * owner lane: @lead-dev-2
     * after: phases 16, 18, 19, 20, 21 and 22
-    * work: submitted range `3bd8614..33b9e17` (commits `7590969` and `33b9e17`, with master merge `ab54b43`; report identifies head `0106ebb` with master `17734d4`). Implements source/status, index and search CLI, notices, coverage and lifecycle tests. Author reports full gofmt/vet/tests, semantic/CLI race and CGO-disabled tests, Darwin/arm64 vet and CGO-disabled build. Operator explicitly deferred registry wiring to phase 25; semantic section alignment remains outside this phase.
-    * verdict: review pending; phase 19 approved and merged
-    * next: @reviewer reviews phase 23 next; phase 25 owns registry wiring after model gates.
+    * work: submitted base range `3bd8614..33b9e17` (commits `7590969` and `33b9e17`, with master merge `ab54b43`; report identifies head `0106ebb` with master `17734d4`). Test-only fix `a278c0c`, exact range `f36a28a..a278c0c`, adds source-level and CLI `TestPassageAlignment`: repeated Setup headings under different parents, fenced pseudo-heading, multibyte text, outline section/start correspondence, passage text correspondence, semantic snippet offset/line and `get --offset`. Author reports gofmt, full vet/tests, semantic/CLI race and CGO-disabled tests, Darwin/arm64 vet; no macOS runtime. The worktree also has separate uncommitted Phase 25 BGE wiring/model changes outside this review range.
+    * verdict: changes required on `3bd8614..33b9e17`; finding 1 withdrawn by @operator because `semantic.md` specifies omitting `model_present` when false. Finding 2's test fix is submitted; re-review pending.
+    * next: @reviewer re-reviews `f36a28a..a278c0c`; Phase 25's BGE run/wiring waits for Phase 23 approval.
 
 - [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
     * description: **25. BGE gates.** Calibrate bge-small, run its individual and combined gates with `--bm25`, wire the release registry and run the semantic end-to-end gate. A combined-only failure withholds `--bm25` while a qualifying model may ship.
     * criteria: run the calibration, source and release test plans in components/semantic.md and architecture.md §§8.7, 8.8, 14 and the applicable scenarios in functional_spec.md §15; run gofmt, go vet and go test successfully; obtain @reviewer approval of the exact commit range; list only individually qualifying models and enable combined release flags only when the combined gate passes for every listed model
-    * owner lane: @lead-dev-2; gate tooling in collaboration with @lead-dev
+    * owner lane: @lead-dev-2 for real BGE gates and registry wiring; @lead-dev for gate tooling
     * after: phases 18, 23 and 24
-    * work: @operator assigned @lead-dev-2 to lead the BGE run and release-wiring decision. @lead-dev merged `33b9e17` (phases 19/23 branch) into `peter/lead-dev` as `7ea03bb` and has started model/combined-gate tooling. Its current uncommitted files are under `internal/semantic/calibrate/` plus a buildcheck test. @lead-dev-2 runs the BGE gates and wiring after the tool is ready. Registry wiring is not part of phase 23.
-    * verdict: in progress; tooling implementation pending
-    * next: @lead-dev completes the model/combined gate tool; @lead-dev-2 then runs BGE gates and release wiring, requesting review of the resulting range.
+    * work: gate-tool commit `8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, exact range `f66c2685a5402a36d7d688530e37015695cafba2..8ecfb9e8f12acf7d43b7f0ac42e94e51c29e4a4a`, on `peter/lead-dev`; built on Phase 18 and Phase 23 at `33b9e17`. It adds scratch-index calibration, production-score negative cutoff selection, standalone/combined gates on rendered CLI JSON, incomplete-view abort, RRF comparison and private overlay search/get checks. Author reports gofmt, diff, mod verify, full vet/plain/CGO-disabled suites, focused race tests and serial Linux/Darwin amd64/arm64 CGO-disabled tool builds, including targeted cutoff/held-out/combined-rejection cases. The real BGE run and registry wiring remain @lead-dev-2's work.
+    * verdict: gate-tool portion submitted for review after phase 18; BGE run and release wiring wait for Phase 23 approval
+    * next: @reviewer reviews `f66c268..8ecfb9e` after Phase 18; @lead-dev-2 starts the real BGE fixture and registry/end-to-end wiring only after Phase 23 is approved.
 
 - [ ] pbrain implementation: init selector usable from caller's directory (@architect-2)
     * description: `init` reports the brain's project-root-relative location and, when different, the selector that works from the caller's resolved directory; the selector is an argument value, not a shell command.
@@ -54,7 +47,7 @@ TODO
     * owner: @architect-2 (patch flow)
     * work: PR #4 `pkieltyka/docs-pins`, range `0b1b868..1f7bd74` (original `0f8fd988` plus follow-up `1f7bd74`). Follow-up patch SHA-256 `a70a2be614d14b4466313e10c597a7e06ff4dc40f937024b21f451d23044a80b`; fixes stale example module versions/nested module release claims. Author reports gpupins for all four backends, 58 device-script tests, shell syntax, release assets (31 at each tag) and metadata checks (29 checksums). PR open; no fork CI result recorded.
     * verdict: PR submitted; reviewer verdict pending
-    * next: @reviewer reviews PR #4; @operator merges after green CI.
+    * next: @reviewer reviews PR #4 when there is a gap after priority pbrain reviews; @operator merges after green CI.
 
 - [ ] goinfer fork documentation follow-up (@architect-2)
     * description: point active goinfer user/release documentation to github.com/pkieltyka/goinfer; remove unsupported instructions and preserve attribution/history.
@@ -62,7 +55,7 @@ TODO
     * owner: @architect-2 (patch flow)
     * work: PR #5 `pkieltyka/fork-docs-v0.2`, range `a759890b..93adb19f3`; rebased/final patch SHA-256 `a43f4d172765ef322cb2aa9b1ee2663042e8c13d9c3b60a7393732d5cab19443`. Release/download/attestation/live tooling steps point to the fork; unsupported issue directions removed; release checkout instructions distinguish root tags from nested modules. Workspace regenerated without stale checksum. Separate ignored local cleanup patch SHA-256 `49f47c085733969d9f91a719fe297f8d179067681aa343aa23ec1f602b638e6d` remains out of PR. PR open.
     * verdict: PR submitted; reviewer verdict pending
-    * next: @reviewer reviews PR #5; @operator merges after green CI.
+    * next: @reviewer reviews PR #5 when there is a gap after priority pbrain reviews; @operator merges after green CI.
 
 - [ ] pbrain architecture: audience-rule host matching (@architect-2)
     * description: verify exact audience-rule keys preserve non-default ports while mixed-host classification uses canonical DNS host names.
@@ -71,6 +64,15 @@ TODO
     * work: test-only commit `790a1ea` on top of adapter commit `0ed1330`, exact range `0ed1330..790a1ea`; covers exact-port match/non-match in both directions and explicit :443 default. Audience tests pass per author. Reviewer will take it with phase 27 after phase 16.
     * verdict: review pending
     * next: @reviewer reviews `0ed1330..790a1ea` with phase 27; close when merged.
+
+- [ ] pbrain phase 28: Measurement before a release (@lead-dev)
+    * description: **28. Measurement before a release.** Extend the repeatable built-binary harness for release cases: semantic search with BGE, index build, `--bm25` beside the model and personal view; measure on arm64 Mac and Linux, including model rule 3, first index, one-note update and peak memory. Build four targets with `CGO_ENABLED=0`, test `go install` from a tagged version and publish results; repeat for releases adding modes/models.
+    * criteria: run architecture.md §§8.6, 8.7, 14 and applicable functional scenarios; extend `internal/cli/measure_test.go` to required cases, then run it after Phase 25 registry wiring; run gofmt, vet, tests and obtain reviewer approval; complete arm64 Mac measurement before release
+    * owner lane: @lead-dev
+    * after: phase 25 registry wiring and the other phases included in each release
+    * work: reassigned by @operator from @lead-dev-2 because @lead-dev owns the existing harness. No Phase 28 code change has been reported yet; current lead-dev worktree tip is `8ecfb9e` with Phase 25 gate tool.
+    * verdict: in progress; harness extension not yet reported
+    * next: @lead-dev extends `measure_test.go` with the release cases, then runs them as soon as Phase 25 registry wiring lands.
 
 - [ ] pbrain phase 15: `importer`: files and linked items (@architect-2)
     * description: **15. `importer`: files and linked items.** @architect-2. After 13; beside 14. `importer.md`.
@@ -334,7 +336,7 @@ TODO
 - [x] pbrain owner-fork module renames and runtime pins (@lead-dev-2) `aikit 0b1b868e; goinfer bdf9daf9`
     * description: rename aikit and goinfer to the owner module paths, preserve attribution, pin aikit from goinfer and publish the owner-selected tags
     * criteria: module/import paths and license attribution preserved; requested repository checks run; aikit v1.79.0 and goinfer v0.1.0 tags published to owner-fork origin only
-    * work: aikit main merged at `0b1b868e`, tag v1.79.0; goinfer main merged at `bdf9daf9`, annotated v0.1.0 tag pushed to owner-fork origin. @reviewer confirmed the reviewed goinfer head tree matches the merge. Remaining P2 active-document findings are separated into the two fork documentation follow-ups in Backlog.
+    * work: aikit main merged at `0b1b868e`, tag v1.79.0; goinfer main merged at `bdf9daf9`, annotated v0.1.0 tag pushed to owner-fork origin. @reviewer confirmed the reviewed goinfer head tree matches the merge. Remaining P2 active-document findings are tracked in the two fork documentation follow-ups above.
     * verdict: complete; owner accepted the P2 documentation findings as separate follow-ups
     * next: none
 
