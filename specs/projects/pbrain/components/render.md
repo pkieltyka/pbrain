@@ -171,6 +171,7 @@ type Options struct {
     Tags map[string]string
     Now time.Time
     DisplayPath func(item.Section, string) string
+    Body func(*item.Item) ([]byte, error) // the body as this command's scan kept it, for the secret scan
 }
 type Finding struct {
     Severity, Code, Path, Message string
@@ -180,7 +181,7 @@ type Finding struct {
 func Collect(items []*item.Item, skipped []Skipped, g *graph.Graph, opt Options) (findings []Finding, errorCount int)
 ```
 
-`Collect` performs no I/O and returns the full sorted set and its full error count. Items and skipped entries come from the scoped catalog; the personal flag also controls cross-section findings. CLI owns page selection, document creation and the exit status.
+`Collect` performs no I/O and returns the full sorted set and its full error count. It reads a body only through `Options.Body`, which CLI sets to the `KeepAll` catalog's own `Body`: an item whose body that call cannot return is left out of the secret scan, and nothing is read again. Items and skipped entries come from the scoped catalog; the personal flag also controls cross-section findings. CLI owns page selection, document creation and the exit status.
 
 Collect a `KeepAll` catalog and graph of the caller's view. `check` combines skipped file facts, parser problems, due dates, duplicate folded IDs, graph findings, shared-only secret matches and undeclared tags. Build exactly one finding per issue with severity, code, anchored path, safe description and optional sort coordinates. For each ambiguous folded ID report each affected visible file. Skipped entries carry safe reason and position from the same scan. Never reread them to explain a diagnostic. Use `secretscan.Sensitive` to redact diagnostic values, including undeclared tags and other IDs or paths that match the scanner. A dangling or private target contributes to its finding without appearing in the message. Count errors from the full findings set before taking the page.
 
