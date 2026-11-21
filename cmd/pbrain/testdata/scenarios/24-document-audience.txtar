@@ -1,0 +1,47 @@
+# Functional spec §15, scenario 24.
+pbrain init
+env DOC=https://docs.google.com/document/d/abc/edit
+status 1 pbrain-test import $WORK/document.md --source $DOC --json
+stderr '"code":"audience_required"'
+! stdout .
+! exists docs/brain/.pbrain
+pbrain list --json
+ids results
+pbrain audience set docs.google.com/document/d/abc shared
+pbrain-test import $WORK/document.md --source 'https://Docs.Google.com.:443/document/d/%61bc/edit' --json
+stdout '"section":"shared"'
+stderr '"code":"destination"'
+stderr 'docs.google.com/document/d/abc'
+pbrain-test import $WORK/document.md --source $DOC --personal --json
+stdout '"section":"personal"'
+status 1 pbrain-test import $WORK/dot.md --source 'https://docs.google.com/document/d/abc/../abc/edit' --json
+stderr '"code":"audience_required"'
+status 1 pbrain audience set docs.google.com shared --json
+stderr '"code":"invalid"'
+status 1 pbrain audience set docs.google.com/document shared --json
+stderr '"code":"invalid"'
+status 1 pbrain audience set Docs.Google.com. shared --json
+stderr '"code":"invalid"'
+status 1 pbrain audience set acme.slack.com shared --json
+stderr '"code":"invalid"'
+status 1 pbrain audience set acme.slack.com/archives shared --json
+stderr '"code":"invalid"'
+cp docs/brain/personal.toml $WORK/good-settings
+exec sh -c 'for broad do printf "audience = [{match = \"%s\", to = \"shared\"}]\n" "$broad" > docs/brain/personal.toml; pbrain audience --json > "$WORK/out" 2> "$WORK/diag"; test "$?" -eq 1 && test ! -s "$WORK/out" && grep -q invalid_config "$WORK/diag" || exit 1; done' sh docs.google.com docs.google.com/document Docs.Google.com. acme.slack.com acme.slack.com/archives
+cp $WORK/good-settings docs/brain/personal.toml
+pbrain audience set https://Docs.Google.com.:443/document/d/%61bc personal
+pbrain audience --json
+stdout -count=1 '"match":'
+stdout '"to":"personal"'
+exec sh -c 'pbrain audience set example.org shared & a=$!; pbrain audience set example.net personal & b=$!; wait "$a" && wait "$b"'
+pbrain audience --json
+stdout -count=3 '"match":'
+stdout 'example.org'
+stdout 'example.net'
+
+-- document.md --
+# Released copy
+
+Original copied document.
+-- dot.md --
+# Should stay out

@@ -48,10 +48,18 @@ func (d *scenarioDir) LinkNew(temp, name string) error {
 		return errors.New("scenario original publication failure")
 	}
 	err := d.Dir.LinkNew(temp, name)
-	if err == nil && d.mode == "kill" && strings.HasSuffix(name, ".md") {
+	killItem := d.mode == "kill" && strings.HasSuffix(name, ".md")
+	killIndex := d.mode == "kill-index" && d.name == "index" && strings.HasSuffix(name, ".db")
+	if err == nil && (killItem || killIndex) {
 		return syscall.Kill(os.Getpid(), syscall.SIGKILL)
 	}
 	return err
+}
+func (d *scenarioDir) Remove(name string) error {
+	if d.mode == "remove-original" && d.name == "originals" {
+		return errors.New("scenario original removal failure")
+	}
+	return d.Dir.Remove(name)
 }
 func (d *scenarioDir) Sync() error {
 	if d.mode == "after" && d.name == "notes" {
@@ -97,6 +105,19 @@ func killedAdd(ts *testscript.TestScript, neg bool, args []string) {
 	var ee *exec.ExitError
 	if !errors.As(err, &ee) || ee.Sys().(syscall.WaitStatus).Signal() != syscall.SIGKILL {
 		ts.Fatalf("expected SIGKILL at publication, got %v", err)
+	}
+}
+
+func killedIndex(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 0 {
+		ts.Fatalf("usage: killed-index")
+	}
+	ts.Setenv("PBRAIN_TEST_FAULT", "kill-index")
+	err := ts.Exec("pbrain-test", "index")
+	ts.Setenv("PBRAIN_TEST_FAULT", "")
+	var exit *exec.ExitError
+	if !errors.As(err, &exit) || exit.Sys().(syscall.WaitStatus).Signal() != syscall.SIGKILL {
+		ts.Fatalf("expected SIGKILL before the index manifest was published, got %v", err)
 	}
 }
 

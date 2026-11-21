@@ -1,0 +1,22 @@
+# Functional spec §15, scenario 22.
+pbrain init
+# pbrain-test rejects any resolver or dialer call with status 99.
+status 0 pbrain-test import $WORK/artifact.html --shared --source https://claude.ai/public/artifacts/demo --json
+jsonenv ID id
+pbrain get $ID --json
+stdout '"kind":"source"'
+stdout '"origin":"file"'
+stdout '"source":"https://claude.ai/public/artifacts/demo"'
+stdout '"title":"Durable artifact"'
+stdout '\*\*kept\*\*'
+! stdout '<article>'
+exec sh -c 'set -- docs/brain/.pbrain/originals/*; test "$#" -eq 1 && cmp "$1" "$WORK/artifact.html"'
+pbrain list --json
+ids results $ID
+
+-- artifact.html --
+<!doctype html>
+<html><title>Durable artifact</title><body><article>
+<h1>Durable artifact</h1><p>The mapping is <strong>kept</strong>.</p>
+<p>The artifact documents the threshold a worker must meet before committing a restore. Finish the dry run first, review the source ledger and record any exceptions. The order preserves context for later decisions and leaves the original artifact available for comparison. The next agent can read the converted notes without opening a browser.</p>
+</article></body></html>

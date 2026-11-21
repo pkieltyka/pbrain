@@ -1,0 +1,127 @@
+# Functional spec §15, scenario 27.
+pbrain init
+pbrain list --json
+mkdir sub
+cd sub
+pbrain list --json
+cd ../docs/brain
+pbrain list --json
+cd ../..
+status 1 pbrain init --path other --json
+stderr '"code":"invalid"'
+! exists other
+mkdir nested
+cd nested
+exec git init -q
+pbrain init
+exists docs/brain/pbrain.toml
+pbrain add --title 'Inner checkout only' --json
+jsonenv INNER id
+pbrain get $INNER --json
+cd ..
+status 1 pbrain get $INNER --json
+stderr '"code":"not_found"'
+cd $WORK
+mkdir custom
+cd custom
+exec git init -q
+mkdir sub
+cd sub
+pbrain init --path notes
+stdout 'notes'
+stdout 'from this directory.*\.\./notes'
+! stdout $WORK
+status 1 pbrain list --json
+stderr '"code":"no_brain"'
+pbrain --brain ../notes list --json
+env PBRAIN_DIR=../notes
+pbrain list --json
+status 1 pbrain --brain ../wrong list --json
+stderr '"code":"no_brain"'
+env PBRAIN_DIR=../wrong
+pbrain --brain ../notes list --json
+env PBRAIN_DIR=
+cd ../notes
+pbrain list --json
+cd ..
+status 1 pbrain init --json
+stderr 'notes/pbrain.toml'
+pbrain init --path notes
+stdout -count=1 'notes'
+cp $WORK/broken notes/pbrain.toml
+status 1 pbrain --brain notes list --json
+stderr '"code":"invalid_config"'
+cd ..
+mkdir aliases
+cd aliases
+exec git init -q
+mkdir sub
+symlink alias -> sub
+cd alias
+pbrain init --path 'a space'
+stdout '"a space"'
+stdout '"../a space"'
+! stdout $WORK
+pbrain --brain '../a space' list --json
+cd ../..
+mkdir outside-test
+cd outside-test
+exec git init -q
+pbrain init --path $WORK/external
+stdout $WORK/external
+cd ..
+mkdir selectors
+cd selectors
+exec git init -q
+env PBRAIN_DIR=selected
+pbrain init
+exists selected/pbrain.toml
+cd ..
+mkdir override
+cd override
+exec git init -q
+env PBRAIN_DIR=env-ignored
+pbrain --brain flag-ignored init --path winner
+exists winner/pbrain.toml
+! exists flag-ignored
+! exists env-ignored
+mkdir $WORK/private-brain
+exec sh -c 'printf "path = \"%s\"\n" "$WORK/private-brain" > winner/personal.toml'
+pbrain --brain winner --personal add --title 'External private item' --json
+jsonenv PRIVATE id
+pbrain --brain winner --personal get $PRIVATE --json
+stdout '"path":"personal:notes/'
+! stdout $WORK
+
+cd $WORK
+mkdir flag-precedence
+cd flag-precedence
+exec git init -q
+env PBRAIN_DIR=ignored-by-flag
+pbrain --brain first-choice init
+exists first-choice/pbrain.toml
+! exists ignored-by-flag
+
+cd $WORK
+mkdir fixture-only
+cd fixture-only
+exec git init -q
+mkdir testdata/catalog
+cp $WORK/broken testdata/catalog/pbrain.toml
+exec git add testdata/catalog/pbrain.toml
+env PBRAIN_DIR=
+status 1 pbrain init --json
+stderr '"code":"invalid"'
+stderr 'testdata/catalog/pbrain.toml'
+! exists docs/brain/pbrain.toml
+
+cd $WORK
+mkdir bad-selector
+cd bad-selector
+exec git init -q
+env PBRAIN_DIR=
+[linux] exec sh -c 'name=$(printf "invalid\377"); pbrain init --path "$name"; test -f "$name/pbrain.toml"'
+[linux] stdout 'selector unavailable'
+
+-- broken --
+[semantic
