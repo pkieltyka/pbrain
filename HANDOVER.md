@@ -16,6 +16,8 @@ Only what is on GitHub carries over. This file lists everything that existed onl
 
 ## STOP-THE-LINE: CI is red — fix before anything else
 
+> **Update 2026-11-21 (owner):** the project targets Linux for now. The macOS CI test jobs are commented out in `.github/workflows/ci.yml`, and the macOS work below (#1, #9) is on the Backlog. The integration rule is now "green on Linux" (`FACTORY.md`). The rest of this section is history.
+
 GitHub Actions has failed on every master push since `9e66477` (about 12:16 UTC on 2026-11-21). The team ran tests only locally on Linux and nobody watched Actions.
 
 - **`v0.1.0` is tagged but has no release.** The release workflow failed its test step, so nothing was published. The fixes ship as **`v0.1.1`**. (Owner may choose to delete the `v0.1.0` tag.)

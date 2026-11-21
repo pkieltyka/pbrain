@@ -30,7 +30,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # macOS test jobs are off: the project targets Linux for now. Mac work is on the
+        # Backlog (#1, #9). To restore, add macos-latest back to this list.
+        os: [ubuntu-latest] # , macos-latest]
         mode: [race, release]
     runs-on: ${{ matrix.os }}
     steps:
