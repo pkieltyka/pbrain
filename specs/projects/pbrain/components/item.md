@@ -290,7 +290,7 @@ The derived values:
 
 ### 3.6 The fold
 
-`Fold` maps each rune through `unicode.ToLower`. For a string with no byte at or above 0x80 it lower-cases bytes `A`–`Z` only. It returns the input unchanged, with no allocation, when nothing changes. Invalid UTF-8 cannot reach it from a file: `store` rejects such files. Command arguments are folded as `[]rune` conversion would decode them.
+`Fold` maps each rune through `unicode.ToLower`. For a string with no byte at or above 0x80 it lower-cases bytes `A`–`Z` only. It returns the input unchanged, with no allocation, when nothing changes. Invalid UTF-8 cannot reach it from a file: `store` rejects a file whose content or whose name is not valid UTF-8 (`store.md`, "Catalog scan and rereads"). An argument that is not valid UTF-8 is folded as `[]rune` conversion would decode it, which is why `store.Lookup` refuses such an argument before folding.
 
 Users of the fold:
 - `Item.Key`, filled by `store`;
