@@ -28,7 +28,7 @@ Open failures (run `44935115413`):
 | A | macOS: `model_path` and tests open paths behind the `/var` → `/private/var` link with the strict `OpenRoot` | Design `47c8b42`; implemented on branch `peter/lead-dev-2` (`8531694`), Actions pending | lead-dev-2 |
 | B | macOS: APFS rejects non-UTF-8 names and normalises `café` — tests that need those names skip there, naming the Mac backlog | Implemented on `peter/lead-dev-2` (`8531694`, probe conditions `[badnames]`, `[casedistinct]`, `[nfdistinct]`), Actions pending | lead-dev-2 |
 | C | macOS: scenario 14 loses the lock race after 0.88 s (not the 30 s wait) | `3a1e60f` makes the real lock error visible in the next macOS log; fix follows | lead-dev-2 |
-| D | Linux race/release: store `TestMutationFollowsScannedIdentity` (test-fixture flaw: ext4 reuses the freed inode) | Fixed on branch `peter/store-identity` (`b454a5a`, pushed), reviewed locally; merge once its Actions run passes the store test | architect-2 |
+| D | Linux race/release: store `TestMutationFollowsScannedIdentity` (test-fixture flaw: ext4 reuses the freed inode) | **Fixed and merged** (`65a3bac`); Linux CI jobs green on its branch | architect-2 |
 
 GitHub's `macos-latest` runner is a real Mac: push a branch and CI runs on it.
 
