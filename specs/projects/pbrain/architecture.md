@@ -64,11 +64,11 @@ All code is under `internal/` except `cmd/pbrain/main.go`, which only calls `cli
 | `semantic` | Passages, the per-section vector index, the per-user vector cache and its placement test, the incremental build, its status, and the scores a search asks for. | `search`, `embed`, `outline`, `item`, `gitx`, `sys`, `errs` |
 | `embed` | The `Embedder` seam, the table of supported models, and finding, downloading and verifying a model. It downloads through an interface that `importer/fetch` satisfies. One sub-package per model, holding its adapter, imported only where the registry is built. | `sys`, `errs` |
 | `importer` | File and link imports, body cleaning, HTML to Markdown. Sub-package `importer/fetch` is the public-fetch client. | `item`, `errs` |
-| `search` | Matching, match classes, ranking, the time window, per-clause counts, passage choice, and the merge of semantic results. Declares the `Corpus` it reads and the `Semantic` source it may ask. | `graph`, `item`, `query`, `outline` |
+| `search` | Matching, match classes, ranking, the time window, per-clause counts, passage choice, and the merge of semantic results. Declares the `Corpus` it reads and the `Semantic` source it may ask. | `graph`, `item`, `query`, `outline`, `errs` |
 | `render` | The budgeted document model and its text and JSON printers. | `errs` |
-| `store` | Scanning sections into items; guarded input files; the write primitives: lock, publish, edit, remove, originals. | `brain`, `item`, `gitx`, `sys` |
-| `brain` | Discovery, configuration, sections and views, the exposure guard, the path anchor. | `audience`, `item`, `gitx`, `sys` |
-| `graph` | Link validity, cycles, currentness, successors, history order, related items, and the effect of removing an item. | `item` |
+| `store` | Scanning sections into items; guarded input files; the write primitives: lock, publish, edit, remove, originals. | `brain`, `item`, `gitx`, `sys`, `errs` |
+| `brain` | Discovery, configuration, sections and views, the exposure guard, the path anchor. | `audience`, `item`, `gitx`, `sys`, `errs` |
+| `graph` | Link validity, cycles, currentness, successors, history order, related items, and the effect of removing an item. | `item`, `errs` |
 | `audience` | The canonical URL form, the mixed-audience host table, the rule type and the audience decision. | `errs` |
 | `query` | The tokenizer, query clauses, `<when>` parsing. It uses `item.Fold`, so it sits above `item`. | `item`, `errs` |
 | `item` | The item model, front matter parsing and emitting, ids and slugs, kinds, actors, standing, the fold. It takes a body's first heading from `outline`, so the title fallback agrees with every other use of headings. | `outline`, `errs` |
