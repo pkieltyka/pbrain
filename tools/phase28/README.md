@@ -16,6 +16,8 @@ tools/phase28/run-linux.sh init "$work"
 
 Use existing pinned model directories if available. Otherwise prepare them once, outside the timed runs. `provision` creates a disposable one-item brain and calls baseline `pbrain index` to download and verify the selected model. It records the resulting directory in `$work/bge-model-path` or `$work/gemma-model-path`. Each invocation creates a fresh brain and reuses `$work/download-cache`, so the same command can be retried after a failed download.
 
+Current builds call this command `pbrain sync`. The historical baseline still uses the original command name. `warm` probes the candidate with `sync --help` before timing and uses that candidate's canonical name for the status check.
+
 ```sh
 tools/phase28/run-linux.sh provision "$work" bge
 tools/phase28/run-linux.sh provision "$work" gemma
