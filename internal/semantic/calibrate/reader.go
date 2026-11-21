@@ -42,6 +42,7 @@ type session struct {
 	ctx    context.Context
 	dir    string
 	corpus corpus
+	model  *modelRun
 }
 
 func (s session) command(args ...string) (response, error) {
@@ -53,8 +54,14 @@ func (s session) command(args ...string) (response, error) {
 			if key == "TZ" {
 				return "UTC"
 			}
+			if key == "PBRAIN_CACHE" && s.model != nil {
+				return s.model.cache
+			}
 			return ""
 		},
+	}
+	if s.model != nil {
+		env.Models = s.model.registry
 	}
 	start := time.Now()
 	status := cli.RunWith(s.ctx, env, cli.Features{BM25: true})
@@ -66,13 +73,24 @@ func (s session) command(args ...string) (response, error) {
 }
 
 func (s session) search(text string, bm25 bool) (attempt, error) {
+	return s.searchMode(text, bm25, false)
+}
+
+func (s session) searchMode(text string, bm25, semantic bool) (attempt, error) {
 	args := []string{"search", "--json"}
 	if bm25 {
 		args = append(args, "--bm25")
 	}
+	if semantic {
+		args = append(args, "--semantic")
+	}
 	got, err := s.command(append(args, "--", text)...)
 	if err != nil {
 		return attempt{}, err
+	}
+	if semantic && (bytes.Contains(got.diagnostic, []byte(`"semantic_not_ready"`)) ||
+		bytes.Contains(got.diagnostic, []byte(`"semantic_partial"`))) {
+		return attempt{}, fmt.Errorf("cannot gate an incomplete semantic search: %s", got.diagnostic)
 	}
 	return decodePage(got)
 }

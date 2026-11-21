@@ -34,18 +34,31 @@ type rankedItem struct {
 	tf, headings         []int
 	matched, occurrences int
 	snippetStart         int
+	snippetLength        int
 	score                float64
 }
 
 func (s session) compare(text string, mode comparison) (attempt, error) {
 	start := time.Now()
-	clauses, err := query.Parse(text)
+	items, err := s.rankComparison(text, mode)
 	if err != nil {
 		return attempt{}, err
 	}
-	candidates, n, avg, df, err := s.candidates(clauses, mode)
+	out, err := s.comparisonPage(items)
 	if err != nil {
 		return attempt{}, err
+	}
+	return decodePage(response{out: out, elapsed: time.Since(start)})
+}
+
+func (s session) rankComparison(text string, mode comparison) ([]rankedItem, error) {
+	clauses, err := query.Parse(text)
+	if err != nil {
+		return nil, err
+	}
+	candidates, n, avg, df, err := s.candidates(clauses, mode)
+	if err != nil {
+		return nil, err
 	}
 	for i := range candidates {
 		c := &candidates[i]
@@ -66,29 +79,31 @@ func (s session) compare(text string, mode comparison) (attempt, error) {
 			c.score += idf * float64(tf) * 2.2 / (float64(tf) + norm)
 		}
 	}
-	slices.SortFunc(candidates, func(a, b rankedItem) int {
-		if order := cmp.Compare(b.score, a.score); order != 0 {
-			return order
-		}
-		if a.item.Header.CreatedKnown != b.item.Header.CreatedKnown {
-			if a.item.Header.CreatedKnown {
-				return -1
-			}
-			return 1
-		}
-		if order := b.item.Header.Created.Compare(a.item.Header.Created); order != 0 {
-			return order
-		}
-		if order := cmp.Compare(a.item.Key, b.item.Key); order != 0 {
-			return order
-		}
-		return cmp.Compare(a.item.Path, b.item.Path)
-	})
-	out, err := s.comparisonPage(candidates)
-	if err != nil {
-		return attempt{}, err
+	slices.SortFunc(candidates, compareRanked)
+	return candidates, nil
+}
+
+func compareRanked(a, b rankedItem) int {
+	if order := cmp.Compare(b.score, a.score); order != 0 {
+		return order
 	}
-	return decodePage(response{out: out, elapsed: time.Since(start)})
+	return newestItem(a.item, b.item)
+}
+
+func newestItem(a, b *item.Item) int {
+	if a.Header.CreatedKnown != b.Header.CreatedKnown {
+		if a.Header.CreatedKnown {
+			return -1
+		}
+		return 1
+	}
+	if order := b.Header.Created.Compare(a.Header.Created); order != 0 {
+		return order
+	}
+	if order := cmp.Compare(a.Key, b.Key); order != 0 {
+		return order
+	}
+	return cmp.Compare(a.Path, b.Path)
 }
 
 func (s session) candidates(clauses []query.Clause, mode comparison) ([]rankedItem, int, float64, []int, error) {
@@ -128,7 +143,7 @@ func (s session) candidates(clauses []query.Clause, mode comparison) ([]rankedIt
 }
 
 func rankItem(it *item.Item, body []byte, clauses []query.Clause, mode comparison) rankedItem {
-	c := rankedItem{item: it, body: body, tf: make([]int, len(clauses)), snippetStart: 0}
+	c := rankedItem{item: it, body: body, tf: make([]int, len(clauses)), snippetLength: 200}
 	bodyTokens := query.Tokens(string(body))
 	fields := [][]query.Token{query.Tokens(it.Header.Title), bodyTokens}
 	for _, tag := range it.Header.Tags {
@@ -262,9 +277,9 @@ func (s session) comparisonRow(c rankedItem) render.Object {
 		}
 	}
 	body := []rune(string(c.body))
-	if len(body) != 0 {
+	if len(body) != 0 && c.snippetLength > 0 {
 		start := c.snippetStart
-		end := min(len(body), start+200)
+		end := min(len(body), start+c.snippetLength)
 		text := render.OneLine(string(body[start:end]), 0)
 		if start > 0 {
 			text = "…" + text

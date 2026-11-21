@@ -14,21 +14,31 @@ import (
 	"time"
 
 	"github.com/pkieltyka/pbrain/internal/brain"
+	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/embed/bge"
 )
 
 const strict = "strict"
 const partial = "partial"
+const hybrid = "hybrid"
+const combined = "bm25-and-semantic"
 
 func main() {
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
 }
 
 func run(ctx context.Context, args []string, out, diag io.Writer) int {
+	return runWithRegistry(ctx, args, out, diag, embed.NewRegistry(bge.Entry()))
+}
+
+func runWithRegistry(ctx context.Context, args []string, out, diag io.Writer, models embed.Registry) int {
 	flags := flag.NewFlagSet("calibrate", flag.ContinueOnError)
 	flags.SetOutput(diag)
 	stage := flags.String("stage", "check", "calibration to choose a rule, or check to test a frozen rule")
+	model := flags.String("model", "", "calibration model name")
+	modelPath := flags.String("model-path", "", "directory containing the model's pinned files")
 	flags.Usage = func() {
-		fmt.Fprintln(diag, "Usage: calibrate [-stage calibration|check] <fixture-directory>")
+		fmt.Fprintln(diag, "Usage: calibrate [-stage calibration|check] [-model NAME -model-path DIR] <fixture-directory>")
 		flags.PrintDefaults()
 	}
 	if err := flags.Parse(args); err != nil {
@@ -46,7 +56,7 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 		flags.Usage()
 		return 2
 	}
-	if flags.NArg() != 1 {
+	if flags.NArg() != 1 || (*model == "") != (*modelPath == "") {
 		flags.Usage()
 		return 2
 	}
@@ -56,6 +66,12 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 		return 2
 	}
 	defer fix.close()
+	if *model != "" {
+		if err := fix.configureModel(models, *model, *modelPath); err != nil {
+			fmt.Fprintln(diag, err)
+			return 2
+		}
+	}
 	report, err := evaluate(ctx, fix, half)
 	if err != nil {
 		fmt.Fprintln(diag, err)
@@ -67,7 +83,7 @@ func run(ctx context.Context, args []string, out, diag io.Writer) int {
 		fmt.Fprintln(diag, err)
 		return 2
 	}
-	if !report.Partial.Pass {
+	if !report.passes() {
 		return 1
 	}
 	return 0
@@ -90,6 +106,12 @@ var modelFree = []mode{
 	experiment("bm25-stemming", withStemming),
 	experiment("bm25-heading-weight", withHeadingWeight),
 	{partial, func(s session, text string) (attempt, error) { return s.search(text, true) }},
+}
+
+var modelArms = []mode{
+	{hybrid, func(s session, text string) (attempt, error) { return s.searchMode(text, false, true) }},
+	{combined, func(s session, text string) (attempt, error) { return s.searchMode(text, true, true) }},
+	{"rank-fusion", session.fuse},
 }
 
 type outcome struct {
@@ -135,12 +157,17 @@ type armReport struct {
 }
 
 type report struct {
-	NegativeHalf       string      `json:"negative_half"`
-	ReleaseCheck       bool        `json:"held_out_release_check"`
-	SharedOutputStable bool        `json:"shared_output_stable_with_personal"`
-	PersonalReads      int         `json:"personal_controls_read"`
-	Arms               []armReport `json:"arms"`
-	Partial            gate        `json:"partial_gate"`
+	NegativeHalf       string       `json:"negative_half"`
+	ReleaseCheck       bool         `json:"held_out_release_check"`
+	SharedOutputStable bool         `json:"shared_output_stable_with_personal"`
+	PersonalReads      int          `json:"personal_controls_read"`
+	Arms               []armReport  `json:"arms"`
+	Partial            gate         `json:"partial_gate"`
+	Model              *modelReport `json:"model,omitempty"`
+}
+
+func (r report) passes() bool {
+	return r.Partial.Pass && (r.Model == nil || r.Model.Semantic.Pass && r.Model.Combined.Pass)
 }
 
 type gate struct {
@@ -166,7 +193,7 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
-	s := session{ctx: ctx, dir: f.dir, corpus: c}
+	s := session{ctx: ctx, dir: f.dir, corpus: c, model: f.model}
 	var qs []question
 	for _, q := range f.questions {
 		if q.Kind == answerable || q.Half == half {
@@ -174,14 +201,33 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 		}
 	}
 	result := report{NegativeHalf: half, ReleaseCheck: half == heldOut}
-	for _, m := range modelFree {
+	modes := slices.Clone(modelFree)
+	if s.model != nil {
+		if err := s.buildIndex(false); err != nil {
+			return report{}, err
+		}
+		cutoff, err := s.calibrateCutoff(f.questions)
+		if err != nil {
+			return report{}, err
+		}
+		s.model = s.model.withCutoff(cutoff)
+		result.Model = &modelReport{Name: s.model.name, Cutoff: cutoff}
+		modes = append(modes, modelArms...)
+	}
+	for _, m := range modes {
 		arm, err := runArm(s, qs, m)
 		if err != nil {
 			return report{}, err
 		}
 		result.Arms = append(result.Arms, arm)
 	}
-	result.Partial = partialGate(qs, result.Arms[0], result.Arms[len(result.Arms)-1])
+	baseline := result.arm(strict)
+	result.Partial = partialGate(qs, baseline, result.arm(partial))
+	if result.Model != nil {
+		result.Model.Semantic = modelGate(qs, baseline, result.arm(hybrid))
+		result.Model.Combined = checkAbstention(qs, baseline, result.arm(combined))
+		result.Model.BM25WithModel = result.Model.Semantic.Pass && result.Partial.Pass && result.Model.Combined.Pass
+	}
 
 	personal, err := f.installPersonal(ctx)
 	if err != nil {
@@ -191,7 +237,12 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 	if err != nil {
 		return report{}, err
 	}
-	for i, m := range modelFree {
+	if s.model != nil {
+		if err := s.buildIndex(true); err != nil {
+			return report{}, err
+		}
+	}
+	for i, m := range modes {
 		replay, err := runArm(s, qs, m)
 		if err != nil {
 			return report{}, err
@@ -216,6 +267,15 @@ func evaluate(ctx context.Context, f *fixture, half string) (report, error) {
 		result.PersonalReads++
 	}
 	return result, nil
+}
+
+func (r report) arm(name string) armReport {
+	for _, arm := range r.Arms {
+		if arm.Name == name {
+			return arm
+		}
+	}
+	panic("calibration arm missing: " + name)
 }
 
 func runArm(s session, qs []question, m mode) (armReport, error) {
@@ -275,25 +335,6 @@ func compareTranscripts(qs []question, original, replay armReport) error {
 		}
 	}
 	return nil
-}
-
-func partialGate(qs []question, baseline, broad armReport) gate {
-	g := gate{Empty: broad.Empty, Negatives: broad.Negatives, StrictFound: baseline.Found, PartialFound: broad.Found}
-	g.Abstention = g.Negatives > 0 && g.Empty*100 >= 95*g.Negatives
-	for _, q := range qs {
-		b, a := baseline.results[q.ID], broad.results[q.ID]
-		if q.Kind == answerable {
-			if b.found && !a.found {
-				g.Lost = append(g.Lost, q.ID)
-			}
-		} else if !a.empty {
-			g.Failures = append(g.Failures, gateFailure{q.ID, q.Regression, !b.empty})
-			g.Abstention = g.Abstention && !q.Regression
-		}
-	}
-	g.Gain = g.PartialFound > g.StrictFound && len(g.Lost) == 0
-	g.Pass = g.Abstention && g.Gain
-	return g
 }
 
 func (r *evidenceReport) record(got evidenceRead) {

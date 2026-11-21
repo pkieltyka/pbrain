@@ -97,7 +97,7 @@ var allowed = map[string][]string{
 	"cmd/pbrain":                  {"cli", "gitx", "sys"}, // process adapter in cli.md §1
 	"internal/check":              {"graph", "item", "secretscan"},
 	"internal/semantic":           {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
-	"internal/semantic/calibrate": {"brain", "cli", "graph", "item", "outline", "query", "render", "search", "store", "sys"}, // developer tool in semantic.md
+	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
 	"internal/embed":              {"sys", "errs"},
 	"internal/embed/bge":          {"embed", "sys", "errs"},
 	"internal/embed/embedtest":    {"embed", "errs"}, // semantic.md "Test plan": the test registry
