@@ -3,11 +3,13 @@ package search
 import (
 	"cmp"
 	"context"
+	"math"
 	"runtime"
 	"slices"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/graph"
@@ -80,9 +82,10 @@ type match struct {
 }
 
 type rankedHit struct {
-	source *match
-	hit    Hit
-	score  float64 // partial ordering only
+	source     *match
+	hit        Hit
+	score      float64 // partial and semantic ordering only
+	start, end int     // a semantic hit's passage span in code points
 }
 
 // Run evaluates exact matching and optional lexical broadening over the caller's view.
@@ -98,8 +101,24 @@ func Run(ctx context.Context, c Corpus, g *graph.Graph, req Request) (*Result, e
 
 	r := &Result{Offset: req.Offset}
 	ranked := rankExact(r, records, req.Now)
+	added := map[*item.Item]bool{}
+	if req.Semantic != nil {
+		sem, state, err := semanticHits(ctx, c, records, ranked, req)
+		if err != nil {
+			return nil, err
+		}
+		r.Sem = state
+		for _, row := range sem {
+			added[row.hit.Item] = true
+		}
+		ranked = append(ranked, sem...)
+	}
 	if req.BM25 {
-		ranked = append(ranked, rankPartial(records, req.Clauses)...)
+		for _, row := range rankPartial(records, req.Clauses) {
+			if !added[row.hit.Item] {
+				ranked = append(ranked, row)
+			}
+		}
 	}
 	r.Total = len(ranked)
 	if r.Total == 0 {
@@ -271,4 +290,87 @@ func alone(records []match, req Request) []ClauseCount {
 
 func bodyError() error {
 	return &errs.Error{Code: "io", Message: "could not read item body", Exit: 1}
+}
+
+// semanticHits is section 6.1's steps 2 to 4: one Score call over the eligible set, in catalog
+// order, and the list S of added hits. Only a cancelled context is an error.
+func semanticHits(ctx context.Context, c Corpus, records []match, exact []rankedHit, req Request) ([]rankedHit, SemanticState, error) {
+	state := SemanticState{Asked: true}
+	var eligible []*item.Item
+	byItem := map[*item.Item]*match{}
+	for i := range records {
+		if records[i].eligible {
+			eligible = append(eligible, records[i].item)
+			byItem[records[i].item] = &records[i]
+		}
+	}
+	scores, err := req.Semantic.Score(ctx, req.Text, eligible)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, state, ctxErr
+	}
+	cutoff := float64(scores.Cutoff)
+	switch {
+	case err != nil:
+		state.Reason = ModelFailed
+		return nil, state, nil
+	case !scores.Ready:
+		state.Reason = scores.Reason
+		return nil, state, nil
+	case math.IsNaN(cutoff) || math.IsInf(cutoff, 0):
+		state.Reason = ModelFailed
+		return nil, state, nil
+	}
+	state.Ready, state.Missing = true, scores.Missing
+	inL := make(map[*item.Item]bool, len(exact))
+	for _, row := range exact {
+		inL[row.hit.Item] = true
+	}
+	seen := map[*item.Item]bool{}
+	var out []rankedHit
+	for _, h := range scores.Hits {
+		score := float64(h.Score)
+		rec, ok := byItem[h.Item]
+		if !ok || inL[h.Item] || seen[h.Item] || math.IsNaN(score) || math.IsInf(score, 0) || h.Score < scores.Cutoff {
+			continue
+		}
+		n, err := bodyChars(c, h.Item)
+		if err != nil {
+			return nil, state, err
+		}
+		if h.Start < 0 || h.End < h.Start || h.End > n {
+			continue
+		}
+		seen[h.Item] = true
+		out = append(out, rankedHit{
+			source: rec,
+			hit:    Hit{Item: h.Item, Semantic: true, Replaced: rec.selected == replacedIn},
+			score:  score, start: h.Start, end: h.End,
+		})
+	}
+	slices.SortStableFunc(out, func(a, b rankedHit) int {
+		if a.hit.Replaced != b.hit.Replaced {
+			if a.hit.Replaced {
+				return 1
+			}
+			return -1
+		}
+		if order := cmp.Compare(b.score, a.score); order != 0 {
+			return order
+		}
+		return newest(a.hit.Item, b.hit.Item)
+	})
+	return out, state, nil
+}
+
+// bodyChars is the body's length as scanned: the item's layout, or the body itself when the scan
+// set none.
+func bodyChars(c Corpus, it *item.Item) (int, error) {
+	if it.Layout.BodyLine != 0 {
+		return it.Layout.BodyChars, nil
+	}
+	body, err := c.Body(it)
+	if err != nil {
+		return 0, bodyError()
+	}
+	return utf8.RuneCount(body), nil
 }
