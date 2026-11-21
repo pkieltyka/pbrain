@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -171,6 +172,80 @@ func TestSemanticNoticeTable(t *testing.T) {
 	for _, st := range []search.SemanticState{{}, {Asked: true, Ready: true}} {
 		if _, ok := semanticNotice(&shared, st); ok {
 			t.Errorf("%+v printed a notice", st)
+		}
+	}
+}
+
+// TestSemanticAlignment is step 1 of render.md's alignment fixture: a query whose clauses do not all
+// match lexically finds, by meaning, a passage in one of two sections with the same title; its
+// locator names that section, its offset is that section's outline row, and get opens there.
+func TestSemanticAlignment(t *testing.T) {
+	rb, _ := semanticBrain(t)
+	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"test-model\"\n\n[get]\nmax_chars = 100\n"), 0o644)
+	body := "Préambule ünïcode, ça va.\n\n# Alpha\n\nalpha text\n\n## Setup\n\nfirst setup delta words\n\n" +
+		"\x60\x60\x60\n# not a heading\n\x60\x60\x60\n\n# Beta\n\nbeta text\n\n## Setup\n\nsecond setup gamma words\n"
+	const id = "20261105-000000-align-a2a2"
+	rb.put("notes/"+id+".md", []string{"kind: note", "title: Align", "created: 2026-11-05T00:00:00Z", "author: agent:x"}, body)
+	if status, _, errOut := rb.run("index"); status != 0 {
+		t.Fatal(errOut)
+	}
+	var ol struct {
+		Outline []struct {
+			Offset   int    `json:"offset"`
+			FileLine int    `json:"file_line"`
+			Title    string `json:"title"`
+		} `json:"outline"`
+	}
+	_, out, _ := rb.run("get", id, "--outline", "--json")
+	json.Unmarshal([]byte(out), &ol)
+	var setups []int
+	for i, row := range ol.Outline {
+		if row.Title == "Setup" {
+			setups = append(setups, i)
+		}
+	}
+	if len(setups) != 2 {
+		t.Fatalf("outline: %s", out)
+	}
+	for query, row := range map[string]int{"delta zzqq": setups[0], "gamma zzqq": setups[1]} {
+		var page struct {
+			Results []struct {
+				ID            string `json:"id"`
+				Semantic      bool   `json:"semantic"`
+				Section       string `json:"section"`
+				SnippetOffset int    `json:"snippet_offset"`
+				SnippetLine   int    `json:"snippet_line"`
+			} `json:"results"`
+		}
+		status, out, errOut := rb.run("search", query, "--semantic", "--json")
+		oneJSON(t, out, &page)
+		var hit *struct {
+			ID            string `json:"id"`
+			Semantic      bool   `json:"semantic"`
+			Section       string `json:"section"`
+			SnippetOffset int    `json:"snippet_offset"`
+			SnippetLine   int    `json:"snippet_line"`
+		}
+		for i := range page.Results {
+			if page.Results[i].ID == id {
+				hit = &page.Results[i]
+			}
+		}
+		if status != 0 || errOut != "" || hit == nil || !hit.Semantic || hit.Section != "Setup" {
+			t.Fatalf("%q: %d %q %s", query, status, errOut, out)
+		}
+		want := ol.Outline[row]
+		if hit.SnippetOffset != want.Offset || hit.SnippetLine != want.FileLine {
+			t.Fatalf("%q: offset %d line %d, want the outline row %+v", query, hit.SnippetOffset, hit.SnippetLine, want)
+		}
+		var got struct {
+			Body     string `json:"body"`
+			LineFrom int    `json:"line_from"`
+		}
+		_, out, _ = rb.run("get", id, "--offset", fmt.Sprint(hit.SnippetOffset), "--json", "--max-chars", "2000")
+		oneJSON(t, out, &got)
+		if !strings.HasPrefix(got.Body, "## Setup") || got.LineFrom != hit.SnippetLine {
+			t.Fatalf("%q: get at %d: line %d %q", query, hit.SnippetOffset, got.LineFrom, got.Body[:min(20, len(got.Body))])
 		}
 	}
 }
