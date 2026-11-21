@@ -5,38 +5,36 @@ TODO
 
 ## In progress
 
-- [ ] Goinfer upstream sync (@lead-dev-2)
-    * owner: @lead-dev-2
-    * branch: `pkieltyka/sync-upstream`; PR #6 includes `2ba9f26`, worktree clean
-    * next: hold merge/tag v0.3.0 for owner's go-ahead
-
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: fix `d6f05cc..437914c` approved by @architect-2; rule-3 `e6709fc` approved; README patch `0c78b88` awaits @architect's check
-    * next: full-size Gemma index is running; report steady embedding rate/projected finish and peak RSS, then finish warm 5k/50 MB search; BGE, Mac and tagged install remain
+    * range/status: harness, guard, Linux rule-3 record and README `676bf6e` integrated; full-size Gemma index running
+    * next: report embedding rate/projected finish/peak RSS; finish Gemma then serial BGE timing; Mac and tagged install remain
 
-- [ ] Aikit fork documentation follow-up (@architect-2)
-    * owner: @architect-2
-    * PR #4: `0b1b868..1f7bd74` (`pkieltyka/docs-pins`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
-
-- [ ] Goinfer fork documentation follow-up (@architect-2)
-    * owner: @architect-2
-    * PR #5: `a759890b..93adb19f3` (`pkieltyka/fork-docs-v0.2`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
+- [ ] pbrain release pipeline (@lead-dev-2)
+    * owner: @lead-dev-2
+    * range/status: `cd364e6..48e295e` on `peter/lead-dev-2`; worktree clean, in review
+    * next: @reviewer returns verdict
 
 ## Backlog
 
 ## Done
 
+- [x] Goinfer fork documentation follow-up (@architect-2) `e33aa3893`
+    * PR #8 approved and merged; v0.4.0 tag waits for owner approval.
+
+- [x] pbrain README for phase 28 (@architect-2) `676bf6e`
+    * Spec-checked, install/quick start/model guidance and first-index instruction included; speed table reserved for Phase 28.
+
+- [x] aikit fork documentation follow-up (@architect-2) `0bbc048`
+    * PR #4 approved and merged; all 22 reported GitHub checks passed.
+
+- [x] Goinfer upstream sync (@lead-dev-2) `765dab39`
+
 - [x] pbrain phase 16: URL imports (@architect-2) `f753d2c`
-    * Reviewer approved `698dfab..57c7694`; merged and pushed; master tests pass.
 
 - [x] pbrain phase 15: importer files and linked items (@architect-2) `e3b694b`
-    * Reviewer approved `f3dfbcb..b4a40a5`; merged, module checks and full tests passed.
 
 - [x] pbrain phase 11 measurement harness (@lead-dev) `606bbfc`
-    * Approved by @architect-2 and merged; built-binary warm harness covers shared/personal/outside-Git and BM25 cases.
 
 - [x] pbrain init selector usable from caller's directory (@architect-2) `90b4644`
 
