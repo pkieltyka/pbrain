@@ -40,7 +40,10 @@ func (b *Brain) guard(ctx context.Context, paths []guarded) error {
 		if err := b.checkShape(g); err != nil {
 			return err
 		}
-		start := nearestExisting(files, filepath.Dir(g.Path))
+		start, err := nearestExisting(files, filepath.Dir(g.Path))
+		if err != nil {
+			return exposed(g.role, "cannot be checked; make sure it can be read")
+		}
 		gd := gitDirOf(files, start)
 		if gd == "" {
 			continue
@@ -96,7 +99,10 @@ func (b *Brain) checkShape(g guarded) error {
 	parent := filepath.Dir(g.Path)
 	ph, err := files.OpenRoot(parent, false)
 	if err != nil {
-		return nil // a missing parent: the path does not exist
+		if isNotExist(err) {
+			return nil // a missing parent: the path does not exist
+		}
+		return exposed(g.role, "cannot be checked; make sure it can be read")
 	}
 	defer ph.Close()
 	info, err := files.Stat(ph, filepath.Base(g.Path))
@@ -160,15 +166,20 @@ func holdsGit(files sys.Files, dir sys.Dir, depth int) (bool, error) {
 	return false, nil
 }
 
-// nearestExisting is dir or its nearest existing ancestor.
-func nearestExisting(files sys.Files, dir string) string {
+// nearestExisting is dir or its nearest existing ancestor. Only a folder that does not exist is
+// climbed past; any other failure to open one is an error, so the guard fails closed.
+func nearestExisting(files sys.Files, dir string) (string, error) {
 	for d := dir; ; d = filepath.Dir(d) {
-		if h, err := files.OpenRoot(d, false); err == nil {
+		h, err := files.OpenRoot(d, false)
+		if err == nil {
 			h.Close()
-			return d
+			return d, nil
+		}
+		if !isNotExist(err) {
+			return "", err
 		}
 		if d == filepath.Dir(d) {
-			return d
+			return d, nil
 		}
 	}
 }
