@@ -164,7 +164,7 @@ type ScanFunc func(ctx context.Context) (SectionInput, error)
 type Options struct {
     Files     sys.Files
     Registry  embed.Registry
-    ModelName string   // pbrain.toml semantic.model; "" when off
+    ModelName string   // brain's Config.Semantic.Model: the name pbrain.toml gives, the default when it gives none, "" when semantic search is off
     ModelDir  sys.Dir  // personal.toml model_path, opened by cli; nil when unset
     Cache     *Cache   // nil when no cache folder is known
     CacheErr  error    // ErrCacheExposed when the folder failed its test
@@ -232,7 +232,7 @@ type SectionStatus struct {
 }
 
 type StatusResult struct {
-    Model        string // "" when none is named
+    Model        string // "" when semantic search is off
     Supported    bool
     ModelPresent bool
     Sections     []SectionStatus
@@ -344,7 +344,7 @@ WHERE d <= ?2;
 
 For one section, `Build`:
 
-1. Fails with `no_model` when `ModelName` is empty, and with `invalid_config` when the registry does not know it (the message lists `Names()`), when `CacheErr` is set, or when there is neither a cache nor a `ModelDir`.
+1. Fails with `no_model` when `ModelName` is empty, which means semantic search is off, and with `invalid_config` when the registry does not know it (the message lists `Names()`), when `CacheErr` is set, or when there is neither a cache nor a `ModelDir`.
 2. If the section has no `.pbrain/index/` folder, calls `scan` once without a lock; with no item it returns a zero result and creates nothing. An empty section therefore never gets a `.pbrain/` from this command. If the folder exists, the build goes on even with no item: an index that is unreadable or built for another fingerprint is then replaced by an empty database, so the status stops reporting it.
 3. Opens `.pbrain/index/`, creating both folders, and takes `lock`. The wait has no limit of its own: after 2 seconds it reports `Progress{Waiting: true}` once, and the context ends it. Then it calls `scan`: the catalog it works from is always taken while it holds the lock, so a build that waited cannot publish from an older view of the files than the build before it, or delete that build's rows.
 4. **Makes sure of the model**, whenever the scan found at least one item, whether or not anything will be embedded. For a model in the cache it first takes the model's own lock, `<cache>/models/<FolderName(m)>.lock`, with `Files.Lock` under the command's context, and holds it until the model is verified: two projects of one person share the cache and each holds only its own index lock, so without it one build could remove source files another is still reading. The order is always index lock, then model lock (architecture §10.4), and this is the only place two locks are held at once. With the lock held it looks again, since another build may have finished the work. It calls `Find`; if the model is absent it calls `Download`, unless `ModelDir` is set, in which case an absent or wrong-sized file is `invalid_config`. For a model with `Source`, the files fetched are the source files, into `<cache>/models/<FolderName(m)>.source/`, each kept only if its size and digest are the pinned ones; then `Pack` writes the pack into `<cache>/models/<FolderName(m)>/`, and the source files are removed once `Verify` has accepted the pack; the empty `.source` folder may remain. A run interrupted before that finds the source files again and does not download them twice. Deriving holds the source and the pack in memory together, about 2 GB for EmbeddingGemma 2, once. It then calls `Verify`. A failure of `Verify` is `invalid_config` for `ModelDir`; for the cache the files that failed are removed, obtained again and verified once more, and a second failure is `fetch_failed`. So a run that reuses every vector still restores a model whose cache was deleted and still refuses a wrong local copy, and after any successful run a search finds the model. A source digest that is wrong is `fetch_failed`; a pack that does not come out with its pinned digests, and any file-system failure, is `io`; in every case no unverified pack is left under the model's name. The model lock is released here. The `Artifact` is kept only until it is known whether a passage must be embedded; the inference runtime is opened only for the first batch.
@@ -378,7 +378,7 @@ An interrupted run leaves a usable index holding every published item; the next 
 
 | Check | Reason |
 |---|---|
-| `ModelName` is empty | `NoModel` |
+| `ModelName` is empty: semantic search is off | `NoModel` |
 | the registry does not know the name | `UnsupportedModel` |
 | `CacheErr` is set, or a cache folder on the way to the model holds `.git` | `CacheExposed` |
 | `embed.Find` fails: a file missing or of the wrong size | `ModelAbsent` |
@@ -395,6 +395,7 @@ If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifa
 
 ### What `cli` does
 
+- **Which model.** `Options.ModelName` is `Config.Semantic.Model` as `brain` resolved it (`components/brain.md`): the name `pbrain.toml` gives; `brain.DefaultModel`, which is `embeddinggemma-2`, when it has no `semantic.model` key; and `""` when it says `"none"`. `semantic` and `embed` hold no default of their own, so a test registry needs no entry of that name, and a test in `cli` or `cmd/pbrain` checks that the release registry holds `brain.DefaultModel`.
 - `search --semantic`: after `brain.Open` and before the scan, open the cache with `create = false` and call `Start` with the query text and the view's section folders, deferring `Close` so that a failed scan or any later error cancels the work. After the scan, which already keeps bodies for a search, `Attach` one `SectionInput` per section, put the source in `search.Request.Semantic`, and turn `Result.Sem` into one notice: `semantic_not_ready` with the reason and `pbrain index` (or `PBRAIN_CACHE` for an exposed cache), or `semantic_partial` with `Missing` when it ran and `Missing` is above zero.
 - `pbrain index`: open the cache with `create = true`, then call `Build` for the shared section and, with `--personal`, for the personal one, in that order, each with a `ScanFunc` that scans with bodies kept, and print one line per result. A personal section whose folder does not exist is not created: its line reports no item. `notify` becomes the `model_download` notice and `progress` the `index_progress` notices.
 - `pbrain index --status`: one scan with bodies kept, the cache with `create = false`, then `Status`. A section whose folder or index folder does not exist is reported as `IndexNone`, with its item count, and nothing is created. `ModelPresent` is the result of `Find` and `Verify` together.
@@ -411,13 +412,13 @@ shared: 5000 items indexed, 1 item removed; 12 passages embedded, 3 reused
 
 JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000, "items_removed": 1, "passages_embedded": 12, "passages_reused": 3}]}`, numbers printed also when zero.
 
-**`pbrain index --status`.** The first line is one of `model: none`, `model: <name>, on this machine`, `model: <name>, not on this machine` and `model: <name>, not supported by this pbrain`. Then one line per section of the view: `<section>: <Indexed> of <Items> items indexed`, followed by ` (built for another model)` for `IndexStale` or ` (unreadable)` for `IndexUnreadable`; `IndexNone` adds nothing. JSON: `{"model": "<name>", "model_present": true, "sections": [{"section": "shared", "items": 5000, "indexed": 4988}]}`, with `"stale": true` or `"unreadable": true` on a section; `model` is left out when none is named and `model_present` when false.
+**`pbrain index --status`.** The first line is one of `model: none` (semantic search is off), `model: <name>, on this machine`, `model: <name>, not on this machine` and `model: <name>, not supported by this pbrain`. Then one line per section of the view: `<section>: <Indexed> of <Items> items indexed`, followed by ` (built for another model)` for `IndexStale` or ` (unreadable)` for `IndexUnreadable`; `IndexNone` adds nothing. JSON: `{"model": "<name>", "model_present": true, "sections": [{"section": "shared", "items": 5000, "indexed": 4988}]}`, with `"stale": true` or `"unreadable": true` on a section; `model` is left out when semantic search is off and `model_present` when false.
 
 **Notices.** `<x>` is `pbrain index` in the shared view and `pbrain index --personal` in the personal view.
 
 | Code | When | Message |
 |---|---|---|
-| `semantic_not_ready` | `NoModel` | `semantic search is off: pbrain.toml names no model` |
+| `semantic_not_ready` | `NoModel` | `semantic search is off: pbrain.toml sets model = "none"` |
 | `semantic_not_ready` | `UnsupportedModel` | `this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names` |
 | `semantic_not_ready` | `CacheExposed` | `the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them` |
 | `semantic_not_ready` | `ModelAbsent` | `the model is not on this machine: run <x>, or set model_path` |
@@ -625,7 +626,7 @@ Package `internal/embed/gemma2` is the only package of pbrain that imports goinf
 4. **The cut.** The model takes 8,192 tokens and goinfer refuses more. The adapter never sends more than 2,048 including the prompt and the two special tokens, which bounds time and memory: a 2,294-token text took 5.8 s. A document is split at its first blank line into prefix and passage and cut by the same rule as the other adapter: the prefix only as far as needed and never below half the room, then the passage from its end.
 5. Texts of one call are embedded one after another; goinfer runs its matmuls across the processors by itself. The vector is the mean over every token of the projected last hidden state, L2-normalised, 768 values.
 
-**Costs to state wherever this model is offered:** a first index of about 95 minutes for 5,000 items at four threads (about 440 tokens a second), about 1 GB of memory at a search by estimate, a one-time download of 1.49 GB for a 542 MB pack, and 9 right of 20 on our reworded questions against 13 for bge-small.
+**Costs to state wherever this model is offered, the more so since it is the default (owner's decision, 2026-11-21):** a first index of about 95 minutes for 5,000 items at four threads (about 440 tokens a second), about 1 GB of memory at a search by estimate, a one-time download of 1.49 GB for a 542 MB pack, and 9 right of 20 on our reworded questions against 13 for bge-small.
 
 **What a cut passage is evidence for.** Counting in code points cannot promise that a passage fits a model: dense or non-Latin text can take more tokens than the limit. The adapter then embeds the prefix and the beginning of the passage, and the tail is not represented in the vector. The hit still cites the whole span, and its snippet is the start of the passage, which is the part that was scored. This is a stated limit, not an error. The spike must show, for each model in the table, that with the longest permitted prefix in the densest script of its test set a word placed at the start of the passage still changes the vector.
 
@@ -666,7 +667,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestBuildRepairsDamage` | A damaged database file and an unparseable manifest each give `IndexUnreadable` in `Status`, and a build restores a usable index without touching an item. Scenario 35. |
 | `TestBuildConcurrent` | Two processes building one section: the second waits, reports `Waiting` and then finds nothing to do. Staggered: process A scans, an item is added, process B builds and indexes it, then A gets the lock; A scans again under the lock, keeps B's entry and reports nothing removed. A search during a build that publishes reads one whole database, the old or the new. |
 | `TestBuildEmptySection` | A section with no item and no index: zero result, no `.pbrain/` created, also for a personal folder that does not exist. A section whose last item was deleted: a database with no item. A section with no item whose index is unreadable or built for another model: the build publishes an empty database and the status reports it as in order. `Status` creates nothing in either. |
-| `TestBuildErrors` | No model named: `no_model`. Unknown name: `invalid_config` listing the names. A changed body is skipped. A vector of the wrong length fails with `io` and leaves the old index. Scenario 35. |
+| `TestBuildErrors` | Semantic search off (an empty `ModelName`): `no_model`. Unknown name: `invalid_config` listing the names. A changed body is skipped. A vector of the wrong length fails with `io` and leaves the old index. Scenario 35. |
 | `TestModelIdentity` | Wrong weights of the right size, at `model_path` and in the cache, and a missing companion file of a two-file model: `Build` fails (`invalid_config`, or a new download for the cache) and publishes no database; a search returns its lexical results with not ready and never calls `Registry.Open`. A file replaced by name after `Verify` returned, and a file overwritten in place through the same open file after `Verify` returned, change nothing: the test registry hashes the bytes it is given and they are the pinned ones. Two models with one name and different files use two folders. A valid offline two-file folder builds with no request. Scenario 35. |
 | `TestContentDigestFraming` | A title holding a zero byte, and a body starting with one, never collide with another title and body pair; moving bytes between the end of the title and the start of the body changes the digest. |
 | `TestModelFindVerifyDownload` | Files found at `model_path` and in the cache; a wrong size or digest at `model_path` is `invalid_config`; a download with a wrong digest, a short body or a body past its size fails with `fetch_failed` and leaves no file; a second process finds the first one's file. No request is made when `model_path` is set. Scenario 35. |
@@ -677,7 +678,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestSourceNotReady` | Each row of the check table gives its reason and opens no model; no file is written and no request made in any of them. Scenario 35. |
 | `TestSourceScores` | The best passage per item, its span, ties to the earlier passage; only eligible covered items are scored; the query is embedded once; results are identical across runs. Scenarios 33 and 34. |
 | `TestSourcePartial` | A usable shared index and no personal one: shared items scored, `Missing` equals the personal items; in the shared view `Missing` counts shared items only. An uncovered edited item is never scored. Scenario 35. |
-| `TestStatus` | Counts per section and each `IndexState`; no model opened; correct with no model named. Scenarios 35 and 37. |
+| `TestStatus` | Counts per section and each `IndexState`; no model opened; correct with semantic search off. Scenarios 35 and 37. |
 | `TestBgeParity` | With the model files present: for the 22 reference texts kept in `testdata` (documents and queries, code, German, Japanese, over-long texts), token ids equal the stored reference ids and each vector has cosine similarity of at least 0.999 with the stored reference vector; a call with one text and a call with eight give the same vectors. |
 | `TestBgeBuildsFromBytes` | The model folder is deleted after `Verify` and before `Open`: the embedder opens and embeds, and `a.Files` is nil afterwards, also when `Open` fails. An `Artifact` with four files (the pooling file missing is one case), with six, or with an empty one fails before the loader is called. With the load step replaced by a fake, through a package variable kept for this test: a loader that skips one of the five paths (the pooling file is one case), one that reads a path twice, one that asks for another name and one that calls the `Open` method each make the opener fail. Guards the loader against a new pin of aikit. |
 | `TestBgeCutRule` | A 600-token query is cut to 510 from its end. A 400-token prefix with a 300-token passage: the prefix is cut to 255 and the passage to 255. A 400-token prefix with a 50-token passage: the prefix keeps 400 and nothing is cut. Changing the passage's first word changes the vector; changing a word in its cut tail does not. |
