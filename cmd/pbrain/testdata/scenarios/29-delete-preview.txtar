@@ -1,0 +1,156 @@
+# Functional spec §15, scenario 29.
+pbrain init
+exec git add docs/brain
+exec git commit -qm 'Delete fixture'
+status 1 pbrain delete C
+stdout 'B'
+stdout 'related'
+stderr 'confirm_required'
+status 1 pbrain delete C --json
+stdout '"id":"C"'
+stdout 'B'
+stdout 'related'
+stderr '"code":"confirm_required"'
+exec git diff --exit-code
+exists docs/brain/C.md
+pbrain delete C --yes --json
+stderr '"code":"git_history"'
+stderr 'Git history still holds it'
+! exists docs/brain/C.md
+pbrain search lantern --json
+ids results B
+pbrain check --json
+stdout '"code":"dangling_link"'
+
+# Once the existing broken relation is removed, deleting a referenced
+# predecessor leaves only a warning.
+pbrain delete related --yes
+pbrain delete A --yes
+pbrain check --json
+stdout -count=1 '"code":"dangling_link"'
+! stdout 'replace_invalid'
+
+# The private relation affects a preview only in the personal view; its
+# other already-unresolved reference does not become part of the preview.
+status 1 pbrain delete B --json
+! stdout '"dangling"'
+status 1 pbrain --personal delete B --json
+stdout '"dangling":\["secret"\]'
+! stdout 'already-absent'
+exists docs/brain/B.md
+
+# Two item files referring to the same local original are possible after a merge.
+pbrain-test import $WORK/source.md --json
+jsonenv SOURCE id
+jsonenv ITEM path
+exec sh -c 'set -- docs/brain/.pbrain/originals/*; test "$#" -eq 1 && cmp "$1" "$WORK/source.md"'
+cp $ITEM docs/brain/keep.md
+pbrain delete $SOURCE --yes --json
+stdout '"original":"kept"'
+pbrain-test import $WORK/source.md --personal --json
+jsonenv PERSONAL_SOURCE id
+pbrain --personal delete keep --yes --json
+stdout '"original":"removed"'
+exec sh -c 'test -z "$(find docs/brain/.pbrain/originals -type f -print)"'
+exec sh -c 'set -- docs/brain/personal/.pbrain/originals/*; test "$#" -eq 1 && cmp "$1" "$WORK/source.md"'
+pbrain --personal get $PERSONAL_SOURCE --json
+stdout '"origin":"file"'
+
+cp $WORK/bad-original docs/brain/bad-original.md
+pbrain delete bad-original --yes --json
+stdout '"original":"left"'
+stderr '"code":"after_write"'
+! exists docs/brain/bad-original.md
+cmp $WORK/source.md $WORK/source-copy.md
+pbrain-test import $WORK/source.md --json
+jsonenv FAILED_ORIGINAL id
+jsonenv FAILED_ITEM path
+env PBRAIN_TEST_FAULT=remove-original
+pbrain-test delete $FAILED_ORIGINAL --yes --json
+stdout '"original":"left"'
+stderr 'the original could not be removed'
+env PBRAIN_TEST_FAULT=
+! exists $FAILED_ITEM
+exec sh -c 'set -- docs/brain/.pbrain/originals/*; test "$#" -eq 1 && cmp "$1" "$WORK/source.md"'
+
+cp $WORK/dual docs/brain/dual.md
+mkdir docs/brain/notes
+cp $WORK/dual docs/brain/notes/dual.md
+status 1 pbrain delete dual --yes --json
+stderr '"code":"ambiguous_id"'
+exists docs/brain/dual.md
+exists docs/brain/notes/dual.md
+status 1 pbrain delete secret --yes --json
+stderr '"code":"not_found"'
+! stderr 'secret'
+exists docs/brain/personal/secret.md
+exec git add -f docs/brain/personal/secret.md
+status 1 pbrain delete B --yes --json
+stderr '"code":"personal_exposed"'
+exists docs/brain/B.md
+exec git reset -q HEAD -- docs/brain/personal/secret.md
+env PBRAIN_TEST_NO_GIT=1
+status 1 pbrain-test delete B --yes --json
+stderr '"code":"git_required"'
+exists docs/brain/B.md
+
+-- source.md --
+# Source
+
+An imported original.
+-- source-copy.md --
+# Source
+
+An imported original.
+-- bad-original --
+---
+kind: source
+title: Bad original
+origin: file
+sha256: ../../source.md
+---
+-- repo/docs/brain/A.md --
+---
+kind: note
+author: human:test
+created: 2026-11-01T00:00:00Z
+title: lantern
+---
+Old lantern.
+-- repo/docs/brain/B.md --
+---
+kind: note
+author: human:test
+created: 2026-11-01T00:00:00Z
+title: lantern
+replaces: [A]
+---
+Earlier lantern.
+-- repo/docs/brain/C.md --
+---
+kind: note
+author: human:test
+created: 2026-11-01T00:00:00Z
+title: lantern
+replaces: [B]
+---
+Latest lantern.
+-- repo/docs/brain/related.md --
+---
+kind: note
+author: human:test
+created: 2026-11-01T00:00:00Z
+title: Relation
+relates: [C]
+---
+Related body.
+-- dual --
+---
+title: Dual
+---
+-- repo/docs/brain/personal/secret.md --
+---
+title: Private note
+relates: [B, already-absent]
+---
+Private data.

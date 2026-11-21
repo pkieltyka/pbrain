@@ -1,0 +1,45 @@
+# Functional spec §15, scenario 26.
+pbrain init
+env SOURCE=https://docs.google.com/document/d/abc/edit
+pbrain-test import $WORK/doc.md --source $SOURCE --shared --json
+jsonenv SHARED id
+pbrain list --json
+cp stdout $WORK/before
+pbrain audience set docs.google.com/document/d/abc personal
+exec sh -c 'find docs/brain/.pbrain -type f | LC_ALL=C sort'
+cp stdout $WORK/data-before
+pbrain-test import $WORK/doc.md --source $SOURCE --json
+stdout '"section":"personal"'
+jsonenv PRIVATE id
+pbrain list --json
+cmp stdout $WORK/before
+exec sh -c 'find docs/brain/.pbrain -type f | LC_ALL=C sort'
+cmp stdout $WORK/data-before
+status 1 pbrain-test import $WORK/doc.md --source $SOURCE --json
+stderr '"code":"duplicate"'
+! stderr $PRIVATE
+status 1 pbrain get $PRIVATE --json
+stderr '"code":"not_found"'
+pbrain --personal get $PRIVATE --json
+stdout '"personal":true'
+audience-race docs.google.com/document/d/abc $SOURCE
+pbrain --personal search 'Racing write' --json
+ids results
+pbrain list --json
+cmp stdout $WORK/before
+exec mv docs/brain/personal $WORK/earlier-personal
+cp $WORK/blocked-settings docs/brain/personal.toml
+cp $WORK/another.md docs/brain/blocked
+status 1 pbrain-test import $WORK/another.md --source $SOURCE --json
+stderr '"code":"personal_unavailable"'
+! stdout .
+
+-- doc.md --
+# Duplicate document
+
+The same bytes in two views.
+-- another.md --
+# Cannot reach the personal view
+-- blocked-settings --
+path = "blocked/child"
+audience = [{match = "docs.google.com/document/d/abc", to = "personal"}]

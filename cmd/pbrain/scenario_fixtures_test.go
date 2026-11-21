@@ -51,6 +51,13 @@ func scenarioTestModel(ts *testscript.TestScript, neg bool, args []string) {
 	for _, f := range m.Files {
 		ts.Check(os.WriteFile(filepath.Join(model, f.Name), kit.Bytes[f.URL], 0600))
 	}
+	if len(m.Source) > 0 {
+		source := model + "-source"
+		ts.Check(os.MkdirAll(source, 0700))
+		for _, f := range m.Source {
+			ts.Check(os.WriteFile(filepath.Join(source, f.Name), kit.Bytes[f.URL], 0600))
+		}
+	}
 	ts.Check(os.WriteFile(ts.MkAbs("docs/brain/pbrain.toml"), []byte("semantic.model = "+strconv.Quote(m.Name)+"\n"), 0600))
 	ts.Check(os.WriteFile(ts.MkAbs("docs/brain/personal.toml"), []byte("model_path = "+strconv.Quote(model)+"\n"), 0600))
 }

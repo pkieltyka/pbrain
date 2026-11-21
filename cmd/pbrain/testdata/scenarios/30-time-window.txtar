@@ -1,0 +1,120 @@
+# Functional spec §15, scenario 30.
+pbrain init
+pbrain-test search windowword --limit 1
+stdout '^old  decision'
+pbrain-test search windowword --since 7d --json
+ids results recent
+stdout '"outside_window":2'
+pbrain-test search older-only --since 7d --json
+ids results
+stdout '"outside_window":1'
+pbrain-test list --tag oldonly --since 7d --json
+ids results
+stdout '"outside_window":1'
+pbrain-test search recent-only --until 2026-11-19
+stdout '--until'
+env TZ=America/Toronto
+pbrain-test search midnightword --since today --json
+ids results after-midnight
+stdout '"outside_window":1'
+env TZ=UTC
+pbrain-test search midnightword --since today --json
+ids results after-midnight before-midnight
+env TZ=America/Toronto
+pbrain-test search endword --since 2026-11-19 --until 2026-11-19 --json
+ids results end-of-day
+pbrain-test search endword --until 2026-11-19 --json
+ids results end-of-day
+env PBRAIN_TEST_NOW=2026-11-01T15:00:00Z
+pbrain-test search dstword --since today --json
+ids results dst-after
+status 2 pbrain-test search windowword --since soon --json
+stderr '"code":"usage"'
+status 2 pbrain-test search windowword --since 3x --json
+stderr '"code":"usage"'
+status 2 pbrain-test search windowword --since 2026-11-20 --until 2026-11-19 --json
+stderr '"code":"usage"'
+
+-- repo/docs/brain/old.md --
+---
+kind: decision
+title: windowword settled
+author: human:test
+created: 2025-11-19T12:00:00Z
+tags: [oldonly]
+decided: human:test
+status: verified
+---
+
+windowword older-only
+-- repo/docs/brain/recent.md --
+---
+kind: note
+title: recent
+author: human:test
+created: 2026-11-21T10:00:00Z
+---
+
+windowword recent-only
+-- repo/docs/brain/unknown.md --
+---
+kind: note
+title: unknown
+author: human:test
+---
+
+windowword
+-- repo/docs/brain/before-midnight.md --
+---
+kind: note
+title: before-midnight
+author: human:test
+created: 2026-11-21T04:59:59Z
+---
+
+midnightword
+-- repo/docs/brain/after-midnight.md --
+---
+kind: note
+title: after-midnight
+author: human:test
+created: 2026-11-21T05:00:01Z
+---
+
+midnightword
+-- repo/docs/brain/end-of-day.md --
+---
+kind: note
+title: end-of-day
+author: human:test
+created: 2026-11-20T04:59:00Z
+---
+
+endword
+-- repo/docs/brain/next-day.md --
+---
+kind: note
+title: next-day
+author: human:test
+created: 2026-11-20T05:00:00Z
+---
+
+endword
+-- repo/docs/brain/dst-before.md --
+---
+kind: note
+title: dst-before
+author: human:test
+created: 2026-11-01T03:59:59Z
+---
+
+dstword
+-- repo/docs/brain/dst-after.md --
+---
+kind: note
+title: dst-after
+author: human:test
+created: 2026-11-01T04:00:01Z
+---
+
+dstword

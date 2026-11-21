@@ -1,0 +1,32 @@
+# Functional spec §15, scenario 25.
+pbrain init
+pbrain audience set acme.slack.com/archives/C1 shared
+env CHANNEL=https://acme.slack.com/archives/C1/p1763712000000000
+env DIRECT=https://acme.slack.com/archives/D1/p1763712000000000
+pbrain-test add --title 'Channel release' --body 'Channel release payload' --source $CHANNEL --json
+stdout '"section":"shared"'
+stderr '"code":"destination"'
+jsonenv SHARED id
+status 1 pbrain-test add --title 'DM payload' --source $DIRECT --json
+stderr '"code":"audience_required"'
+! stdout .
+status 1 pbrain-test import --link-only $DIRECT --json
+stderr '"code":"audience_required"'
+! stdout .
+pbrain-test add --title 'DM payload' --source $DIRECT --personal --json
+stdout '"section":"personal"'
+jsonenv DM id
+pbrain-test import --link-only $DIRECT --summary 'DM link summary' --personal --json
+stdout '"section":"personal"'
+jsonenv LINK id
+pbrain list --json
+ids results $SHARED
+status 1 pbrain get $DM --json
+stderr '"code":"not_found"'
+status 1 pbrain get $LINK --json
+stderr '"code":"not_found"'
+pbrain --personal get $DM --json
+stdout '"personal":true'
+pbrain --personal get $LINK --json
+stdout '"origin":"link"'
+stdout '"personal":true'

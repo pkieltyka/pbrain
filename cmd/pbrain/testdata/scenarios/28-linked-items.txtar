@@ -1,0 +1,75 @@
+# Functional spec §15, scenario 28.
+pbrain init
+pbrain-test import --link-only https://example.org/document --summary 'A crepuscular word' --json
+jsonenv ID id
+stdout '"section":"shared"'
+! exists docs/brain/.pbrain/originals
+pbrain search crepuscular
+stdout ' linked'
+pbrain search crepuscular --json
+ids results $ID
+stdout '"linked":true'
+pbrain get $ID
+stdout 'not copied'
+stdout 'A crepuscular word'
+pbrain get $ID --json
+stdout '"origin":"link"'
+stdout '"linked":true'
+stdout '"source":"https://example.org/document"'
+pbrain-test import --link-only https://example.org/empty --json
+jsonenv EMPTY id
+pbrain get $EMPTY
+stdout 'not copied'
+pbrain get $EMPTY --json
+stdout '"linked":true'
+status 1 pbrain-test import --link-only https://docs.google.com/document/d/abc --json
+stderr '"code":"audience_required"'
+status 2 pbrain-test import https://example.org/no --summary 'not a link' --json
+stderr '"code":"usage"'
+pbrain-test import --shared --link-only https://docs.google.com/document/d/abc --summary 'ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' --json
+stderr '"code":"destination"'
+stderr 'title, link, tags and summary'
+stderr '"code":"secret_suspected"'
+! stderr 'ghp_'
+pbrain-test import --personal --link-only https://docs.google.com/document/d/abc --summary 'secret umbrella' --json
+jsonenv PRIVATE id
+pbrain search umbrella --json
+ids results
+pbrain --personal search umbrella --json
+ids results $PRIVATE
+# Count the complete URL, including its twenty-character prefix.
+exec sh -c 'link=$(printf "https://example.org/%01980d" 0); pbrain-test import --link-only "$link" --json'
+stdout '"section":"shared"'
+pbrain list --json
+cp stdout $WORK/links
+exec sh -c 'link=$(printf "https://example.org/%01981d" 0); pbrain-test import --link-only "$link" --json; test "$?" -eq 1'
+stderr '"code":"invalid"'
+exec sh -c 'long=$(printf "%0301d" 0); pbrain-test import --link-only https://example.org/long-summary --summary "$long" --json; test "$?" -eq 1'
+stderr '"code":"invalid"'
+exec sh -c 'summary=$(printf "one\ntwo"); pbrain-test import --link-only https://example.org/multiline --summary "$summary" --json; test "$?" -eq 1'
+stderr '"code":"invalid"'
+pbrain list --json
+cmp stdout $WORK/links
+
+exec sh -c 'link=$(printf "https://example.org/%0380d" 0); printf "%s\n" "$link" > "$WORK/link400"; pbrain-test import --link-only "$link" --title Linkbudget --tag linkbudget --json'
+jsonenv LONG id
+pbrain get $LONG --json
+jsonenv LINK source
+exec sh -c 'test "$1" = "$(cat "$WORK/link400")"' sh $LINK
+pbrain get $LONG
+stdout 'not copied'
+cp stdout $WORK/linked-text
+exec grep -F -f $WORK/link400 $WORK/linked-text
+pbrain search Linkbudget --json
+jsonenv SHORT results.0.source
+exec sh -c 'test "$(printf %s "$1" | wc -m)" -lt 400' sh $SHORT
+pbrain list --tag linkbudget --json
+jsonenv SHORT results.0.source
+exec sh -c 'test "$(printf %s "$1" | wc -m)" -lt 400' sh $SHORT
+status 1 pbrain get $LONG --max-chars 250 --json
+stderr '"code":"budget_too_small"'
+cp stderr $WORK/budget
+exec sh -c 'min=$(sed -n "s/.*works is \([0-9][0-9]*\).*/\1/p" "$WORK/budget"); test -n "$min" && pbrain get "$1" --max-chars "$min" --json' sh $LONG
+stdout '"linked":true'
+! exists docs/brain/.pbrain/originals
+! exists docs/brain/personal/.pbrain/originals

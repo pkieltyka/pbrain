@@ -1,0 +1,78 @@
+# Functional spec §15, scenario 21.
+pbrain init
+cp $WORK/ignore .gitignore
+cp $WORK/local docs/brain/personal.toml
+exec git add .gitignore docs/brain
+exec git commit -qm 'Factory catalog'
+pbrain get old --json
+stdout '"replacement":\["learning"\]'
+pbrain get learning --json
+stdout '"kind":"learning"'
+stdout '"status":"verified"'
+pbrain get decision --json
+stdout '"kind":"decision"'
+status 1 pbrain get private --json
+stderr '"code":"not_found"'
+pbrain --personal get private --json
+stdout '"path":"private/private.md"'
+stdout '"personal":true'
+pbrain check --json
+stdout '"code":"decision_without_decider"'
+exec git status --porcelain
+! stdout .
+cmp private/private.md $WORK/private-original
+cmp docs/brain/personal.toml $WORK/local
+! exists docs/brain/.pbrain
+! exists private/.pbrain
+
+-- ignore --
+private/
+docs/brain/personal.toml
+docs/brain/personal/
+docs/brain/.pbrain/
+-- local --
+path = "../../private"
+-- repo/docs/brain/decisions/decision.md --
+---
+kind: decision
+status: verified
+title: Factory decision
+author: human:factory
+created: 2026-11-21T11:00:00Z
+---
+
+Factory decision without a decider.
+-- repo/docs/brain/learnings/learning.md --
+---
+kind: learning
+status: verified
+title: Factory learning
+author: human:factory
+created: 2026-11-21T11:30:00Z
+---
+
+Verified legacy learning.
+-- repo/docs/brain/notes/old.md --
+---
+kind: note
+title: Factory note
+created: 2026-11-20T11:00:00Z
+status: superseded-by ../learnings/learning.md
+author: human:factory
+---
+
+Earlier note.
+-- repo/private/private.md --
+---
+kind: note
+title: Factory private
+---
+
+Private legacy body.
+-- private-original --
+---
+kind: note
+title: Factory private
+---
+
+Private legacy body.

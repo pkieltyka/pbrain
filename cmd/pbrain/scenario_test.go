@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/cli"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/gitx"
@@ -70,18 +71,20 @@ func TestScenarios(t *testing.T) {
 		Setup:              setupScenario,
 		RequireUniqueNames: true,
 		Cmds: map[string]func(*testscript.TestScript, bool, []string){
-			"guard":        assertGuard,
-			"pagebudget":   pageBudget,
-			"tree-absent":  treeAbsent,
-			"crlf":         crlf,
-			"status":       scenarioStatus,
-			"jsonenv":      jsonEnv,
-			"ids":          assertIDs,
-			"parallel-add": parallelAdd,
-			"killed-add":   killedAdd,
-			"budgets":      scenarioBudgets,
-			"testmodel":    scenarioTestModel,
-			"damage-index": scenarioDamageIndex,
+			"guard":         assertGuard,
+			"pagebudget":    pageBudget,
+			"tree-absent":   treeAbsent,
+			"crlf":          crlf,
+			"status":        scenarioStatus,
+			"jsonenv":       jsonEnv,
+			"ids":           assertIDs,
+			"parallel-add":  parallelAdd,
+			"killed-add":    killedAdd,
+			"killed-index":  killedIndex,
+			"budgets":       scenarioBudgets,
+			"testmodel":     scenarioTestModel,
+			"damage-index":  scenarioDamageIndex,
+			"audience-race": scenarioAudienceRace,
 		},
 	})
 }
@@ -105,6 +108,7 @@ func setupScenario(e *testscript.Env) error {
 	e.Setenv("GIT_COMMITTER_EMAIL", "scenario@example.invalid")
 	e.Setenv("PBRAIN_AUTHOR", "human:scenario")
 	e.Setenv("PBRAIN_TEST_NOW", "2026-11-21T12:00:00Z")
+	e.Setenv("PBRAIN_DEFAULT_MODEL", brain.DefaultModel)
 	e.Setenv("TZ", "UTC")
 	e.Setenv("PBRAIN_CACHE", filepath.Join(e.WorkDir, "cache"))
 	e.Setenv("MODEL", model)
