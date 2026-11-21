@@ -186,3 +186,36 @@ func TestPackageImports(t *testing.T) {
 		}
 	}
 }
+
+// TestReleaseConfig keeps the GoReleaser configuration in step with architecture section 16: the
+// four targets, CGO_ENABLED=0, no build tags, and the linker flag that sets --version on a variable
+// the cli still declares.
+func TestReleaseConfig(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(root(t), ".goreleaser.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg := string(data)
+	for _, want := range []string{
+		"- CGO_ENABLED=0", "main: ./cmd/pbrain",
+		"- linux", "- darwin", "- amd64", "- arm64",
+		"-X github.com/pkieltyka/pbrain/internal/cli.version=",
+		"algorithm: sha256",
+	} {
+		if !strings.Contains(cfg, want) {
+			t.Errorf(".goreleaser.yaml lacks %q", want)
+		}
+	}
+	for _, banned := range []string{"tags:", "GOEXPERIMENT", "CGO_ENABLED=1"} {
+		if strings.Contains(cfg, banned) {
+			t.Errorf(".goreleaser.yaml sets %q; the release build has no build tag, experiment or cgo", banned)
+		}
+	}
+	src, err := os.ReadFile(filepath.Join(root(t), "internal", "cli", "run.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(src), "\nvar version string\n") {
+		t.Error("internal/cli no longer declares var version string, which the release ldflags set")
+	}
+}
