@@ -6,7 +6,7 @@ status: complete
 
 ## Purpose and scope
 
-`sys` implements the injectable, descriptor-relative filesystem operations on Linux and macOS. `store` scans a guarded brain, opens user-supplied files, locks a section, and publishes complete files. The caller decides which operations are allowed, validates links and renders messages. Item writes leave semantic data alone. Only the explicit index build updates the semantic index. [Architecture §§4.3, 7.1 and 10](../architecture.md) · [Functional spec §§2, 5 and 8](../functional_spec.md)
+`sys` implements the injectable, descriptor-relative filesystem operations on Linux and macOS. `store` scans a guarded brain, opens user-supplied files, locks a section, and publishes complete files. The caller decides which operations are allowed, validates links and renders messages. Item writes leave semantic data alone. Only the explicit index build and the bounded catch-up of a search with `--semantic` update the semantic index. [Architecture §§4.3, 7.1 and 10](../architecture.md) · [Functional spec §§2, 5 and 8](../functional_spec.md)
 
 ## Interfaces
 
@@ -55,7 +55,10 @@ type Files interface {
     OpenRegular(dir Dir, name string) (RegularFile, error)
     Flush(w io.WriteCloser) error
     Lock(ctx context.Context, dir Dir, name string) (io.Closer, error)
+    TryLock(dir Dir, name string) (io.Closer, error)
 }
+
+var ErrLocked = errors.New("lock is held")
 
 func Native() Files
 func OpenNamed(files Files, path string, create bool) (Dir, ResolvedPath, error)
@@ -125,7 +128,7 @@ Resolve external selectors or input paths with the native filesystem's symlink r
 
 All new directories and temporary files are owner-only by default. Existing permissions are left in place on directories, and existing private files are never made more permissive. A temporary name is unpredictable, starts with a dot and has no `.md` extension. Open it exclusively with `O_CREAT|O_EXCL|O_NOFOLLOW` in the final folder. `Flush` calls file sync before close. `LinkNew` uses `linkat` without following links. Where hard links are unavailable, fall back to `renameat2(RENAME_NOREPLACE)` on Linux and `renameatx_np(RENAME_EXCL)` on macOS. An existing target remains an error. If both primitives fail, leave the target unchanged. `Replace` is the same-directory rename used only for a checked existing item or settings. `Remove` unlinks a regular entry relative to its handle. The cleanup after `LinkNew` accepts a missing temporary name because the exclusive-rename path already consumed it. [Linux rename contract](https://www.man7.org/linux/man-pages/man2/renameat2.2.html) · [Apple rename contract](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/man/man2/rename.2)
 
-`Files.Lock` opens the named regular owner-only lock without following links and takes `flock(LOCK_EX|LOCK_NB)`. It retries would-block at 25 ms intervals until its supplied context ends. Retry interrupted syscalls within the same context. It has no timeout of its own, so an explicit index build can wait longer. Closing the holder releases the descriptor and lock, including when a process dies. The lock file stays in place.
+`Files.Lock` opens the named regular owner-only lock without following links and takes `flock(LOCK_EX|LOCK_NB)`. It retries would-block at 25 ms intervals until its supplied context ends. Retry interrupted syscalls within the same context. It has no timeout of its own, so an explicit index build can wait longer. Closing the holder releases the descriptor and lock, including when a process dies. The lock file stays in place. `Files.TryLock` opens the lock the same way and makes one attempt: it returns the holder, or `ErrLocked` when another descriptor holds the lock, and it never waits. Its one caller is the catch-up of a search with `--semantic` ([semantic design](semantic.md), "Catch-up in a search").
 
 `Begin` borrows the opened root and opens or creates its `.pbrain/` child. A write to the missing default personal section first uses `EnsurePersonal`. `Begin` calls `Files.Lock` for `.pbrain/lock` with a context capped at the earlier of the caller deadline and 30 seconds, mapping failure to `io`. Hold the descriptor through cleanup. Settings use the same lock in the shared section. A command takes only one section lock. Readers and previews never call `Begin`. Native advisory locking coordinates pbrain processes; concurrent hand edits can still land in the final compare-and-mutate gap.
 
@@ -169,7 +172,7 @@ Open the resolved parent with its canonical components through `OpenRoot(create=
 | `TestOpenInputBoundary` | Direct, symlink and case aliases to protected paths, other brains' `.pbrain/` and external personal originals all yield the same error as a missing file. No reads before a refusal, and no original is created. Spec 6, 9 and 26. |
 | `TestSymlinkAndFIFOReplacement` | Swap a parent folder or final entry after inspection. Reads do not escape to a new target and a FIFO cannot stall. Apply the same swap to shared kind and originals folders. Spec 6 and 9. |
 | `TestProcessSectionLock` | Two processes share a section and serialize replacement. A stalled input does not own the lock. Shared and personal locks are independent. Killing a holder releases the lock. Spec 14, 24 and 29. |
-| `TestLockWaitPolicies` | A controllable cancellation/deadline proves native Files.Lock follows only the supplied context, while Begin supplies a 30-second cap and returns io on timeout. Semantic build can wait with a longer parent context. Spec 14, 29 and 35. |
+| `TestLockWaitPolicies` | A controllable cancellation/deadline proves native Files.Lock follows only the supplied context, while Begin supplies a 30-second cap and returns io on timeout. Semantic build can wait with a longer parent context. `Files.TryLock` returns `ErrLocked` at once while another process or another descriptor of the same process holds the lock, and the holder when it is free; a later `Lock` waits for a `TryLock` holder. Spec 14, 29, 35 and 42. |
 | `TestExclusivePublish` | Use two real processes on each native target. One publishes, the other cannot replace its file. Exercise the hard-link path and the exclusive-rename fallback. Spec 14–15. |
 | `TestCommitPointFailures` | Inject failures at each syscall before and after link, rename and unlink. Committed files stay visible and final cleanup failures are distinct. Original write failure leaves no item. Spec 15–16 and 29. |
 | `TestDigestScopedOriginal` | Original corruption prevents import, duplicate digest is reused, and a malformed digest never becomes a path. Personal deletion cannot remove the shared original with an equal digest and vice versa. Spec 15, 18 and 29. |

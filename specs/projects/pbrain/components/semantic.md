@@ -139,8 +139,8 @@ func Passages(title string, body []byte) []Passage
 
 // ContentDigest is the SHA-256 of the title's length in bytes as 8 little-endian bytes, the
 // title's bytes and the body's bytes: everything an item's passages are cut from. The length
-// frames the title, so no title and body can be mistaken for another pair. Only the build calls
-// it, and only for an item it is about to cut.
+// frames the title, so no title and body can be mistaken for another pair. Only the build and a
+// search's catch-up call it, and only for an item they are about to cut.
 func ContentDigest(title string, body []byte) [32]byte
 
 // Check is the cheap identity of the bytes ContentDigest hashes: their CRC-32C (Castagnoli,
@@ -204,6 +204,12 @@ func Start(ctx context.Context, opt Options, text string, dirs []SectionDir) *So
 // Attach gives the source the scanned items. Call it once, after the scan, before Score.
 func (s *Source) Attach(secs []SectionInput)
 
+// CatchUp embeds and saves the few items that the view's usable indexes do not cover, within
+// the bounds of "Catch-up in a search". Call it once, after Attach and before Score. It returns
+// only the context's error: whatever else stops it leaves those items uncovered, and Score
+// counts them in Missing.
+func (s *Source) CatchUp(ctx context.Context) error
+
 // Score joins the background task and compares. text must be the text given to Start.
 // It returns only the context's error.
 func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) (search.Scores, error)
@@ -223,7 +229,7 @@ type BuildResult struct {
 type Progress struct {
     Section     item.Section
     Done, Total int  // items to do
-    Waiting     bool // waiting for another build's lock
+    Waiting     bool // waiting for the index lock, which a build or a search's catch-up holds
 }
 
 // Build brings one section's index up to date. It calls scan after it holds the index lock and
@@ -340,7 +346,7 @@ CREATE INDEX passage_digest ON passage(digest);
 
 5. **For the build and the status only**, a full check of what is stored, which a search does not pay for: no passage whose `vector` is not a blob of exactly four times `dim` bytes; no passage with `stop` below `start`; no passage without its item; and the scoring query run once with `eligible` holding every item and a fixed unit vector, read to its end. A failure: `IndexUnreadable`.
 
-An index is **usable** when all four steps pass, and for the build and the status the fifth as well. An entry **covers** an item when the item's path relative to `Root` is in that map and the stored `crc` and `size` equal `ContentCheck(item.Header.Title, body)`, with the title and body exactly as this command scanned them. `content`, the SHA-256 of the same bytes, is written beside them when the build makes the entry and is not compared by anything. Until format 3 it was the comparison, and every search with `--semantic` hashed every body for it. The check is weaker than that digest by a known amount. An edit that changes the count of bytes is always seen. One that keeps the count and lies within four consecutive bytes of the title and body is always seen too, as is one that only moves bytes between the title's end and the body's start, since that changes the framed length alone. Any other edit that keeps the count is missed once in 2^32: the entry then still covers the item, and its old passages are scored until the item is edited again or the index is built afresh (architecture §17). The item's `Version` is not used, although it is a CRC-32C and a size already at hand: it covers the whole file, so a change to front matter that leaves the title alone, such as `verify`, would drop the entry, and with `ContentCheck` it keeps it. The check is computed, in parallel, only for items whose path has an entry; an item whose body cannot be read as scanned is not covered.
+An index is **usable** when all four steps pass, and for the build and the status the fifth as well. An entry **covers** an item when the item's path relative to `Root` is in that map and the stored `crc` and `size` equal `ContentCheck(item.Header.Title, body)`, with the title and body exactly as this command scanned them. `content`, the SHA-256 of the same bytes, is written beside them when a build or a catch-up makes the entry and is not compared by anything. Until format 3 it was the comparison, and every search with `--semantic` hashed every body for it. The check is weaker than that digest by a known amount. An edit that changes the count of bytes is always seen. One that keeps the count and lies within four consecutive bytes of the title and body is always seen too, as is one that only moves bytes between the title's end and the body's start, since that changes the framed length alone. Any other edit that keeps the count is missed once in 2^32: the entry then still covers the item, and its old passages are scored until the item is edited again or the index is built afresh (architecture §17). The item's `Version` is not used, although it is a CRC-32C and a size already at hand: it covers the whole file, so a change to front matter that leaves the title alone, such as `verify`, would drop the entry, and with `ContentCheck` it keeps it. The check is computed, in parallel, only for items whose path has an entry; an item whose body cannot be read as scanned is not covered.
 
 **Scoring** is one query per section, over the items that may be scored and no others. `eligible` is a temporary table of the connection (`CREATE TEMP TABLE eligible (id INTEGER PRIMARY KEY)`), emptied and filled for each search with the ids of the items that are eligible and covered. The query vector is a blob of `dim` float32 values:
 
@@ -353,7 +359,7 @@ WHERE d <= ?2;
 
 `CROSS JOIN` makes SQLite start from `eligible` and reach `passage` through the index of `UNIQUE (item_id, ord)`, so `vec_distance_cosine` is called only on the passages of listed items. An item that is filtered out or not covered is never scored, and a bad row belonging to one cannot fail the query; a whole-table scan failed in exactly that case when tried. `?2` is `1 - Cutoff + 0.000001`: the query returns every passage of those items at or just under the cut-off, with no limit on their number, and `search` applies the cut-off exactly. Vectors are in an ordinary table and not in a `vec0` virtual table, because `vec0`'s nearest-neighbour query refuses more than 4,096 rows and its row-by-row read was 20 to 100 times slower in our measurement (architecture §8.7).
 
-**Publishing** (the build only): `Serialize` the in-memory database; if the result is larger than 2,147,483,647 bytes, fail with `too_large` and leave the previous index in force; write the bytes to a temporary file in `index/` and flush it; link it under a new random name of the form above; sync the folder; write a manifest that names it with its size and CRC-32C and rename that into place; sync; remove the previous database file. Only a name of the generated form is ever opened or removed, so no manifest, however damaged, can make a build remove `lock`, `manifest` or anything outside the folder. A failure before the rename leaves the old index in force.
+**Publishing** (the build, and a search's catch-up): `Serialize` the in-memory database; if the result is larger than 2,147,483,647 bytes, fail with `too_large` and leave the previous index in force; write the bytes to a temporary file in `index/` and flush it; link it under a new random name of the form above; sync the folder; write a manifest that names it with its size and CRC-32C and rename that into place; sync; remove the previous database file. Only a name of the generated form is ever opened or removed, so no manifest, however damaged, can make a build remove `lock`, `manifest` or anything outside the folder. A failure before the rename leaves the old index in force.
 
 ### Build
 
@@ -375,7 +381,7 @@ An interrupted run leaves a usable index holding every published item; the next 
 
 ### The vector cache
 
-`<cache>/vectors/<model fingerprint>/<first two hex of the digest>/<digest hex>` holds one vector: `dim` float32 values, little-endian, then the CRC-32C of those bytes. A read accepts only a file of exactly that size with a matching checksum and finite values of unit length within 0.001; anything else is removed and counts as absent. A write goes to a temporary file in the same folder and is linked under its name without a flush; an existing name is left alone. No lock is taken. Only `Build` of the shared section reads or writes it.
+`<cache>/vectors/<model fingerprint>/<first two hex of the digest>/<digest hex>` holds one vector: `dim` float32 values, little-endian, then the CRC-32C of those bytes. A read accepts only a file of exactly that size with a matching checksum and finite values of unit length within 0.001; anything else is removed and counts as absent. A write goes to a temporary file in the same folder and is linked under its name without a flush; an existing name is left alone. No lock is taken. Only `Build` and a search's `CatchUp`, each for the shared section, read or write it.
 
 `OpenCache` decides whether the folder may be used, before creating anything:
 
@@ -401,18 +407,62 @@ An interrupted run leaves a usable index holding every published item; the next 
 
 If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifact` it returns, and embeds the text as `Query`, while a second opens each section's index. The query vector must have `Dim` finite values and unit length within 0.001. The goroutine runs under a context that `Close` cancels. `Score`, after `Attach`, then:
 
-1. Takes each section's index, which the background task has opened with `openIndex` beside the model, and decides coverage. A section whose index is not usable contributes all its items to `Missing`; in a usable one, each item no entry covers adds one. If no section is usable: not ready, `NoIndex`.
+1. Takes each section's index, which the background task has opened with `openIndex` beside the model and `CatchUp` may have added to, and decides coverage. A section whose index is not usable contributes all its items to `Missing`; in a usable one, each item no entry covers adds one. If no section is usable: not ready, `NoIndex`.
 2. Waits for the background task. A failed verification, a failed open, a failed embedding or a query vector that fails its test: not ready, `ModelFailed`, and the search keeps its lexical results. A `text` other than the one given to `Start` is a programming error and panics.
 3. For each usable section, fills `eligible` with the ids of the items that are eligible and covered, and runs the scoring query. It drops every row whose span does not lie inside the body as scanned. For each item it keeps the row with the smallest distance, and on a tie the smallest `ord`. The score is `1 - d` as a float32. If filling the table, the query or the reading of its rows fails, every row already read for that section is dropped, the section is treated as not usable for this search and all its items are added to `Missing`, once; the other section's hits stand. If no section is left: not ready, `NoIndex`. The hits are returned in the order of the caller's list; items with no row are not hits.
 4. Returns `Ready`, `Missing`, the model's `Cutoff` and the hits.
 
-`Score` returns an error only when the context ends. The source never writes, never takes a lock and never downloads.
+`Score` returns an error only when the context ends. `Start`, `Attach`, `Score` and `Close` never write and never take a lock, and the source never downloads. `CatchUp` is the one method that writes.
+
+### Catch-up in a search
+
+`CatchUp` does for a few items what `Build` does for any number (owner's decision, 2026-11-21; architecture §8.7 and §16, decision 30). It reuses the build's own functions for cutting, reuse by digest, replacing an item and publishing; it has no second copy of them.
+
+```go
+const (
+    catchUpItems    = 20              // most uncovered items a search takes on
+    catchUpPassages = 20              // most passages it embeds
+    catchUpBudget   = 2 * time.Second // no embedding call starts after this
+)
+```
+
+The source keeps, for each section, the manifest its index was opened from. `CatchUp`:
+
+1. Returns at once when `Start` found the source not ready. Otherwise it waits for the task that opens the indexes.
+2. **Finds the gap.** In each section whose index is usable, the uncovered items: those no entry covers, with a body that can be read as scanned. A section without a usable index contributes none: it is not caught up, and `Score` counts its items as before. With no uncovered item, or with more than `catchUpItems` over all sections, it returns.
+3. **Plans**, without a lock and without writing. For each uncovered item, shared section first, in path order: `ContentCheck`, `ContentDigest`, `Passages`, and for each passage a vector by digest, first from the in-memory database, then, for the shared section, from the cache. Vectors found are kept. If the passages without a vector number more than `catchUpPassages` over all sections, it returns.
+4. Waits for the model task. Without a query vector (`ModelFailed`) it returns.
+5. **For each section with uncovered items**, shared first:
+   1. `Files.TryLock(index, "lock")`. `ErrLocked` or any other failure: this section is skipped.
+   2. Reads the manifest again. If it is not equal, field for field, to the one the index was opened from, a build has published since: the lock is released and the section skipped. So a catch-up never publishes over a newer index.
+   3. For each item, in order: embeds its passages that have no vector, one passage a call, as `Document`, with the embedder that made the query vector. Before each call it compares the time since the first lock was taken with `catchUpBudget`; once that has passed it starts no call, and the items not finished stay uncovered. A vector that is not of the right length, not finite or not of unit length within 0.001 ends the catch-up of this section. For the shared section each new vector is written to the cache at once, as in a build. When every passage of the item has a vector, the item is replaced in one transaction, with its digest and its check.
+   4. If any item was replaced, publishes as a build does. A failed publication is not an error.
+   5. Releases the lock.
+6. Returns. `Score` then decides coverage on the in-memory databases as they now are, so an item replaced in step 5 is scored whether or not its publication succeeded.
+
+What it never does:
+
+- It never creates `.pbrain/`, `index/` or the cache folder. The index folder exists, since a usable index was read from it. `cli` opens the cache with `create = false`; when the cache folder is missing, as it can be with `model_path`, catch-up neither reads nor writes the cache. Folders below an existing cache folder are created as a build creates them, each tested for `.git` first; `ErrCacheExposed` ends the catch-up.
+- It never removes a row whose path has no item, a leftover file or a stale database: the build does (steps 5 and 10 of "Build"). `publish` removes the database file it replaces, as always.
+- It never takes the model lock, never calls `Download`, `Pack` or `Verify` again, and never opens a second embedder.
+- It never writes a personal vector to the cache.
+- It never waits for a lock, and it never runs the full row check of step 5 of "Reading".
+
+Why these choices:
+
+- **The manifest is compared under the lock** because the scan and the index were read before the lock was taken. A build that published in between holds rows this search has not seen, and publishing the search's copy would drop them.
+- **The scan is not taken again under the lock**, unlike a build's. Catch-up deletes nothing but the old row of an item it replaces. If a file changed after the scan, the entry made from the scanned text fails the next command's check and is replaced then.
+- **One passage a call** keeps the overrun past `catchUpBudget` to one passage, also for a model that needs a second for each. The build's batches of eight would overrun by up to eight.
+- **Both size bounds are decided before the lock**, so a gap that is too large costs a search the cutting and the lookups of at most 20 items and no write.
+- **The time starts at the first lock**, not at `CatchUp`, so that the bound is on the embedding and not on the wait for the model.
+
+The `index_progress` notice of a build that waits says `<section>: waiting for another pbrain command`. Before catch-up it named `pbrain sync`; the holder can now be a search, for a few seconds.
 
 ### What `cli` does
 
 - **Which model.** `Options.ModelName` is `Config.Semantic.Model` as `brain` resolved it (`components/brain.md`): the name `pbrain.toml` gives; `brain.DefaultModel`, which is `bge-small-en-v1.5`, when it has no `semantic.model` key; and `""` when it says `"none"`. `semantic` and `embed` hold no default of their own, so a test registry needs no entry of that name, and a test in `cli` or `cmd/pbrain` checks that the release registry holds `brain.DefaultModel`.
 - **`model_path`.** `cli` makes a relative `model_path` absolute against the brain folder and opens it with `sys.OpenNamed(env.Files, path, false)`. The folder is one the person names, so a link in the path or above it is followed (architecture §10.3); inside the folder `Find` and `Verify` follow none, and the digests decide what the files are. A folder that cannot be opened is `invalid_config`. The calibration tool opens its model folder the same way.
-- `search --semantic`: after `brain.Open` and before the scan, open the cache with `create = false` and call `Start` with the query text and the view's section folders, deferring `Close` so that a failed scan or any later error cancels the work. After the scan, which already keeps bodies for a search, `Attach` one `SectionInput` per section, put the source in `search.Request.Semantic`, and turn `Result.Sem` into one notice: `semantic_not_ready` with the reason and `pbrain sync` (or `PBRAIN_CACHE` for an exposed cache), or `semantic_partial` with `Missing` when it ran and `Missing` is above zero.
+- `search --semantic`: after `brain.Open` and before the scan, open the cache with `create = false` and call `Start` with the query text and the view's section folders, deferring `Close` so that a failed scan or any later error cancels the work. After the scan, which already keeps bodies for a search, `Attach` one `SectionInput` per section, call `CatchUp`, put the source in `search.Request.Semantic`, and turn `Result.Sem` into one notice: `semantic_not_ready` with the reason and `pbrain sync` (or `PBRAIN_CACHE` for an exposed cache), or `semantic_partial` with `Missing` when it ran and `Missing` is above zero.
 - `pbrain sync`: open the cache with `create = true`, then call `Build` for the shared section and, with `--personal`, for the personal one, in that order, each with a `ScanFunc` that scans with bodies kept, and print one line per result. A personal section whose folder does not exist is not created: its line reports no item. `notify` becomes the `model_download` notice and `progress` the `index_progress` notices.
 - `pbrain sync --status`: one scan with bodies kept, the cache with `create = false`, then `Status`. A section whose folder or index folder does not exist is reported as `IndexNone`, with its item count, and nothing is created. `ModelPresent` is the result of `Find` and `Verify` together.
 
@@ -442,7 +492,7 @@ JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000
 | `semantic_not_ready` | `ModelFailed` | `the model could not be used: run <x> to check it` |
 | `semantic_partial` | `Ready` and `Missing > 0` | `<Missing> items are not in the index: run <x>` (`1 item is` for one) |
 | `model_download` | from `notify`, before the first request | `downloading model <name>, <n> MB, from <host>`, with the size in units of 1,000,000 bytes rounded up and the distinct hosts of the files' addresses, comma-separated |
-| `index_progress` | from `progress`, every 10 seconds | `<section>: <Done> of <Total> items` (`1 item` for a total of one), or `<section>: waiting for another pbrain sync` when `Waiting` |
+| `index_progress` | from `progress`, every 10 seconds | `<section>: <Done> of <Total> items` (`1 item` for a total of one), or `<section>: waiting for another pbrain command` when `Waiting` |
 
 ### Calibration
 
@@ -670,7 +720,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestScoringQuery` | Against scores computed in Go from the same vectors: the query returns the passages of the listed items within `1 - Cutoff + 0.000001`, also when more than 4,096 qualify, and `search`'s exact comparison then drops the one that lies in that margin; equal distances keep the smaller `ord`. An item not in `eligible` is never scored: with a malformed vector written to such an item, the query still succeeds and returns the others. Scenarios 33 and 34. |
 | `TestDamagedPassageIsRepaired`, a scenario script with the test model | A published database, with a matching checksum, in which one passage of an unchanged item holds a vector of the wrong length. Four separate commands: `search --semantic` returns the lexical results and the other section's hits with `semantic_partial`; `sync --status` reports the section `unreadable`; `pbrain sync`, with no item changed, builds the index again; the same search then returns its results with no notice. Scenario 35. |
 | `TestSourceSectionFailure` | Two sections, one of which fails while its rows are read (injected), and one whose scoring statement cannot be prepared: the failing section contributes no hit, all its items are in `Missing` once, the other section's hits are returned, and the rendered command shows them with `semantic_partial`. With both failing: `NoIndex` and the lexical results. Scenario 35. |
-| `TestCoverage` | An entry covers an item only with the same path and content check; an edited body, an edited title, a renamed file and a deleted file are not covered; a front-matter-only edit still is. A body of another length, and one changed within four consecutive bytes at the same length, are not covered, never scored and counted in `Missing`. A body changed to other text with the same `ContentCheck`, the same length and the same CRC-32C, which the test constructs, is covered: the accepted limit of the check (architecture §17), pinned here so that a later change of the check has to meet it knowingly. A search and `Status` call `ContentCheck` and never `ContentDigest`: the test counts both through a package variable kept for it. A row whose span passes the body's end is not used. Scenario 35. |
+| `TestCoverage` | An entry covers an item only with the same path and content check; an edited body, an edited title, a renamed file and a deleted file are not covered; a front-matter-only edit still is. A body of another length, and one changed within four consecutive bytes at the same length, are not covered, never scored and counted in `Missing`. A body changed to other text with the same `ContentCheck`, the same length and the same CRC-32C, which the test constructs, is covered: the accepted limit of the check (architecture §17), pinned here so that a later change of the check has to meet it knowingly. A search with nothing to catch up, and `Status`, call `ContentCheck` and never `ContentDigest`: the test counts both through a package variable kept for it. A row whose span passes the body's end is not used. Scenario 35. |
 | `TestBuildFirstAndNoOp` | A first build embeds every passage; a second embeds none, computes no `ContentDigest` and never opens the inference runtime, though it verifies the model's files. Scenarios 35 and 37. |
 | `TestBuildRestoresModel` | With a complete index and the cache deleted, a build with no item changed downloads and verifies the model, embeds nothing, opens no runtime, and the next search with the source is ready. With a complete index and wrong weights of the right size at `model_path`, the same build fails with `invalid_config` and leaves the index as it was. An empty section asks for no model. Scenario 35. |
 | `TestSemanticNoticeTable`, in `cli` | Every row of the notice table, in text and JSON, in both views; singular and plural forms; the status line for each model state and each `IndexState`. No message holds an item id, a path or an address. Scenarios 35 and 37. |
@@ -690,6 +740,11 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestModelFindVerifyDownload` | Files found at `model_path` and in the cache; a wrong size or digest at `model_path` is `invalid_config`; a download with a wrong digest, a short body or a body past its size fails with `fetch_failed` and leaves no file; a second process finds the first one's file. No request is made when `model_path` is set. Scenario 35. |
 | `TestCachePlacement` | Accepted: a folder outside any work tree; an ignored folder inside one, also when the home folder is a work tree. Refused: inside the brain, inside the personal section, in a work tree that does not ignore it, an ignored folder with a force-added file, a missing child of each, and a link to each. Refused for a nested repository: a cache outside Git whose `vectors` folder, fingerprint folder or one two-character folder holds `.git`, as a folder and as a file, and the same inside an ignored cache within a larger work tree; the build stops before writing into that folder. Nothing is created on refusal, and a search without `--semantic` is unaffected in every case. Scenario 35. |
 | `TestVectorCache` | A short file, a wrong checksum and a vector that is not of unit length are removed and counted absent; two writers of one vector leave one valid file. |
+| `TestCatchUp` | With a built index and the test model. One added note: `CatchUp` computes one `ContentDigest`, embeds one passage, publishes, and `Score` returns the note with `Missing` 0; a build run afterwards embeds nothing and reuses nothing. An edited item: replaced, and never scored for its old text. A renamed item: nothing embedded, the entry under the new path, the old row left in the database. A front-matter-only edit: no lock taken and nothing written. Nothing uncovered: no lock taken, the model task not waited for by `CatchUp`, no file touched. Shared section: the new vector is in the cache; a second work tree's search reuses it and opens the runtime for the query only. Personal section: the item is in the personal index, and no cache file appears. Scenario 42. |
+| `TestCatchUpBounds` | 21 uncovered items: no `ContentDigest` computed, nothing embedded, no lock taken, nothing written, `Missing` 21. 20 items of one passage: all caught up. 3 items needing 21 passages: nothing written. 5 items of which reuse from the cache leaves 20 passages: caught up. With the injected clock passing `catchUpBudget` after the first of three items: one is published and scored, `Missing` 2, and no embedding call starts after the bound. The counts are over both sections of a personal view. Scenario 42. |
+| `TestCatchUpLock` | The index lock held by another process: `CatchUp` returns without waiting, embeds nothing and writes nothing, and the search prints `semantic_partial`. A build that publishes between the search's index read and its lock (paused by the test): the manifest differs, nothing is written, and the build's database is still the one in force. Two searches at once: one catches up, the other answers without the item or with it, never with a half-written index. A build started while a search holds the lock waits and then finds nothing to do. `TryLock` failing with a file-system error is treated as held. Scenario 42. |
+| `TestCatchUpNeverCreates` | No index, an index of another fingerprint, an unreadable index, format 2, a missing model, an exposed cache and `model = "none"`: after an add, a search writes no file, creates no folder and takes no lock, and its notice is the one of scenario 35. With `model_path` and no cache folder: the item is caught up and no cache folder appears. In a section folder that cannot be written: the search succeeds with `semantic_partial`. A cache folder whose `vectors` folder holds `.git`: nothing is written there and the item stays uncovered. Scenarios 35 and 42. |
+| `TestCatchUpFailures` | Each leaves the search successful and the previous index in force: an embedder that fails, one that returns a vector of the wrong length, a publication whose rename fails, a cancelled context (the context's error, nothing published). After a failed publication the item is still scored in that search. Scenario 42. |
 | `TestSourceLifecycle` | `Start` returns before the model is open and the scan can run meanwhile; `Close` without `Attach`, after a failed scan and after `Score` each cancels the task and closes the embedder once and only if it was opened; a cancelled context ends `Score` with the context's error. |
 | `TestSourceBadQueryVector` | A runtime that returns a query vector of the wrong dimension, with a value that is not a number, or not of unit length: not ready with `ModelFailed`, no hit, lexical results kept. Scenario 35. |
 | `TestSourceNotReady` | Each row of the check table gives its reason and opens no model; no file is written and no request made in any of them. Scenario 35. |
