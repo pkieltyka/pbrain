@@ -17,13 +17,18 @@ TODO
 
 - [ ] pbrain executable scenarios 31–34 and 36–41 (@lead-dev-2)
     * owner: @lead-dev-2
-    * range/status: merged master through `bb2670a`; 13 scripts/helpers are the 17-file diff from master `71b5725`; all 44 scripts pass
-    * next: @reviewer reviews scenario commits `67ec355..db8601c` and the two master merges
+    * range/status: sanitized one-commit range `1e30817..929b624` on `peter/lead-dev-2`; author reports no token-shaped matches in 17 changed files and full tests/vet pass
+    * next: @reviewer reviews this range and scans the whole tree together with the fixture cleanup
+
+- [ ] pbrain test-fixture token-shape cleanup (@lead-dev)
+    * owner: @lead-dev
+    * range/status: review-ready `1e30817..45b7a54` on `peter/lead-dev`; changes scenario 28 and `internal/check/check_test.go`; focused tests pass
+    * next: @reviewer reviews this range and performs one non-disclosing scan over the whole tree after both changes
 
 - [ ] pbrain final functional-scenario audit (@reviewer)
     * owner: @reviewer
-    * range/status: scenarios 1–20, 21–30/35, and output `0bd5a12..965ed58` approved; scenario branch merged master at `bb2670a`
-    * next: review `67ec355..db8601c` plus the two master merges; then close the scenario audit when all assigned scripts are approved
+    * range/status: scenarios 1–20, 21–30/35, and output `0bd5a12..965ed58` approved; two sanitized ranges submitted: `1e30817..929b624`, `1e30817..45b7a54`
+    * next: review both exact ranges, then scan the whole tree once without disclosing token-like matches
 
 ## Backlog
 
@@ -33,11 +38,12 @@ TODO
 
 - [ ] Hide unused global `--brain` and `--personal` options from `pbrain skill --help`
 
-- [ ] macOS (arm64) runtime measurement and smoke: rule 3 for both models, search `--semantic` at 5,000 items, release-binary install from tag
+- [ ] macOS (arm64) runtime measurement and smoke: rule 3 for both models, search `--semantic` at 5,000 items, release-binary install from tag, scenario 41 PTY cases
 
 ## Decisions
 
 - @operator (2026-11-21): revise decision 27: `bge-small-en-v1.5` is default; `embeddinggemma-2` remains opt-in and `none` turns semantic search off. The measured Gemma cost on the token-heavy 5,000-item/50 MB fixture informs the change; finish the same-size BGE run before release.
+- @operator (2026-11-21): keep credential-shaped literals out of committed files; construct test values at runtime.
 - @operator (2026-11-21): macOS arm64 runtime measurements and tagged-install smoke are owed in a separate backlog item and do not block the first release.
 - @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
 - @operator (2026-11-21): use `ExactValue` for control/quote/backslash IDs and paths (spaces remain bare); reject invalid-UTF-8 lookup IDs; use `bad_file_name`; map invalid-name findings to the nearest printable ancestor or `?`; omit invalid-UTF-8 JSON paths.
