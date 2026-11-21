@@ -30,6 +30,9 @@ go run ./internal/semantic/calibrate -model bge-small-en-v1.5 \
   internal/semantic/calibrate/testdata/retrieval
 ```
 
+For EmbeddingGemma 2, pass `-model embeddinggemma-2` and the pinned
+text-only pack as `-model-path`.
+
 The tool builds the scratch index, uses uncensored production scores and
 the complete exact-result list to choose the cutoff on calibration
 negatives, then evaluates the held-out JSON pages at that cutoff. It
