@@ -99,6 +99,7 @@ var allowed = map[string][]string{
 	"internal/semantic":        {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
 	"internal/embed":           {"sys", "errs"},
 	"internal/embed/bge":       {"embed", "sys", "errs"},
+	"internal/embed/gemma2":    {"embed"},
 	"internal/embed/embedtest": {"embed", "errs"}, // semantic.md "Test plan": the test registry
 	"internal/importer":        {"item", "errs", "importer/fetch"},
 	"internal/importer/fetch":  {"errs"},
