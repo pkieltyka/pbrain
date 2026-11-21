@@ -49,6 +49,31 @@ GOMAXPROCS=4 go test -p 2 -run '^$' -bench '^BenchmarkBgeFirstQuery$' \
 For an EmbeddingGemma 2 release, use `BenchmarkGemmaFirstQuery` in
 `./internal/embed/gemma2` with the pinned pack.
 
+## EmbeddingGemma 2, Linux
+
+2026-11-21. Binary built from `4eff5a7` (release wiring `2233197`) with
+Go 1.27.3, `CGO_ENABLED=0` and `-trimpath`. Linux 6.18.63 on an Intel Core
+Ultra 7 255H, btrfs, pinned to CPUs 0–3 with `GOMAXPROCS=4`. The pinned
+model pack was already on disk and in the page cache after setup.
+
+| Timed operation | Samples | Median | Range |
+| --- | ---: | ---: | ---: |
+| Verify pinned files, open model, embed one query, close | 5 | 281 ms | 253–366 ms |
+| Built binary, complete one-item semantic search | 10 | 502 ms | 478–553 ms |
+
+Both measurements used `where is login state kept`. The first row uses
+`BenchmarkGemmaFirstQuery` from the binary's source revision with
+`-benchtime=1x -count=5`. The second row times fresh release processes running
+`search --semantic --json` after one untimed warm-up. The scratch brain
+uses the default model and a local indexed note about session storage.
+Strict search returns zero results. Every timed process returns one
+semantic hit with empty stderr. Maximum peak RSS is 1,131,164 KiB (1.08 GiB).
+The complete command includes verification, load and inference, and is
+an upper bound for rule 3 on this fixture. Every warm Linux sample fits
+the 600 ms rule. Cold-cache, 5,000-item and arm64 Mac results are separate.
+
+## Release build and install
+
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
 amd64 and arm64. Once a release tag is available, verify versioned install
 in a scratch directory by setting `GOBIN` there and running
