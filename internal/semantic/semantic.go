@@ -14,25 +14,6 @@ import (
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
-const ChunkerVersion = "1"
-
-type Passage struct {
-	Start, End int      // code points in the stored body
-	Text       string   // what is embedded
-	Digest     [32]byte // SHA-256 of Text
-}
-
-// Passages cuts one item. It is pure and never fails.
-func Passages(title string, body []byte) []Passage { panic("not implemented") }
-
-// ContentDigest is the SHA-256 of the title's length in bytes as 8 little-endian bytes, the
-// title's bytes and the body's bytes: everything an item's passages are cut from. The length
-// frames the title, so no title and body can be mistaken for another pair.
-func ContentDigest(title string, body []byte) [32]byte { panic("not implemented") }
-
-// IndexFingerprint is the lower-case hex SHA-256 of "pbrain-index\n" + ChunkerVersion + "\n" + m.Fingerprint.
-func IndexFingerprint(m embed.Model) string { panic("not implemented") }
-
 type SectionDir struct {
 	Section item.Section
 	Dir     sys.Dir // from Brain.OpenSection
@@ -117,8 +98,6 @@ type Progress struct {
 func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl embed.Downloader, notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error) {
 	panic("not implemented")
 }
-
-type IndexState uint8 // IndexOK, IndexNone, IndexStale, IndexUnreadable
 
 type SectionStatus struct {
 	Section        item.Section
