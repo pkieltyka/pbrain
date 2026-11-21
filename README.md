@@ -32,6 +32,8 @@ pbrain search sessions Redis
 ```
 
 Copy the ID from the search result into `pbrain get <id>` to read the decision.
+An ID shown in double quotes is a JSON string: decode it, or take `id` from `--json`.
+Quote an ID that has spaces in the shell.
 Plain search reads the Markdown directly, so a new item is searchable immediately.
 Use `--json` for machine-readable results. Run `pbrain skill` for the agent guide
 or `pbrain skill list` for its topics.
@@ -44,7 +46,11 @@ the lexical results and a notice. Search never downloads a model or builds an in
 
 **The first index on a machine is a person's step.** Check `pbrain index --status`,
 then run `pbrain index` when ready. It downloads the selected model if needed and
-embeds items locally. On a large brain the first build can take over an hour.
+embeds items locally. A small brain takes minutes. With the default model on four CPUs
+the build ran at 0.902 passages a second (a passage there averaged about 1,000 characters): a
+projected 15 hours for the 5,000-item, 50 MB test brain, with a peak of about 2 GB of memory
+observed so far. That generated text is token-heavy, so ordinary notes may go faster. You can
+stop the build. The next `pbrain index` resumes from the last saved checkpoint.
 After writes or a pull, rerun `pbrain index` to pick up changes.
 
 The default model is `embeddinggemma-2`. To use the smaller, faster

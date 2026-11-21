@@ -1,2 +1,4 @@
 factory.toml
 .specs_skill_state/
+# GoReleaser output
+dist/

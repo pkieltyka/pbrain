@@ -1,0 +1,36 @@
+name: release
+
+# Release binaries (architecture section 16, decision 10): on a pushed v* tag, the suite runs in the
+# release configuration, then GoReleaser builds Linux and macOS on amd64 and arm64 with
+# CGO_ENABLED=0 and uploads the archives and their SHA-256 checksums to a draft release.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: goreleaser
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: the suite in the release configuration
+        env:
+          CGO_ENABLED: "0"
+        run: go test ./...
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

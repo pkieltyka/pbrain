@@ -5,38 +5,88 @@ TODO
 
 ## In progress
 
-- [ ] Goinfer upstream sync (@lead-dev-2)
-    * owner: @lead-dev-2
-    * branch: `pkieltyka/sync-upstream`; PR #6 includes `2ba9f26`, worktree clean
-    * next: hold merge/tag v0.3.0 for owner's go-ahead
-
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: harness/guard/rule-3 `581496c`, `150e8a9`, `5e85054` integrated; README patch `0c78b88` awaits @architect's check
-    * next: full-size Gemma index/timings are running; report rate, projected finish and peak RSS, then finish warm 5k/50 MB search; README and Mac run remain
+    * range/status: Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE queued after Gemma
+    * next: finish Gemma then same-size BGE; first tag waits for timings and final read-only pass; skill/README audit stale after `789b506`
 
-- [ ] Aikit fork documentation follow-up (@architect-2)
-    * owner: @architect-2
-    * range/status: PR #4 `0b1b868..1f7bd74` approved; @operator is merging
-    * next: record the merge commit when reported
+- [ ] pbrain release output fixes and scenario coverage (@lead-dev-2)
+    * owner: @lead-dev-2
+    * range/status: `029ff48..f65bf43` on `peter/lead-dev-2`; output fixes, `FuzzFit` and tests ready for review; full vet/tests, race, CGO-disabled build and Darwin/arm64 vet reported pass
+    * next: @reviewer reviews and @architect-2 rechecks findings; no model/index runs
 
-- [ ] Goinfer fork documentation follow-up (@architect-2)
+- [ ] pbrain final skill/README audit (@lead-dev-2)
+    * owner: @lead-dev-2
+    * range/status: changes required; read-only audit of master `029ff48` plus branch `f65bf43` found README and skill omit how to pass token IDs or shell-quote IDs with spaces
+    * next: @architect adds one-line guidance; coordinate identical shipped skill bytes with @lead-dev-2, then recheck
+
+- [ ] pbrain ID token guidance in README and skill (@architect)
+    * owner: @architect
+    * range/status: assigned on master `029ff48`; add the JSON-token decoding and shell-quoting hint beside README's “Copy the ID”
+    * next: add matching text to import topic or core if it fits; send hash and coordinate with @lead-dev-2
+
+- [ ] pbrain final CLI/render finding re-check (@architect-2)
     * owner: @architect-2
-    * range/status: PR #5 rebases from `a759890..93adb19f3` onto goinfer main `765dab39e`; changes required on two RELEASING.md claims
-    * next: @architect-2 distinguishes root releases from optional submodules and makes Peter the live exception approver; retain Francis as history, then request re-review
+    * range/status: prior P1–P3 findings on `7cf8ced`; recheck target `029ff48..f65bf43` is ready
+    * next: recheck findings against this exact range and report to @operator
+
+- [ ] pbrain testscript harness and scenarios 1–20 (@architect-2)
+    * owner: @architect-2
+    * range/status: assigned against current master `029ff48`; worktree `peter/architect-2` remains at `790a1ea`; main uses `cmd/pbrain.run()` plus embedtest
+    * next: add `TestStrayOutputDiscarded`, `TestReleaseBinaryOutput`, cross-dir/stdin/delete-stream cases and scenarios 1–20 incl. child-process 14/15; `-p 2`, no model/index
+
+- [ ] pbrain executable scenarios 21–41 (@lead-dev)
+    * owner: @lead-dev
+    * range/status: mapped to spec §15, including scenario 35 damaged-passage and shared-view checks; waiting for harness; no files changed
+    * next: merge master after harness; cover Factory, offline HTML/source, Slack C1/D, TestDamagedPassageIsRepaired and 39–41; `-p 2`, CPUs 4–15, no model/index
+
+- [ ] pbrain final functional-scenario audit (@reviewer)
+    * owner: @reviewer
+    * range/status: initial audit at `d010e0e` returned changes required and was triaged; now reviewing `029ff48..f65bf43`
+    * next: review harness/scenario ranges 1–20 and 21–41 as they arrive
 
 ## Backlog
 
+- [ ] Scope repeatable `--tag` help text per command (filter vs assign)
+
+- [ ] Show search defaults (`--limit 5`, `--max-chars 3000`) in command help
+
+- [ ] Hide unused global `--brain` and `--personal` options from `pbrain skill --help`
+
+## Decisions
+
+- @operator (2026-11-21): retain `embeddinggemma-2` as default despite the ~15 h projection for 5,000 token-heavy items/50 MB; compare same-size BGE after Gemma and hold the first release tag for full-size timings and the final read-only pass.
+- @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
+- @operator (2026-11-21): use `ExactValue` for control/quote/backslash IDs and paths (spaces remain bare); reject invalid-UTF-8 lookup IDs; use `bad_file_name`; map invalid-name findings to the nearest printable ancestor or `?`; omit invalid-UTF-8 JSON paths.
+- @operator (2026-11-21): count only error-severity skipped files in `skipped_files`; informational `not_an_item` files do not trigger the notice.
+- @operator (2026-11-21): do not touch goinfer tags; the imported v0.4.0 tag is under owner review, and the next fork release awaits approval.
+
 ## Done
 
+- [x] pbrain architecture/semantic documentation catch-up (@architect) `789b506`
+    * Records first-index costs, admission/output rules, 41 scenarios, runtime facts and current test names.
+
+- [x] pbrain measured-cost and path-safety spec updates (@architect) `4f936a7`
+    * Records the observed rate, invalid-UTF-8 admission, ExactValue contract and skipped-file notice scope.
+
+- [x] pbrain pre-release skill/README audit (@lead-dev-2) `6dee71e`
+    * No mismatch at the audited commit; a final repeat is tracked because later docs changed.
+
+- [x] pbrain release pipeline (@lead-dev-2) `7cf8ced`
+
+- [x] Goinfer fork documentation follow-up (@architect-2) `e33aa3893`
+
+- [x] pbrain README for phase 28 (@architect-2) `676bf6e`
+
+- [x] aikit fork documentation follow-up (@architect-2) `0bbc048`
+
+- [x] Goinfer upstream sync (@lead-dev-2) `765dab39`
+
 - [x] pbrain phase 16: URL imports (@architect-2) `f753d2c`
-    * Reviewer approved `698dfab..57c7694`; merged and pushed; master tests pass.
 
 - [x] pbrain phase 15: importer files and linked items (@architect-2) `e3b694b`
-    * Reviewer approved `f3dfbcb..b4a40a5`; merged, module checks and full tests passed.
 
 - [x] pbrain phase 11 measurement harness (@lead-dev) `606bbfc`
-    * Approved by @architect-2 and merged; built-binary warm harness covers shared/personal/outside-Git and BM25 cases.
 
 - [x] pbrain init selector usable from caller's directory (@architect-2) `90b4644`
 
