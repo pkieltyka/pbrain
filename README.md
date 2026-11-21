@@ -17,6 +17,7 @@ While the repository is private, tagged installs and release downloads require r
 Once a release is tagged, install it with
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@latest` or download the
 Linux or macOS binary for your architecture (amd64 or arm64). [GitHub Releases](https://github.com/pkieltyka/pbrain/releases)
+The macOS binaries are built but not tested, and are unsupported for now.
 
 ## Quick start
 
@@ -83,7 +84,7 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 
 ## Measured speed
 
-| Release measurement (5,000 items, 50 MB) | Linux | Apple silicon Mac |
+| Release measurement (5,000 items, 50 MB) | Linux | Apple silicon Mac (untested, deferred) |
 | --- | --- | --- |
 | Lexical search / get, personal view | 135–189 ms / 134 ms | Not yet measured |
 | BGE semantic search, shared view (4,500 visible items) | 302–309 ms | Not yet measured |

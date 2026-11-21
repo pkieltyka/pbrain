@@ -1,7 +1,8 @@
 # Release measurements
 
-Measure on Linux before the first release. Apple silicon Mac measurements
-are tracked separately in architecture §17. Keep the machine idle and
+Measure on Linux before the first release. macOS is deferred: it is not
+tested or supported for now, and Apple silicon Mac measurements are
+tracked separately in architecture §17. Keep the machine idle and
 record its CPU, OS, filesystem, executable revision and cache preparation
 method. The release targets are in functional spec §16 and architecture
 §§8.6–8.7. Publish the first sample separately from the warm samples.
@@ -119,13 +120,16 @@ Strict search returns zero results. Every timed process returns one
 semantic hit with empty stderr. Maximum peak RSS is 1,131,164 KiB (1.08 GiB).
 The complete command includes verification, load and inference, and is
 an upper bound for rule 3 on this fixture. Every warm Linux sample fits
-the 600 ms rule. Cold-cache, 5,000-item and arm64 Mac results are separate.
+the 600 ms rule. Cold-cache and 5,000-item results are separate; arm64 Mac
+results are deferred (architecture §17).
 
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
-amd64 and arm64. Once a release tag is available, verify versioned install
-in a scratch directory by setting `GOBIN` there and running
+amd64 and arm64. The Darwin binaries are only built: running them is
+deferred with macOS (architecture §17). Once a release tag is available,
+verify versioned install in a scratch directory by setting `GOBIN` there
+and running
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@"$PBRAIN_RELEASE_TAG"`.
 Run the installed binary's `--version` and record the result with the
 timings.
