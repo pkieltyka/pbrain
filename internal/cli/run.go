@@ -152,8 +152,23 @@ func runSkill(in *invocation) outcome {
 }
 
 // runCommand is the dispatch point for handlers delivered after the CLI core.
-func runCommand(_ context.Context, _ Env, _ *invocation, _ *brain.Brain, _ Features) outcome {
-	return notImplemented()
+func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, _ Features) outcome {
+	switch in.cmd.name {
+	case "add":
+		return runAddCommand(ctx, in, newWriteContext(env, in, b))
+	case "verify":
+		actor := in.string("by")
+		if in.has("by") && actor == "" {
+			return outcome{err: invalidWrite("verified: must not be empty")}
+		}
+		r, err := runVerify(ctx, newWriteContext(env, in, b), verifyRequest{ID: in.operands[0], By: actor})
+		return writeOutcome(in.json, r, err)
+	case "delete":
+		r, err := runDelete(ctx, newWriteContext(env, in, b), deleteRequest{ID: in.operands[0], Yes: in.boolean("yes")})
+		return deleteOutcome(in.json, r, err)
+	default:
+		return notImplemented()
+	}
 }
 
 func notImplemented() outcome { return outcome{err: ioFailure("command is not implemented yet")} }
