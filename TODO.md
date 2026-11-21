@@ -7,23 +7,23 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
-    * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
+    * range/status: Gemma paused after 5,873.416 s at 545 items/5,251 passages (1.97 GiB peak); BGE indexing first, at 917 passages. Both baseline jobs use binary 9f53910; sum Gemma active time across resume, excluding pause
+    * next: finish BGE build and warm samples, resume Gemma on its retained index/cache, then validate warm search with the v0.4.1 binary on fixture copies; finish README figures and final read-only pass
 
-- [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
+- [ ] pbrain aikit v1.79.1 dependency verification (@architect-2)
     * owner: @architect-2
-    * range/status: tag `v0.4.1` and local content hash match `e33aa3893`; proxy verification and pinned-file tests pending; pbrain remains on v0.2.0
-    * next: verify proxy Origin.Hash, module path and checksum after cache expiry; then run Gemma pinned-file tests before bumping
+    * range/status: `df454ba..98d62cb` on `peter/aikit-v1791`; proxy, BGE and Gemma pinned-file checks passed
+    * next: @reviewer reviews both commits
 
-- [ ] pbrain executable scenarios 31–34 and 36–41 (@lead-dev-2)
-    * owner: @lead-dev-2
-    * range/status: merged master through `bb2670a`; 13 scripts/helpers are the 17-file diff from master `71b5725`; all 44 scripts pass
-    * next: @reviewer reviews scenario commits `67ec355..db8601c` and the two master merges
+- [ ] pbrain aikit v1.79.1 spec pin update (@architect)
+    * owner: @architect
+    * range/status: second commit `98d62cb` on `peter/aikit-v1791`
+    * next: reviewer reviews the bump and spec together over `df454ba..98d62cb`
 
-- [ ] pbrain final functional-scenario audit (@reviewer)
-    * owner: @reviewer
-    * range/status: scenarios 1–20, 21–30/35, and output `0bd5a12..965ed58` approved; scenario branch merged master at `bb2670a`
-    * next: review `67ec355..db8601c` plus the two master merges; then close the scenario audit when all assigned scripts are approved
+- [ ] pbrain final first-index figures (@architect)
+    * owner: @architect
+    * range/status: waiting for the completed Linux full-size Gemma and BGE runs
+    * next: update spec, skill and README with final measured figures for both models
 
 ## Backlog
 
@@ -33,11 +33,14 @@ TODO
 
 - [ ] Hide unused global `--brain` and `--personal` options from `pbrain skill --help`
 
-- [ ] macOS (arm64) runtime measurement and smoke: rule 3 for both models, search `--semantic` at 5,000 items, release-binary install from tag
+- [ ] macOS (arm64) runtime measurement and smoke: rule 3 for both models, search `--semantic` at 5,000 items, release-binary install from tag, scenario 41 PTY cases
 
 ## Decisions
 
 - @operator (2026-11-21): revise decision 27: `bge-small-en-v1.5` is default; `embeddinggemma-2` remains opt-in and `none` turns semantic search off. The measured Gemma cost on the token-heavy 5,000-item/50 MB fixture informs the change; finish the same-size BGE run before release.
+- @operator (2026-11-21): prioritize the full-size default BGE run; stop and later resume Gemma on its existing index/cache, report Gemma active time summed across runs, use the same `9f53910` binary for both, then validate warm searches with the current v0.4.1 binary.
+- @operator (2026-11-21): use fork aikit v1.79.1 (`0bbc048`) and goinfer v0.4.1; verify the aikit proxy artifact before updating pbrain's dependency pin. Aikit root code is unchanged from v1.79.0; the release includes nested-module pins and docs.
+- @operator (2026-11-21): keep credential-shaped literals out of committed files; construct test values at runtime.
 - @operator (2026-11-21): macOS arm64 runtime measurements and tagged-install smoke are owed in a separate backlog item and do not block the first release.
 - @operator (2026-11-21): exclude item stems with invalid UTF-8 and report them through skipped-file/check diagnostics, preventing distinct raw names from folding to one displayed ID.
 - @operator (2026-11-21): use `ExactValue` for control/quote/backslash IDs and paths (spaces remain bare); reject invalid-UTF-8 lookup IDs; use `bad_file_name`; map invalid-name findings to the nearest printable ancestor or `?`; omit invalid-UTF-8 JSON paths.
@@ -45,6 +48,14 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain goinfer v0.4.1 dependency and spec pin (@architect-2, @architect) `023bc3e`, `0b655ae`
+
+- [x] pbrain final functional-scenario audit (@reviewer) `ab2706b`
+
+- [x] pbrain scenarios 31–41 (@lead-dev-2) `929b624`
+
+- [x] pbrain token-shaped test-fixture cleanup (@lead-dev) `40e9ac1`
 
 - [x] pbrain architecture 14: executable scenario coverage rule (@architect) `2a75730`, `71b5725`, `0a85fd1`
 

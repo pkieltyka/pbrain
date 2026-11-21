@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -15,38 +16,93 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// openPTY opens a pseudo-terminal with output translation off, so a line feed reaches the reader
-// as written; it skips the test where none can be opened.
-func openPTY(t *testing.T) (master, slave *os.File) {
-	t.Helper()
+// openPTYFiles opens a pseudo-terminal with output translation off, so a line feed reaches the
+// reader as written.
+func openPTYFiles() (master, slave *os.File, err error) {
 	fd, err := unix.Open("/dev/ptmx", unix.O_RDWR|unix.O_NOCTTY|unix.O_CLOEXEC, 0)
 	if err != nil {
-		t.Skipf("no pseudo-terminal: %v", err)
+		return nil, nil, fmt.Errorf("no pseudo-terminal: %w", err)
 	}
 	master = os.NewFile(uintptr(fd), "/dev/ptmx")
-	if err := unix.IoctlSetPointerInt(fd, unix.TIOCSPTLCK, 0); err != nil {
+	fail := func(what string, err error) (*os.File, *os.File, error) {
 		master.Close()
-		t.Skipf("unlockpt: %v", err)
+		return nil, nil, fmt.Errorf("%s: %w", what, err)
+	}
+	if err := unix.IoctlSetPointerInt(fd, unix.TIOCSPTLCK, 0); err != nil {
+		return fail("unlockpt", err)
 	}
 	n, err := unix.IoctlGetInt(fd, unix.TIOCGPTN)
 	if err != nil {
-		master.Close()
-		t.Skipf("ptsname: %v", err)
+		return fail("ptsname", err)
 	}
 	slave, err = os.OpenFile("/dev/pts/"+strconv.Itoa(n), os.O_RDWR|unix.O_NOCTTY, 0)
 	if err != nil {
-		master.Close()
-		t.Skipf("open the terminal side: %v", err)
+		return fail("open the terminal side", err)
 	}
 	tio, err := unix.IoctlGetTermios(int(slave.Fd()), unix.TCGETS)
-	if err != nil {
-		t.Fatal(err)
+	if err == nil {
+		tio.Oflag &^= unix.OPOST
+		err = unix.IoctlSetTermios(int(slave.Fd()), unix.TCSETS, tio)
 	}
-	tio.Oflag &^= unix.OPOST
-	if err := unix.IoctlSetTermios(int(slave.Fd()), unix.TCSETS, tio); err != nil {
-		t.Fatal(err)
+	if err != nil {
+		slave.Close()
+		return fail("termios", err)
+	}
+	return master, slave, nil
+}
+
+// ptyUnavailable is the reason a script's [pty] lines are skipped on this machine.
+func ptyUnavailable() string {
+	master, slave, err := openPTYFiles()
+	if err != nil {
+		return "no pseudo-terminal could be opened here: " + err.Error()
+	}
+	slave.Close()
+	master.Close()
+	return ""
+}
+
+// ptyAvailable reports whether a pseudo-terminal can be opened.
+func ptyAvailable() bool {
+	master, slave, err := openPTYFiles()
+	if err != nil {
+		return false
+	}
+	slave.Close()
+	master.Close()
+	return true
+}
+
+// openPTY is openPTYFiles for a test, which it skips where no pseudo-terminal can be opened.
+func openPTY(t *testing.T) (master, slave *os.File) {
+	t.Helper()
+	master, slave, err := openPTYFiles()
+	if err != nil {
+		t.Skip(err)
 	}
 	return master, slave
+}
+
+// runOnPTY runs cmd with its standard output on a pseudo-terminal and returns what it printed there.
+// skip is set when this machine has no pseudo-terminal.
+func runOnPTY(cmd *exec.Cmd) (out []byte, skip string, err error) {
+	master, slave, err := openPTYFiles()
+	if err != nil {
+		return nil, err.Error(), nil
+	}
+	defer master.Close()
+	cmd.Stdout = slave
+	if err := cmd.Start(); err != nil {
+		slave.Close()
+		return nil, "", err
+	}
+	slave.Close()
+	var b bytes.Buffer
+	done := make(chan struct{})
+	go func() { io.Copy(&b, master); close(done) }() // ends with EIO once the child has exited
+	err = cmd.Wait()
+	<-done
+	return b.Bytes(), "", err
 }
 
 // pbrain runs the binary as a child with args; its standard output is a pipe, or with tty a terminal.

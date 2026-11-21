@@ -1,0 +1,292 @@
+# Functional spec §15, scenario 31: snippets, positions and per-clause counts.
+mkdir docs/brain/personal
+pbrain init
+
+# A long source has queue on its first line and queue with rollback far in: the later passage is the
+# snippet, with its location line in text, its fields in JSON, and its section.
+pbrain-test search queue rollback
+stdout '^guide  source  provisional  2026-11-01$'
+stdout '^  docs/brain/guide.md:188  \[body L8, offset 7669/7899; file 194L/7991C; 3 occurrences\] \[in Section 58\]$'
+stdout '## Recovery  When the queue stalls, a rollback…$'
+fileline docs/brain/guide.md 188 'ordinary prose about other things$'
+pbrain-test search queue rollback --json
+stdout '"section":"Section 58","snippet":"…rose about other things ## Section 59 .*a rollback…","snippet_line":188,"snippet_offset":7669'
+pbrain-test get guide --offset 7669 --max-chars 600
+stdout '^rose about other things$'
+stdout '^When the queue stalls, a rollback restores the previous state\.$'
+stdout '^\[body 7669 to .*; file L188–'
+
+# A short learning has a location line too, offset 0 where its passage starts the body, and names no
+# section.
+pbrain-test search queue rollback
+stdout '^  docs/brain/learn.md:8  \[body L8, offset 0/29; file 8L/121C; 3 occurrences\]$'
+
+# A phrase counts as one clause when passages are compared: the passage holding it is chosen.
+pbrain-test search '"queue stalls"' rollback
+stdout '^  docs/brain/guide.md:188  \[body L8, offset 7669/7899; file 194L/7991C; 2 occurrences\] \[in Section 58\]$'
+
+# A wrapped paragraph with multibyte characters before the hit: the printed position opens get on
+# the same passage.
+pbrain-test search marmot
+stdout '^  docs/brain/wrap.md:10  \[body L8, offset 137/370; file 15L/461C; 1 occurrence\]$'
+stdout '^  …ñ characters in prose wrapped line 3'
+pbrain-test get wrap --offset 137
+stdout '^ñ characters in prose$'
+stdout '^\[body 137 to 369 of 370; file L10–L15\]$'
+
+# An empty result counts each clause, in text and JSON, within the view and the filters.
+pbrain-test search nothinghere personalonlyword
+stdout '^0 results\. Alone: nothinghere 0, personalonlyword 0\.$'
+pbrain-test search nothinghere personalonlyword --json
+stdout '^\{"alone":\[\{"clause":"nothinghere","count":0\},\{"clause":"personalonlyword","count":0\}\]\}$'
+pbrain-test search nothinghere personalonlyword --personal
+stdout '^0 results\. Alone: nothinghere 0, personalonlyword 1\.$'
+pbrain-test search nothinghere queue --kind decision
+stdout '^0 results\. Alone: nothinghere 0, queue 0\.$'
+
+# A page that has results, and an offset past the end of them, print no counts.
+pbrain-test search queue
+! stdout 'Alone'
+pbrain-test search queue --offset 9
+stdout '^0 results\.$'
+pbrain-test search queue --offset 9 --json
+! stdout 'alone'
+
+# With nine short clauses, and with one quoted phrase longer than the whole limit, the empty result
+# still succeeds: the closing parts and an outside-window count stay, and only the count entries that
+# fit are shown.
+pbrain-test search nothinghere a b c d e f g h --max-chars 60
+stdout '^0 results\. Alone: nothinghere 0, a [0-9]+, b 0, c 0, d 0, e 0\.$'
+pbrain-test search '"longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase longphrase"' --since 7d --max-chars 80
+stdout '^0 results\. 0 matches outside the time window: drop --since\.$'
+! stdout 'Alone'
+
+-- repo/docs/brain/guide.md --
+---
+kind: source
+title: Operations guide
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+# Overview
+
+The queue is introduced here.
+
+## Section 0
+
+paragraph 0 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 1
+
+paragraph 1 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 2
+
+paragraph 2 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 3
+
+paragraph 3 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 4
+
+paragraph 4 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 5
+
+paragraph 5 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 6
+
+paragraph 6 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 7
+
+paragraph 7 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 8
+
+paragraph 8 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 9
+
+paragraph 9 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 10
+
+paragraph 10 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 11
+
+paragraph 11 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 12
+
+paragraph 12 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 13
+
+paragraph 13 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 14
+
+paragraph 14 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 15
+
+paragraph 15 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 16
+
+paragraph 16 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 17
+
+paragraph 17 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 18
+
+paragraph 18 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 19
+
+paragraph 19 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 20
+
+paragraph 20 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 21
+
+paragraph 21 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 22
+
+paragraph 22 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 23
+
+paragraph 23 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 24
+
+paragraph 24 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 25
+
+paragraph 25 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 26
+
+paragraph 26 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 27
+
+paragraph 27 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 28
+
+paragraph 28 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 29
+
+paragraph 29 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 30
+
+paragraph 30 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 31
+
+paragraph 31 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 32
+
+paragraph 32 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 33
+
+paragraph 33 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 34
+
+paragraph 34 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 35
+
+paragraph 35 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 36
+
+paragraph 36 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 37
+
+paragraph 37 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 38
+
+paragraph 38 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 39
+
+paragraph 39 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 40
+
+paragraph 40 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 41
+
+paragraph 41 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 42
+
+paragraph 42 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 43
+
+paragraph 43 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 44
+
+paragraph 44 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 45
+
+paragraph 45 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 46
+
+paragraph 46 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 47
+
+paragraph 47 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 48
+
+paragraph 48 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 49
+
+paragraph 49 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 50
+
+paragraph 50 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 51
+
+paragraph 51 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 52
+
+paragraph 52 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 53
+
+paragraph 53 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 54
+
+paragraph 54 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 55
+
+paragraph 55 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 56
+
+paragraph 56 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 57
+
+paragraph 57 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 58
+
+paragraph 58 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Section 59
+
+paragraph 59 ordinary prose about other things ordinary prose about other things ordinary prose about other things
+## Recovery
+
+When the queue stalls, a rollback restores the previous state.
+-- repo/docs/brain/learn.md --
+---
+kind: learning
+title: Queue learning
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+A queue rollback needs care.
+-- repo/docs/brain/wrap.md --
+---
+kind: note
+title: Wrapped paragraph
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+wrapped line 0 holds é ü ï and ñ characters in prose
+wrapped line 1 holds é ü ï and ñ characters in prose
+wrapped line 2 holds é ü ï and ñ characters in prose
+wrapped line 3 holds é ü ï and ñ characters in prose
+wrapped line 4 holds é ü ï and ñ characters in prose
+wrapped line 5 holds é ü ï and ñ characters in prose
+and here the marmot appears
+after it a closing line
+-- repo/docs/brain/personal/mine.md --
+---
+kind: note
+title: Mine
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+personalonlyword here

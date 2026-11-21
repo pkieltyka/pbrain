@@ -1,0 +1,86 @@
+# Functional spec §15, scenario 41: colour.
+pbrain init
+
+# --color on search and get adds only pbrain's sequences: removed, the plain page remains. Plain
+# output carries none of them, whatever the terminal environment says.
+env TERM=xterm-256color COLORTERM=truecolor CLICOLOR_FORCE=1 FORCE_COLOR=1
+pbrain-test search zebra
+cp stdout $WORK/search-plain
+! stdout '\x1b\[(1|36|0)m'
+pbrain-test search zebra --color
+cp stdout $WORK/search-colour
+stdout '\x1b\[1m'
+! cmp $WORK/search-colour $WORK/search-plain
+nocolor $WORK/search-colour $WORK/search-stripped
+cmp $WORK/search-stripped $WORK/search-plain
+
+# A stored escape sequence is printed byte for byte, with and without the flag.
+pbrain-test get 20261101-000000-escape-e1e1
+cp stdout $WORK/get-plain
+stdout 'plain \x1b\[31mred\x1b\[39m text'
+! stdout '\x1b\[(1|36|0)m'
+pbrain-test get 20261101-000000-escape-e1e1 --color
+cp stdout $WORK/get-colour
+stdout 'plain \x1b\[31mred\x1b\[39m text'
+nocolor $WORK/get-colour $WORK/get-stripped
+cmp $WORK/get-stripped $WORK/get-plain
+
+# The same bytes reach a terminal as a pipe, with output translation off. Where no pseudo-terminal
+# can be used (on macOS: the Mac backlog), ptyskip logs the reason.
+[!pty] ptyskip
+[pty] ptyout $WORK/search-tty pbrain-test search zebra
+[pty] cmp $WORK/search-tty $WORK/search-plain
+[pty] ptyout $WORK/search-tty-colour pbrain-test search zebra --color
+[pty] cmp $WORK/search-tty-colour $WORK/search-colour
+[pty] ptyout $WORK/get-tty pbrain-test get 20261101-000000-escape-e1e1
+[pty] cmp $WORK/get-tty $WORK/get-plain
+[pty] ptyout $WORK/get-tty-colour pbrain-test get 20261101-000000-escape-e1e1 --color
+[pty] cmp $WORK/get-tty-colour $WORK/get-colour
+
+# At the limit that just holds the plain page, colour gives way and never passes the limit.
+pagebudget PLAIN $WORK/search-plain
+pbrain-test search zebra --color --max-chars $PLAIN
+cp stdout $WORK/tight
+fits $WORK/tight $PLAIN
+nocolor $WORK/tight $WORK/tight-stripped
+cmp $WORK/tight-stripped $WORK/search-plain
+pagebudget PLAIN $WORK/get-plain
+pbrain-test get 20261101-000000-escape-e1e1 --color --max-chars $PLAIN
+cp stdout $WORK/tight-get
+fits $WORK/tight-get $PLAIN
+nocolor $WORK/tight-get $WORK/tight-get-stripped
+cmp $WORK/tight-get-stripped $WORK/get-plain
+
+# Paging visits the same results with and without colour.
+pbrain-test search zebra --limit 1
+cp stdout $WORK/page1
+pbrain-test search zebra --limit 1 --color
+nocolor stdout $WORK/page1-colour
+cmp $WORK/page1-colour $WORK/page1
+pbrain-test search zebra --limit 1 --offset 1
+cp stdout $WORK/page2
+pbrain-test search zebra --limit 1 --offset 1 --color
+nocolor stdout $WORK/page2-colour
+cmp $WORK/page2-colour $WORK/page2
+
+# --color with --json, and on other commands, is a usage error.
+status 2 pbrain-test search zebra --color --json
+stderr '"code":"usage"'
+status 2 pbrain-test list --color
+
+-- repo/docs/brain/notes/20261101-000000-escape-e1e1.md --
+---
+kind: note
+title: Zebra escape sequence
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+plain [31mred[39m text about the zebra
+-- repo/docs/brain/notes/20261102-000000-second-s2s2.md --
+---
+kind: note
+title: Second zebra
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+another zebra note

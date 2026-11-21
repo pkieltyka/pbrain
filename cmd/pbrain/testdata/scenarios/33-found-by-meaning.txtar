@@ -1,0 +1,450 @@
+# Functional spec §15, scenario 33: found by meaning. The test model's table makes "session" and
+# "login" one direction, so the question shares no word with the decision it finds.
+pbrain init
+testmodel test-model $WORK/table.json
+pbrain-test index
+stdout '^shared: 4 items indexed, 0 items removed; 104 passages embedded, 0 reused$'
+countfiles $PBRAIN_CACHE/vectors 104
+
+# Without --semantic the question finds nothing, with its per-clause counts.
+pbrain-test search where is login state kept
+stdout '^0 results\. Alone: where 0, is [0-9]+, login 0, state 0, kept 0\.$'
+
+# With it the decision is returned, marked semantic, with a snippet from its closest passage; for the
+# long source the snippet carries its position and section, and get --offset opens on it.
+pbrain-test search where is login state kept --semantic
+stdout '^20261101-000000-sessions-redis-s1s1  decision  verified  2026-11-01  semantic$'
+stdout '^  docs/brain/decisions/20261101-000000-sessions-redis-s1s1.md:11  \[body L11, offset 0/57; file 11L/233C; 0 occurrences\]$'
+stdout '^20261102-000000-guide-g1g1  source  provisional  2026-11-02  semantic$'
+stdout '^  docs/brain/sources/20261102-000000-guide-g1g1.md:310  \[body L8, offset 7389/7453; file 312L/7542C; 1 occurrence\] \[in Auth\]$'
+stdout '^  …## Auth  Each session token is stored server side in the cache\. $'
+pbrain-test search where is login state kept --semantic --json
+stdout '"id":"20261101-000000-sessions-redis-s1s1",.*"semantic":true'
+stdout '"section":"Auth","semantic":true,"snippet":"…## Auth .*","snippet_line":310,"snippet_offset":7389'
+pbrain-test get 20261102-000000-guide-g1g1 --offset 7389 --max-chars 400
+stdout '^## Auth$'
+stdout '^\[body 7389 to 7452 of 7453; file L310–L312\]$'
+
+# A query with lexical results keeps them, in order, with the same lines; the added results follow
+# and no item is listed twice.
+pbrain-test search sessions
+cp stdout $WORK/plain.txt
+pbrain-test search sessions --semantic
+cp stdout $WORK/semantic.txt
+sameprefix $WORK/plain.txt $WORK/semantic.txt
+stdout -count=1 '^20261101-000000-sessions-redis-s1s1  '
+stdout '^20261102-000000-guide-g1g1  source  provisional  2026-11-02  semantic$'
+stdout '^2 results\.$'
+pbrain-test search sessions --semantic --json
+ids results 20261101-000000-sessions-redis-s1s1 20261102-000000-guide-g1g1
+
+# At the exact minimum of the search without the flag, the flag fails with budget_too_small; the
+# minimum it states returns the lexical result unchanged, with more and next. Text and JSON.
+! pbrain-test search sessions --max-chars 1
+minbudget PLAIN
+pbrain-test search sessions --max-chars $PLAIN
+cp stdout $WORK/plain-min.txt
+! pbrain-test search sessions --semantic --max-chars $PLAIN
+stderr '^budget_too_small: '
+minbudget WITH
+pbrain-test search sessions --semantic --max-chars $WITH
+sameprefix $WORK/plain-min.txt stdout
+stdout '^1 result\. 1 more: --offset 1\.$'
+! pbrain-test search sessions --json --max-chars 1
+minbudget PLAINJ
+! pbrain-test search sessions --semantic --json --max-chars $PLAINJ
+minbudget WITHJ
+pbrain-test search sessions --semantic --json --max-chars $WITHJ
+ids results 20261101-000000-sessions-redis-s1s1
+stdout '"more":1,"next":1'
+
+# Paging at a page size of one visits each result of the whole list once.
+pbrain-test search sessions --semantic --limit 1 --json
+ids results 20261101-000000-sessions-redis-s1s1
+pbrain-test search sessions --semantic --limit 1 --offset 1 --json
+ids results 20261102-000000-guide-g1g1
+pbrain-test search sessions --semantic --limit 1 --offset 2 --json
+ids results
+
+# An added result is never a replaced item without --all, never outside the time window and never
+# of a kind --kind excludes.
+pbrain-test search where is login state kept --semantic
+! stdout '20261001-000000-old-auth-o1o1'
+pbrain-test search where is login state kept --semantic --all
+stdout '^20261001-000000-old-auth-o1o1  decision  verified  2026-10-01  semantic  replaced$'
+pbrain-test search where is login state kept --semantic --since 7d
+stdout '^0 results\. 0 matches outside the time window: drop --since\.'
+pbrain-test search where is login state kept --semantic --kind note
+stdout '^0 results\.'
+
+# Without --personal no personal item is added; after index --personal neither the shared index nor
+# the per-user cache holds a vector of one.
+pbrain-test search where is login state kept --semantic
+! stdout 'mine-p1p1'
+pbrain-test index --personal
+stdout '^personal: 1 item indexed, 0 items removed; 1 passage embedded, 0 reused$'
+countfiles $PBRAIN_CACHE/vectors 104
+tree-absent docs/brain/.pbrain 'login reminders'
+pbrain-test index --status
+stdout '^shared: 4 of 4 items indexed$'
+pbrain-test search where is login state kept --semantic
+! stdout 'mine-p1p1'
+pbrain-test search where is login state kept --semantic --personal
+stdout '^20261104-000000-mine-p1p1  note  provisional  2026-11-04  semantic  personal$'
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- repo/docs/brain/decisions/20261101-000000-sessions-redis-s1s1.md --
+---
+kind: decision
+title: Sessions live in Redis
+author: agent:x
+created: 2026-11-01T00:00:00Z
+decided: human:x
+status: verified
+replaces: [20261001-000000-old-auth-o1o1]
+---
+
+A shared store keeps them available across API restarts.
+-- repo/docs/brain/decisions/20261001-000000-old-auth-o1o1.md --
+---
+kind: decision
+title: Old cookie approach
+author: agent:x
+created: 2026-10-01T00:00:00Z
+decided: human:x
+status: verified
+---
+
+Login was handled by signed cookies.
+-- repo/docs/brain/sources/20261102-000000-guide-g1g1.md --
+---
+kind: source
+title: Service guide
+author: agent:x
+created: 2026-11-02T00:00:00Z
+---
+
+# Guide
+
+## Topic 0
+
+paragraph 0 about alpha matters and ordinary words in a row
+## Topic 1
+
+paragraph 1 about alpha matters and ordinary words in a row
+## Topic 2
+
+paragraph 2 about alpha matters and ordinary words in a row
+## Topic 3
+
+paragraph 3 about alpha matters and ordinary words in a row
+## Topic 4
+
+paragraph 4 about alpha matters and ordinary words in a row
+## Topic 5
+
+paragraph 5 about alpha matters and ordinary words in a row
+## Topic 6
+
+paragraph 6 about alpha matters and ordinary words in a row
+## Topic 7
+
+paragraph 7 about alpha matters and ordinary words in a row
+## Topic 8
+
+paragraph 8 about alpha matters and ordinary words in a row
+## Topic 9
+
+paragraph 9 about alpha matters and ordinary words in a row
+## Topic 10
+
+paragraph 10 about alpha matters and ordinary words in a row
+## Topic 11
+
+paragraph 11 about alpha matters and ordinary words in a row
+## Topic 12
+
+paragraph 12 about alpha matters and ordinary words in a row
+## Topic 13
+
+paragraph 13 about alpha matters and ordinary words in a row
+## Topic 14
+
+paragraph 14 about alpha matters and ordinary words in a row
+## Topic 15
+
+paragraph 15 about alpha matters and ordinary words in a row
+## Topic 16
+
+paragraph 16 about alpha matters and ordinary words in a row
+## Topic 17
+
+paragraph 17 about alpha matters and ordinary words in a row
+## Topic 18
+
+paragraph 18 about alpha matters and ordinary words in a row
+## Topic 19
+
+paragraph 19 about alpha matters and ordinary words in a row
+## Topic 20
+
+paragraph 20 about alpha matters and ordinary words in a row
+## Topic 21
+
+paragraph 21 about alpha matters and ordinary words in a row
+## Topic 22
+
+paragraph 22 about alpha matters and ordinary words in a row
+## Topic 23
+
+paragraph 23 about alpha matters and ordinary words in a row
+## Topic 24
+
+paragraph 24 about alpha matters and ordinary words in a row
+## Topic 25
+
+paragraph 25 about alpha matters and ordinary words in a row
+## Topic 26
+
+paragraph 26 about alpha matters and ordinary words in a row
+## Topic 27
+
+paragraph 27 about alpha matters and ordinary words in a row
+## Topic 28
+
+paragraph 28 about alpha matters and ordinary words in a row
+## Topic 29
+
+paragraph 29 about alpha matters and ordinary words in a row
+## Topic 30
+
+paragraph 30 about alpha matters and ordinary words in a row
+## Topic 31
+
+paragraph 31 about alpha matters and ordinary words in a row
+## Topic 32
+
+paragraph 32 about alpha matters and ordinary words in a row
+## Topic 33
+
+paragraph 33 about alpha matters and ordinary words in a row
+## Topic 34
+
+paragraph 34 about alpha matters and ordinary words in a row
+## Topic 35
+
+paragraph 35 about alpha matters and ordinary words in a row
+## Topic 36
+
+paragraph 36 about alpha matters and ordinary words in a row
+## Topic 37
+
+paragraph 37 about alpha matters and ordinary words in a row
+## Topic 38
+
+paragraph 38 about alpha matters and ordinary words in a row
+## Topic 39
+
+paragraph 39 about alpha matters and ordinary words in a row
+## Topic 40
+
+paragraph 40 about alpha matters and ordinary words in a row
+## Topic 41
+
+paragraph 41 about alpha matters and ordinary words in a row
+## Topic 42
+
+paragraph 42 about alpha matters and ordinary words in a row
+## Topic 43
+
+paragraph 43 about alpha matters and ordinary words in a row
+## Topic 44
+
+paragraph 44 about alpha matters and ordinary words in a row
+## Topic 45
+
+paragraph 45 about alpha matters and ordinary words in a row
+## Topic 46
+
+paragraph 46 about alpha matters and ordinary words in a row
+## Topic 47
+
+paragraph 47 about alpha matters and ordinary words in a row
+## Topic 48
+
+paragraph 48 about alpha matters and ordinary words in a row
+## Topic 49
+
+paragraph 49 about alpha matters and ordinary words in a row
+## Topic 50
+
+paragraph 50 about alpha matters and ordinary words in a row
+## Topic 51
+
+paragraph 51 about alpha matters and ordinary words in a row
+## Topic 52
+
+paragraph 52 about alpha matters and ordinary words in a row
+## Topic 53
+
+paragraph 53 about alpha matters and ordinary words in a row
+## Topic 54
+
+paragraph 54 about alpha matters and ordinary words in a row
+## Topic 55
+
+paragraph 55 about alpha matters and ordinary words in a row
+## Topic 56
+
+paragraph 56 about alpha matters and ordinary words in a row
+## Topic 57
+
+paragraph 57 about alpha matters and ordinary words in a row
+## Topic 58
+
+paragraph 58 about alpha matters and ordinary words in a row
+## Topic 59
+
+paragraph 59 about alpha matters and ordinary words in a row
+## Topic 60
+
+paragraph 60 about alpha matters and ordinary words in a row
+## Topic 61
+
+paragraph 61 about alpha matters and ordinary words in a row
+## Topic 62
+
+paragraph 62 about alpha matters and ordinary words in a row
+## Topic 63
+
+paragraph 63 about alpha matters and ordinary words in a row
+## Topic 64
+
+paragraph 64 about alpha matters and ordinary words in a row
+## Topic 65
+
+paragraph 65 about alpha matters and ordinary words in a row
+## Topic 66
+
+paragraph 66 about alpha matters and ordinary words in a row
+## Topic 67
+
+paragraph 67 about alpha matters and ordinary words in a row
+## Topic 68
+
+paragraph 68 about alpha matters and ordinary words in a row
+## Topic 69
+
+paragraph 69 about alpha matters and ordinary words in a row
+## Topic 70
+
+paragraph 70 about alpha matters and ordinary words in a row
+## Topic 71
+
+paragraph 71 about alpha matters and ordinary words in a row
+## Topic 72
+
+paragraph 72 about alpha matters and ordinary words in a row
+## Topic 73
+
+paragraph 73 about alpha matters and ordinary words in a row
+## Topic 74
+
+paragraph 74 about alpha matters and ordinary words in a row
+## Topic 75
+
+paragraph 75 about alpha matters and ordinary words in a row
+## Topic 76
+
+paragraph 76 about alpha matters and ordinary words in a row
+## Topic 77
+
+paragraph 77 about alpha matters and ordinary words in a row
+## Topic 78
+
+paragraph 78 about alpha matters and ordinary words in a row
+## Topic 79
+
+paragraph 79 about alpha matters and ordinary words in a row
+## Topic 80
+
+paragraph 80 about alpha matters and ordinary words in a row
+## Topic 81
+
+paragraph 81 about alpha matters and ordinary words in a row
+## Topic 82
+
+paragraph 82 about alpha matters and ordinary words in a row
+## Topic 83
+
+paragraph 83 about alpha matters and ordinary words in a row
+## Topic 84
+
+paragraph 84 about alpha matters and ordinary words in a row
+## Topic 85
+
+paragraph 85 about alpha matters and ordinary words in a row
+## Topic 86
+
+paragraph 86 about alpha matters and ordinary words in a row
+## Topic 87
+
+paragraph 87 about alpha matters and ordinary words in a row
+## Topic 88
+
+paragraph 88 about alpha matters and ordinary words in a row
+## Topic 89
+
+paragraph 89 about alpha matters and ordinary words in a row
+## Topic 90
+
+paragraph 90 about alpha matters and ordinary words in a row
+## Topic 91
+
+paragraph 91 about alpha matters and ordinary words in a row
+## Topic 92
+
+paragraph 92 about alpha matters and ordinary words in a row
+## Topic 93
+
+paragraph 93 about alpha matters and ordinary words in a row
+## Topic 94
+
+paragraph 94 about alpha matters and ordinary words in a row
+## Topic 95
+
+paragraph 95 about alpha matters and ordinary words in a row
+## Topic 96
+
+paragraph 96 about alpha matters and ordinary words in a row
+## Topic 97
+
+paragraph 97 about alpha matters and ordinary words in a row
+## Topic 98
+
+paragraph 98 about alpha matters and ordinary words in a row
+## Topic 99
+
+paragraph 99 about alpha matters and ordinary words in a row
+## Auth
+
+Each session token is stored server side in the cache.
+-- repo/docs/brain/notes/20261120-000000-recent-n1n1.md --
+---
+kind: note
+title: Recent note
+author: agent:x
+created: 2026-11-20T00:00:00Z
+---
+
+Gamma matters only.
+-- repo/docs/brain/personal/notes/20261104-000000-mine-p1p1.md --
+---
+kind: note
+title: Private notes
+author: agent:x
+created: 2026-11-04T00:00:00Z
+---
+
+my own login reminders

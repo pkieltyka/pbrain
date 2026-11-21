@@ -1,0 +1,394 @@
+# Functional spec §15, scenario 38: the partial tier. 25 items; "system" is held by more than a
+# quarter of them. Every title but one carries "alpha", a test-model keyword, so a keyword-free
+# query can match only the item "Meaning only" by meaning.
+pbrain init
+
+# A release that holds the tier back rejects --bm25 as a usage error.
+env PBRAIN_TEST_BM25=off
+status 2 pbrain-test search queue retry timeout backoff worker lease --bm25
+env PBRAIN_TEST_BM25=
+
+# No item holds all six words: nothing without the flag; with it the items holding five, the higher
+# BM25 score first, never an item holding four.
+pbrain-test search queue retry timeout backoff worker lease
+stdout '^0 results\. Alone: '
+pbrain-test search queue retry timeout backoff worker lease --bm25
+stdout '^20261101-000000-p1-p1p1  note  provisional  2026-11-01  partial 5/6$'
+stdout '^20261101-000000-p2-p2p2  note  provisional  2026-11-01  partial 5/6$'
+! stdout 'f4-f4f4'
+pbrain-test search queue retry timeout backoff worker lease --bm25 --json
+ids results 20261101-000000-p1-p1p1 20261101-000000-gap-g1g1 20261101-000000-p2-p2p2
+stdout '"clauses":6,.*"id":"20261101-000000-p1-p1p1",.*"matched":5,.*"partial":true'
+
+# A word given both bare and quoted counts as one clause, and quoted it is required: the item
+# without it drops out.
+pbrain-test search queue '"queue"' retry timeout backoff worker lease --bm25 --json
+ids results 20261101-000000-p1-p1p1 20261101-000000-gap-g1g1
+stdout '"clauses":6,'
+! stdout '"clauses":7'
+
+# A phrase or a prefix the item does not match keeps it out. The item holds "green red", not the
+# phrase "red green", and no word starting "gol".
+pbrain-test search red green blue cyan teal pink gold --bm25 --json
+ids results 20261101-000000-colours-k1k1
+stdout '"clauses":7,.*"matched":6,'
+pbrain-test search '"red green"' blue cyan teal pink gold --bm25 --json
+ids results
+pbrain-test search red green blue cyan teal pink 'gol*' --bm25 --json
+ids results
+pbrain-test search red green blue cyan teal 'pin*' gold --bm25 --json
+ids results 20261101-000000-colours-k1k1
+
+# A word held by more than a quarter of the items does not count towards the five informative clauses.
+pbrain-test search system queue retry timeout backoff worker --bm25 --json
+ids results 20261101-000000-p1-p1p1
+! stdout 'c5-c5c5'
+
+# Five clauses or fewer: no partial result.
+pbrain-test search queue retry timeout backoff zebra --bm25 --json
+ids results
+
+# A question sharing only common words with the fixture: 0 results, with its per-clause counts.
+pbrain-test search the system and the words of a volcano --bm25
+stdout '^0 results\. Alone: '
+
+# Paging at a page size of one visits each result once.
+pbrain-test search queue retry timeout backoff worker lease --bm25 --limit 1 --json
+ids results 20261101-000000-p1-p1p1
+pbrain-test search queue retry timeout backoff worker lease --bm25 --limit 1 --offset 1 --json
+ids results 20261101-000000-gap-g1g1
+pbrain-test search queue retry timeout backoff worker lease --bm25 --limit 1 --offset 2 --json
+ids results 20261101-000000-p2-p2p2
+pbrain-test search queue retry timeout backoff worker lease --bm25 --limit 1 --offset 3 --json
+ids results
+
+# Without --personal the output is identical before and after a personal item with the same words.
+pbrain-test search queue retry timeout backoff worker lease --bm25
+cp stdout $WORK/shared-before
+mkdir docs/brain/personal
+cp $WORK/mine.md docs/brain/personal/mine.md
+pbrain-test search queue retry timeout backoff worker lease --bm25
+cmp stdout $WORK/shared-before
+
+# No index, model or cache is read or written.
+countfiles $PBRAIN_CACHE 0
+countfiles docs/brain/.pbrain 0
+
+# An item written with add that qualifies appears in the next search, with no other step: this one
+# holds all six, so it is exact, and the partial results follow it unchanged.
+cp $WORK/old.md docs/brain/notes/20261001-000000-old-o1o1.md
+pbrain-test add --title 'Alpha all six' --body 'queue retry timeout backoff worker lease' --replaces 20261001-000000-old-o1o1
+pbrain-test search queue retry timeout backoff worker lease
+cp stdout $WORK/exact.txt
+stdout '^1 result\. 1 replaced item also matched: --all\.$'
+pbrain-test search queue retry timeout backoff worker lease --bm25
+cp stdout $WORK/both.txt
+sameprefix $WORK/exact.txt $WORK/both.txt
+stdout '^4 results\. 1 replaced item also matched: --all\.$'
+
+# A single quoted word the item does not hold keeps it out.
+pbrain-test search durable queue retry timeout backoff worker lease --bm25 --json
+stdout '"id":"2026112[0-9]-[0-9]{6}-alpha-all-six-[a-z0-9]{4}"'
+pbrain-test search '"durable"' queue retry timeout backoff worker lease --bm25 --json
+! stdout 'alpha-all-six'
+
+# The replaced and outside-window counts are the same with and without the flag.
+pbrain-test search queue retry timeout backoff worker lease --until 2026-11-10
+stdout ' 1 replaced item also matched: --all\. 1 match outside the time window: drop --until\.'
+pbrain-test search queue retry timeout backoff worker lease --until 2026-11-10 --bm25
+stdout ' 1 replaced item also matched: --all\. 1 match outside the time window: drop --until\.'
+
+# With --semantic as well: exact, then found by meaning, then partial, no item twice; with the model
+# absent, exact and partial come with semantic_not_ready.
+testmodel test-model $WORK/table.json
+pbrain-test index
+pbrain-test search queue retry timeout backoff worker lease --bm25 --semantic
+stdout -count=1 '^2026112[0-9]-[0-9]{6}-alpha-all-six-'
+stdout '^20261101-000000-mean-m1m1  note  provisional  2026-11-01  semantic$'
+pbrain-test search queue retry timeout backoff worker lease --bm25 --semantic --json
+stdout '"id":"2026112[0-9]-[0-9]{6}-alpha-all-six-[a-z0-9]{4}".*"id":"20261101-000000-mean-m1m1".*"id":"20261101-000000-p1-p1p1"'
+rm docs/brain/personal.toml
+pbrain-test search queue retry timeout backoff worker lease --bm25 --semantic
+stderr '^semantic_not_ready: the model is not on this machine'
+stdout '^4 results\. 1 replaced item also matched: --all\.$'
+
+# In a brain of three items no query has a partial result.
+mkdir $WORK/small
+cd $WORK/small
+exec git init -q .
+pbrain init
+cp $WORK/three-a.md docs/brain/a.md
+cp $WORK/three-b.md docs/brain/b.md
+cp $WORK/three-c.md docs/brain/c.md
+pbrain-test search queue retry timeout backoff worker lease --bm25
+stdout '^0 results\.'
+
+-- table.json --
+{"alpha":[1,0,0,0,0,0,0,0],"beta":[0,1,0,0,0,0,0,0],"gamma":[0,0,1,0,0,0,0,0],"delta":[0,0,0,1,0,0,0,0],"session":[0,0,0,0,1,0,0,0],"login":[0,0,0,0,1,0,0,0],"orbit":[0,0,0,0,0,1,0,0],"volcano":[0,0,0,0,0,0,1,0]}
+-- mine.md --
+---
+kind: note
+title: Alpha mine
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+queue retry timeout backoff worker
+-- old.md --
+---
+kind: note
+title: Alpha old way
+author: agent:x
+created: 2026-10-01T00:00:00Z
+---
+
+queue retry timeout backoff worker lease, the old way
+-- three-a.md --
+---
+kind: note
+title: A
+author: agent:x
+---
+
+queue retry timeout backoff worker
+-- three-b.md --
+---
+kind: note
+title: B
+author: agent:x
+---
+
+other words
+-- three-c.md --
+---
+kind: note
+title: C
+author: agent:x
+---
+
+more words
+-- repo/docs/brain/notes/20261101-000000-p1-p1p1.md --
+---
+kind: note
+title: Alpha five strong
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+queue retry timeout backoff worker. queue retry timeout backoff worker again.
+-- repo/docs/brain/notes/20261101-000000-p2-p2p2.md --
+---
+kind: note
+title: Alpha five weak
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+retry timeout backoff worker lease once, with a long tail of other words to dilute the score of this item quite a lot more than the first one has.
+-- repo/docs/brain/notes/20261101-000000-f4-f4f4.md --
+---
+kind: note
+title: Alpha four only
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+queue retry timeout backoff
+-- repo/docs/brain/notes/20261101-000000-c5-c5c5.md --
+---
+kind: note
+title: Alpha common five
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+system queue retry timeout backoff
+-- repo/docs/brain/notes/20261101-000000-gap-g1g1.md --
+---
+kind: note
+title: Alpha gap
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+retry then timeout apart: queue backoff lease retry
+-- repo/docs/brain/notes/20261101-000000-sys0-s0s0.md --
+---
+kind: note
+title: Alpha system note 0
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 0
+-- repo/docs/brain/notes/20261101-000000-sys1-s1s1.md --
+---
+kind: note
+title: Alpha system note 1
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 1
+-- repo/docs/brain/notes/20261101-000000-sys2-s2s2.md --
+---
+kind: note
+title: Alpha system note 2
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 2
+-- repo/docs/brain/notes/20261101-000000-sys3-s3s3.md --
+---
+kind: note
+title: Alpha system note 3
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 3
+-- repo/docs/brain/notes/20261101-000000-sys4-s4s4.md --
+---
+kind: note
+title: Alpha system note 4
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 4
+-- repo/docs/brain/notes/20261101-000000-sys5-s5s5.md --
+---
+kind: note
+title: Alpha system note 5
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 5
+-- repo/docs/brain/notes/20261101-000000-sys6-s6s6.md --
+---
+kind: note
+title: Alpha system note 6
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 6
+-- repo/docs/brain/notes/20261101-000000-sys7-s7s7.md --
+---
+kind: note
+title: Alpha system note 7
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 7
+-- repo/docs/brain/notes/20261101-000000-sys8-s8s8.md --
+---
+kind: note
+title: Alpha system note 8
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+the system handles case 8
+-- repo/docs/brain/notes/20261101-000000-fill0-f0x0.md --
+---
+kind: note
+title: Alpha filler 0
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 0
+-- repo/docs/brain/notes/20261101-000000-fill1-f1x1.md --
+---
+kind: note
+title: Alpha filler 1
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 1
+-- repo/docs/brain/notes/20261101-000000-fill2-f2x2.md --
+---
+kind: note
+title: Alpha filler 2
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 2
+-- repo/docs/brain/notes/20261101-000000-fill3-f3x3.md --
+---
+kind: note
+title: Alpha filler 3
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 3
+-- repo/docs/brain/notes/20261101-000000-fill4-f4x4.md --
+---
+kind: note
+title: Alpha filler 4
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 4
+-- repo/docs/brain/notes/20261101-000000-fill5-f5x5.md --
+---
+kind: note
+title: Alpha filler 5
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 5
+-- repo/docs/brain/notes/20261101-000000-fill6-f6x6.md --
+---
+kind: note
+title: Alpha filler 6
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 6
+-- repo/docs/brain/notes/20261101-000000-fill7-f7x7.md --
+---
+kind: note
+title: Alpha filler 7
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 7
+-- repo/docs/brain/notes/20261101-000000-fill8-f8x8.md --
+---
+kind: note
+title: Alpha filler 8
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+unrelated words number 8
+-- repo/docs/brain/notes/20261101-000000-mean-m1m1.md --
+---
+kind: note
+title: Meaning only
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+Plain words with no keyword and no query word.
+-- repo/docs/brain/notes/20261101-000000-colours-k1k1.md --
+---
+kind: note
+title: Alpha colours
+author: agent:x
+created: 2026-11-01T00:00:00Z
+---
+
+green red blue cyan teal pink
