@@ -9,9 +9,10 @@ import (
 	"github.com/pkieltyka/pbrain/internal/outline"
 )
 
-type occurrence struct {
-	start, end int
-	clause     int
+// SnippetOccurrence is a matched clause's code-point span in the body.
+type SnippetOccurrence struct {
+	Start, End int
+	Clause     int
 }
 
 func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
@@ -59,7 +60,7 @@ func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
 		}
 		return withSnippet(h, body, row.start, min(row.end, row.start+l), n, req), nil
 	}
-	var start int
+	var found []SnippetOccurrence
 	if n <= l {
 		// The whole body already fits. There is no stretch to choose.
 		if !req.BM25 {
@@ -69,18 +70,15 @@ func pageHit(c Corpus, m *matcher, row rankedHit, req Request) (Hit, error) {
 			})
 		}
 	} else {
-		var found []occurrence
 		m.scan(body, func(clause, start, end int) bool {
 			if !req.BM25 {
 				h.Occurrences++
 			}
-			if end-start <= l {
-				found = append(found, occurrence{start, end, clause})
-			}
+			found = append(found, SnippetOccurrence{start, end, clause})
 			return false
 		})
-		start = bestStretch(found, l, m.plan.size)
 	}
+	start := SnippetStart(n, l, m.plan.size, found)
 	return withSnippet(h, body, start, min(n, start+l), n, req), nil
 }
 
@@ -103,36 +101,42 @@ func withSnippet(h Hit, body []byte, start, end, n int, req Request) Hit {
 	return h
 }
 
-// bestStretch chooses the earliest start with the most distinct clauses in its span.
-// Each occurrence fits in the window, so every expired occurrence has already entered it.
-func bestStretch(found []occurrence, length, clauseCount int) int {
+// SnippetStart chooses the earliest start with the most distinct clauses
+// in its span. A body that fits starts at zero. The occurrences are scratch
+// space and may be reordered or removed.
+func SnippetStart(bodyChars, length, clauseCount int, found []SnippetOccurrence) int {
+	if bodyChars <= length {
+		return 0
+	}
+	found = slices.DeleteFunc(found, func(o SnippetOccurrence) bool { return o.End-o.Start > length })
 	if len(found) == 0 {
 		return 0
 	}
 	byStart := slices.Clone(found)
-	slices.SortFunc(byStart, func(a, b occurrence) int { return cmp.Compare(a.start, b.start) })
-	slices.SortFunc(found, func(a, b occurrence) int { return cmp.Compare(a.end, b.end) })
+	slices.SortFunc(byStart, func(a, b SnippetOccurrence) int { return cmp.Compare(a.Start, b.Start) })
+	slices.SortFunc(found, func(a, b SnippetOccurrence) int { return cmp.Compare(a.End, b.End) })
 
 	counts := make([]int, clauseCount)
 	var best, score, enters, leaves, active int
 	for i := 0; i <= len(found); i++ {
 		at := 0
 		if i > 0 {
-			at = max(0, found[i-1].end-length)
-			if at == 0 || i > 1 && at == found[i-2].end-length {
+			at = max(0, found[i-1].End-length)
+			if at == 0 || i > 1 && at == found[i-2].End-length {
 				continue
 			}
 		}
-		for enters < len(found) && found[enters].end <= at+length {
-			clause := found[enters].clause
+		for enters < len(found) && found[enters].End <= at+length {
+			clause := found[enters].Clause
 			if counts[clause] == 0 {
 				active++
 			}
 			counts[clause]++
 			enters++
 		}
-		for leaves < len(byStart) && byStart[leaves].start < at {
-			clause := byStart[leaves].clause
+		// Every expired occurrence has entered because oversized spans were removed.
+		for leaves < len(byStart) && byStart[leaves].Start < at {
+			clause := byStart[leaves].Clause
 			counts[clause]--
 			if counts[clause] == 0 {
 				active--
