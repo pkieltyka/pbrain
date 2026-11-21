@@ -274,7 +274,7 @@ A negative offset is a usage error. An offset at or past the end returns an empt
 - **Standard output** carries only the result. **Standard error** carries errors and notices; with `--json` each line there is one object, `{"error": {"code": "…", "message": "…"}}` or `{"notice": {"code": "…", "message": "…"}}`.
 - **0**: success, including an empty search. **1**: the command failed and standard output is empty. **2**: wrong usage.
 - Two commands print on standard output and still exit 1: `check`, if the brain in its view has an error, prints its report, whichever page was asked for; `delete` without `--yes` prints its preview (section 8.6).
-- Files skipped by a read are reported as one notice with their count, pointing to `check`. One broken file never fails a read.
+- Files skipped by a read are reported as one notice with their count, pointing to `check`. Only broken files count, the ones `check` reports as an error (`bad_front_matter`, `bad_file_name`). A `.md` file without front matter is not an item (section 2.2): nothing was skipped, and it never raises the notice. One broken file never fails a read.
 - A write that has published its change and then fails a later step, such as removing an original, still exits 0, with an `after_write` notice saying what was left (section 8.1).
 - Messages never echo a suspected secret or anything outside the command's view.
 
