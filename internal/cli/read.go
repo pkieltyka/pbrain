@@ -182,8 +182,8 @@ func ids(items []*item.Item) []string {
 	return out
 }
 
-// idList keeps the first ten ids; the text ends with "(+N more)" and JSON gains <field>_more.
-func idList(row render.Object, field string, list []string) string {
+// cappedIDs keeps the first ten ids; the text ends with "(+N more)" and JSON gains <field>_more.
+func cappedIDs(row render.Object, field string, list []string) string {
 	shown := list[:min(len(list), idListCap)]
 	row[field] = shown
 	text := strings.Join(shown, ", ")
@@ -408,7 +408,7 @@ func (r *reader) hitPart(h search.Hit, block []search.ContextLine) render.Part {
 	if h.Replaced {
 		row["replaced"] = true
 		repl := render.Object{}
-		text := idList(repl, "replacement", ids(r.g.Replacement(it)))
+		text := cappedIDs(repl, "replacement", ids(r.g.Replacement(it)))
 		row["replacement"] = repl["replacement"]
 		if m, ok := repl["replacement_more"]; ok {
 			row["replacement_more"] = m
@@ -653,7 +653,7 @@ func (r *reader) historyRow(it *item.Item) render.Part {
 		paren = append(paren, "decided by "+render.OneLine(h.Decided, actorCut))
 	}
 	if reps := ids(r.g.Replaces(it)); len(reps) > 0 {
-		paren = append(paren, "replaces: "+idList(row, "replaces", reps))
+		paren = append(paren, "replaces: "+cappedIDs(row, "replaces", reps))
 	}
 	text := it.ID + "  " + h.Kind.String() + "  " + h.Status.String() + "  " + dateText(h) + "  " + render.OneLine(h.Title, titleCut)
 	if len(paren) > 0 {
@@ -788,14 +788,14 @@ func (r *reader) getDoc(it *item.Item, body []byte) *render.BodyDoc {
 		label("source", src)
 	}
 	if v := g.Shown(it, graph.FieldReplaces); len(v) > 0 {
-		label("replaces", idList(row, "replaces", v))
+		label("replaces", cappedIDs(row, "replaces", v))
 	}
 	if !g.Current(it) {
-		label("replacement", idList(row, "replacement", ids(g.Replacement(it))))
-		label("current", idList(row, "current", ids(g.CurrentSuccessors(it))))
+		label("replacement", cappedIDs(row, "replacement", ids(g.Replacement(it))))
+		label("current", cappedIDs(row, "current", ids(g.CurrentSuccessors(it))))
 	}
 	if v := g.Shown(it, graph.FieldRelates); len(v) > 0 {
-		label("relates", idList(row, "relates", v))
+		label("relates", cappedIDs(row, "relates", v))
 	}
 	if len(h.Tags) > 0 {
 		row["tags"] = h.Tags

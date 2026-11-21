@@ -325,6 +325,13 @@ func (in *invocation) validate() error {
 		if in.has("body-file") && in.string("body-file") == "" {
 			return usage("--body-file requires a nonempty path")
 		}
+		if in.string("kind") == "decision" {
+			if !in.has("decided") || in.has("verified") {
+				return usage("a decision requires --decided and refuses --verified")
+			}
+		} else if in.has("decided") {
+			return usage("--decided is only for a decision")
+		}
 	case "import":
 		if n != 1 || in.operands[0] == "" {
 			return usage("import requires one input")
