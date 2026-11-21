@@ -46,29 +46,32 @@ the lexical results and a notice. Search never downloads a model or builds an in
 
 **The first index on a machine is a person's step.** Check `pbrain index --status`,
 then run `pbrain index` when ready. It downloads the selected model if needed and
-embeds items locally. A small brain takes minutes. With the default model on four CPUs
-the build ran at 0.902 passages a second (a passage there averaged about 1,000 characters): a
-projected 15 hours for the 5,000-item, 50 MB test brain, with a peak of about 2 GB of memory
-observed so far. That generated text is token-heavy, so ordinary notes may go faster. You can
+embeds items locally. A small brain takes minutes; a large one takes hours. You can
 stop the build. The next `pbrain index` resumes from the last saved checkpoint.
 After writes or a pull, rerun `pbrain index` to pick up changes.
 
-The default model is `embeddinggemma-2`. To use the smaller, faster
-`bge-small-en-v1.5`, set the model in `docs/brain/pbrain.toml` and run `pbrain index` again.
+The default model is `bge-small-en-v1.5`: a 134 MB download, quick to load.
+`embeddinggemma-2` is the larger option. On our fixture it found the expected item for two
+more questions of 47, and it costs far more. With it on four CPUs, the first build of the
+5,000-item, 50 MB test brain ran at 0.902 passages a second (a passage there averaged about
+1,000 characters): a projected 15 hours, with a peak of about 2 GB of memory observed so far.
+That generated text is token-heavy, so ordinary notes may go faster. The default is not yet
+measured at that size; by estimate it is about six times faster. To use `embeddinggemma-2`,
+set the model in `docs/brain/pbrain.toml` and run `pbrain index` again.
 
 ```toml
 [semantic]
-model = "bge-small-en-v1.5"
+model = "embeddinggemma-2"
 ```
 
 Set `model = "none"` in the same section to turn semantic search off.
 
 | Model | First download | Local model files | Cutoff | Expected item on first page (47 answerable) | Empty page (30 unanswerable) |
 | --- | ---: | ---: | ---: | ---: | ---: |
+| `bge-small-en-v1.5` (default) | 134 MB | 134 MB | 0.65 | 40 | 29 |
 | `embeddinggemma-2` | 1.52 GB | 552 MB | 0.72 | 42 | 30 |
-| `bge-small-en-v1.5` | 134 MB | 134 MB | 0.65 | 40 | 29 |
 
-The download notice rounds up to whole MB (1,522 MB for Gemma, 135 MB for bge).
+The download notice rounds up to whole MB (135 MB for bge, 1,522 MB for Gemma).
 Allow about 2.1 GB on disk for Gemma's model files during the first build, while the
 download and the derived local model coexist. The index needs additional space.
 
