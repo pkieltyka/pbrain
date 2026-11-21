@@ -113,6 +113,25 @@ func TestDecisionBeforeAcquisition(t *testing.T) {
 			t.Errorf("%v: %#v %#v", method, d, err)
 		}
 	}
+
+	for _, tc := range []struct {
+		key, source string
+		matches     bool
+	}{
+		{"host:8443/x", "https://host:8443/x", true},
+		{"host:8443/x", "https://host/x", false},
+		{"host/x", "https://host:8443/x", false},
+		{"host/x", "https://host:443/x", true},
+	} {
+		want := Decision{Dest: Shared} // A linked ordinary host defaults to shared.
+		if tc.matches {
+			want = Decision{Dest: Personal, Matched: tc.key}
+		}
+		got, err := Decide([]Rule{{tc.key, Personal}}, Request{Source: tc.source, Method: LinkedURL})
+		if err != nil || got != want {
+			t.Errorf("rule %q, source %q: got %+v, %v; want %+v", tc.key, tc.source, got, err, want)
+		}
+	}
 }
 
 func TestSetCanonicalUnsetAbsent(t *testing.T) {
