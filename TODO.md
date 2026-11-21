@@ -12,13 +12,8 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * ranges/evidence: harness `f9821c3..e551bb9`; prep `e62c2b7..ce26bef`; Phase 27 reported Gemma warm rule-3 time 255–376 ms
-    * next: @architect-2 reviews both ranges; @lead-dev measures rule 3 on the built release binary (Linux, four cores) now and Mac when available; report immediately if over 600 ms
-
-- [ ] pbrain init selector usable from caller's directory (@architect-2)
-    * owner: @architect-2 (patch flow)
-    * range: `db929d2..9ed8766` on `peter/init-selector`
-    * next: @reviewer reviews after phase 18; @operator integrates on approval
+    * range/status: prep `e62c2b7..ce26bef` needs paraphrase/strict controls, expected ID plus `semantic:true` on both paths/views, and dropped-flag/downgrade wrapper regressions; rule-3 `e6709fc` approved (median 281 ms)
+    * next: @lead-dev adds the positive/strict controls and wrapper regressions, then times first index and warm shared/personal Gemma search on 5k items/50 MB at 4 CPUs (1 s target); record build time, alert if over 1 s; Mac/tagged install remain
 
 - [ ] Aikit fork documentation follow-up (@architect-2)
     * owner: @architect-2
@@ -30,28 +25,29 @@ TODO
     * PR #5: `a759890b..93adb19f3` (`pkieltyka/fork-docs-v0.2`)
     * next: @reviewer reviews when there is a gap; @operator merges after green CI
 
-- [ ] pbrain phase 15: importer files and linked items (@architect-2)
-    * owner: @architect-2
-    * range: `f3dfbcb..b4a40a5` on `peter/architect-2`
-    * next: @reviewer reviews after phase 18 and the queued phase 25 reviews
-
 - [ ] pbrain phase 16: URL imports (@architect-2)
     * owner: @architect-2
-    * range: `698dfab..57c7694` on `peter/architect-2`
-    * next: @reviewer reviews after phase 15; scenario 20 remains the release gate
+    * range/status: `698dfab..57c7694` on `peter/architect-2`, approved by @reviewer with no findings; scenario 20 passed with controlled local servers
+    * next: @operator integrates; @reviewer proceeds to aikit #4 and goinfer #5 docs
 
 ## Backlog
 
 ## Done
 
+- [x] pbrain phase 15: importer files and linked items (@architect-2) `e3b694b`
+    * Reviewer approved `f3dfbcb..b4a40a5`; merged, module checks and full tests passed.
+
+- [x] pbrain phase 11 measurement harness (@lead-dev) `606bbfc`
+    * Approved by @architect-2 and merged; built-binary warm harness covers shared/personal/outside-Git and BM25 cases.
+
+- [x] pbrain init selector usable from caller's directory (@architect-2) `90b4644`
+    * Reviewer approved `db929d2..9ed8766`; merged and pushed; master `go test -p 2 ./...` passed.
+
 - [x] pbrain spec: record released cut-offs and model state (@architect) `4eff5a7`
-    * Both cut-offs and gate figures are recorded; rule-3 and cross-platform measurement gaps remain explicit.
 
 - [x] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2) `2233197`
-    * Reviewer approved; Gemma 0.72 became the default beside BGE, and the corrected individual/combined gates passed. Master tests passed.
 
 - [x] pbrain phase 25: BGE gates and release wiring (@lead-dev-2) `8f32814`
-    * BGE wiring and corrected README records merged as `8f32814`, `9b27eb9`, `049fe9e`; BGE cutoff 0.65 and model-free/Gemma gates recorded.
 
 - [x] pbrain phase 18: calibration and `--bm25` gates (@lead-dev) `e5aa38a`
 
