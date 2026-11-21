@@ -53,8 +53,9 @@ type Kit struct {
 	Opens, Closes, Calls, Texts atomic.Int64
 }
 
-// New builds a kit over table, or DefaultTable when table is nil. Every vector has Dim values.
-func New(table map[string][]float32) *Kit {
+// New builds a kit over table, or DefaultTable when table is nil. Every vector
+// has Dim values. It adds a separate one-file fixture for each extra model name.
+func New(table map[string][]float32, extraNames ...string) *Kit {
 	if table == nil {
 		table = DefaultTable
 	}
@@ -82,6 +83,9 @@ func New(table map[string][]float32) *Kit {
 	packed, _ := Derive([][]byte{src})
 	add(ModelPacked, map[string][]byte{"keywords.txt": packed[0]}, []string{"keywords.txt"},
 		[]embed.File{k.pin(ModelPacked, "keywords.src", src)}, Derive)
+	for _, name := range extraNames {
+		add(name, map[string][]byte{"keywords.txt": tableBytes(name, table)}, []string{"keywords.txt"}, nil, nil)
+	}
 	k.Registry = embed.NewRegistry(entries...)
 	return k
 }
