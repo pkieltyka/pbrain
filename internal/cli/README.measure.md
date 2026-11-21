@@ -100,6 +100,53 @@ In the separate Linux rule-3 run from `4eff5a7`, verifying files, opening
 the model, embedding one query and closing took 89–123 ms over five warm
 samples, with a median of 93 ms.
 
+### Ryzen 9 7950X rerun and final-pin warm check
+
+2026-11-21. The `pax` host has an AMD Ryzen 9 7950X (16 physical cores,
+32 logical CPUs), 124.9 GiB of RAM visible to Linux, kernel 7.3.4 and
+btrfs. Both stages used CPUs 0–3 (one thread on each of four physical
+cores) and `GOMAXPROCS=4`. The separate checkpoint sampler ran on CPU 4.
+Both binaries used Go 1.27.3, `CGO_ENABLED=0` and `-trimpath`.
+
+The full run used the same `9f53910` baseline binary as the Intel run,
+with the pinned model already on disk and an empty index and vector cache.
+The fixture again had 4,500 shared and 500 personal items totaling
+50,000,000 bytes. The first build embedded 43,642 shared and 4,869 personal
+passages, with zero reuses. The update embedded one personal passage.
+
+| Command | Wall time | Passages/s | Peak RSS | Git calls |
+| --- | ---: | ---: | ---: | ---: |
+| First index, both sections | 4,705.8 s (1 h 18 m 26 s) | 10.31 | 1,314.9 MiB | 15 |
+| Index after one new personal note | 0.678 s | — | 471.6 MiB | 11 |
+
+The warm check used candidate `cbaaa0ebe7978c0f8096ec46f38237b2aae4b1ed`
+with aikit v1.79.1 and goinfer v0.4.1. It read a copy of the retained
+baseline index with the incremental note removed from the copied fixture.
+Each row had ten warm samples after an untimed priming read. The first
+sample's cache state was uncontrolled, and each sample made nine Git calls.
+
+| Search and view | First (ms) | Warm median (ms) | Warm range (ms) | Max warm RSS (MiB) |
+| --- | ---: | ---: | ---: | ---: |
+| Semantic, shared, exact hit | 297.5 | 297.7 | 292.7–302.9 | 506.5 |
+| Semantic, shared, paraphrase | 294.4 | 292.2 | 287.2–295.9 | 504.0 |
+| Semantic + BM25, shared, paraphrase | 291.4 | 291.1 | 284.0–296.6 | 504.2 |
+| Semantic, personal, exact hit | 325.3 | 325.7 | 317.6–331.0 | 549.7 |
+| Semantic, personal, paraphrase | 315.4 | 320.6 | 316.3–329.7 | 547.3 |
+| Semantic + BM25, personal, paraphrase | 316.7 | 321.8 | 316.1–324.9 | 547.6 |
+
+The first build took 22.5% less time on the Ryzen host with the same
+baseline binary, and its peak RSS was within 3% of the Intel run. The
+one-note update was 92 ms quicker in this pair of single samples. Warm
+search medians were broadly similar, 2–4% lower than the Intel results
+and within 3.5 ms of the Ryzen baseline medians on the same rows. Both
+hosts peaked at about 550 MiB in warm search and stayed under the 1-second
+search target.
+
+[Full run log](../../tools/phase28/evidence/bge-pax-full.log),
+[warm check log](../../tools/phase28/evidence/bge-pax-warm.log),
+[checkpoint samples](../../tools/phase28/evidence/bge-pax-index-samples.jsonl),
+[host details](../../tools/phase28/evidence/bge-pax-host.log).
+
 ## EmbeddingGemma 2, Linux
 
 2026-11-21. Binary built from `4eff5a7` (release wiring `2233197`) with

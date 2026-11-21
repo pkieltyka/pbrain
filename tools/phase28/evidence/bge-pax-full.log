@@ -1,0 +1,51 @@
+=== RUN   TestMeasureReads
+    measure_test.go:79: linux/amd64, 4 visible CPUs, GOMAXPROCS=4, 10 warm runs per row
+    measure_test.go:80: first sample cache: uncontrolled. Timings include the Git-counting shim
+=== RUN   TestMeasureReads/personal
+    measure_test.go:97: personal: 5000 items, 50000000 item bytes
+    measure_test.go:111: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:111: search common | 134.2 | 125.7 [122.1, 139.3] | 103.0 | 107.2 | 9 | [9, 9]
+    measure_test.go:111: search two words JSON | 157.7 | 157.8 [151.0, 161.2] | 99.7 | 108.4 | 9 | [9, 9]
+    measure_test.go:111: search rare | 178.2 | 182.7 [176.0, 188.5] | 98.4 | 106.3 | 9 | [9, 9]
+    measure_test.go:111: search phrase | 177.3 | 180.5 [177.6, 185.6] | 98.8 | 106.0 | 9 | [9, 9]
+    measure_test.go:111: search prefix | 169.5 | 175.5 [168.3, 185.4] | 104.2 | 105.8 | 9 | [9, 9]
+    measure_test.go:111: search all | 125.4 | 126.9 [123.7, 134.7] | 100.0 | 107.4 | 9 | [9, 9]
+    measure_test.go:111: search window | 125.5 | 123.1 [120.5, 133.8] | 99.4 | 106.3 | 9 | [9, 9]
+    measure_test.go:111: search context | 127.7 | 124.4 [122.0, 130.1] | 99.9 | 107.8 | 9 | [9, 9]
+    measure_test.go:111: search miss | 183.3 | 182.9 [175.6, 200.6] | 98.8 | 106.0 | 9 | [9, 9]
+    measure_test.go:111: get | 121.9 | 122.6 [117.1, 132.8] | 99.5 | 104.5 | 9 | [9, 9]
+    measure_test.go:111: get outline | 119.6 | 119.9 [117.3, 122.6] | 97.7 | 104.9 | 9 | [9, 9]
+    measure_test.go:111: get history | 120.7 | 122.1 [116.8, 125.3] | 98.0 | 105.0 | 9 | [9, 9]
+    measure_test.go:111: list JSON | 123.7 | 128.3 [123.3, 139.6] | 104.5 | 107.5 | 9 | [9, 9]
+    measure_test.go:111: prime JSON | 122.0 | 124.9 [121.2, 129.6] | 102.7 | 104.5 | 9 | [9, 9]
+    measure_test.go:111: search common BM25 | 189.7 | 186.9 [182.2, 195.7] | 107.3 | 107.3 | 9 | [9, 9]
+    measure_test.go:111: search two words JSON BM25 | 192.8 | 184.5 [178.9, 192.8] | 106.2 | 108.0 | 9 | [9, 9]
+    measure_test.go:111: search rare BM25 | 186.4 | 179.0 [175.9, 182.3] | 98.1 | 106.0 | 9 | [9, 9]
+    measure_test.go:111: search phrase BM25 | 182.9 | 178.4 [174.9, 186.8] | 98.5 | 105.7 | 9 | [9, 9]
+    measure_test.go:111: search prefix BM25 | 175.6 | 170.8 [167.9, 173.5] | 104.0 | 106.2 | 9 | [9, 9]
+    measure_test.go:111: search all BM25 | 181.0 | 181.5 [178.6, 190.2] | 104.0 | 107.7 | 9 | [9, 9]
+    measure_test.go:111: search window BM25 | 140.9 | 145.8 [142.0, 149.8] | 106.0 | 107.2 | 9 | [9, 9]
+    measure_test.go:111: search context BM25 | 180.6 | 182.2 [179.6, 190.7] | 103.5 | 105.7 | 9 | [9, 9]
+    measure_test.go:111: search miss BM25 | 178.5 | 188.1 [180.6, 212.8] | 99.5 | 106.0 | 9 | [9, 9]
+    measure_test.go:111: search admitted 5/6 BM25 | 183.7 | 179.7 [176.8, 185.8] | 98.9 | 107.0 | 9 | [9, 9]
+    measure_test.go:113: starting first bge-small-en-v1.5 index, up to 8h0m0s
+    measure_test.go:113: first index shared: 4500 items, 43642 passages embedded, 0 reused
+    measure_test.go:113: first index personal: 500 items, 4869 passages embedded, 0 reused
+    measure_test.go:113: first index | 4705816.9 ms | 1314.9 MiB peak RSS | 15 Git calls
+    measure_test.go:113: shared model search: 4500 visible items
+    measure_test.go:113: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:113: search semantic with exact hit | 298.3 | 298.6 [292.7, 304.2] | 484.4 | 508.4 | 9 | [9, 9]
+    measure_test.go:113: search semantic paraphrase | 286.1 | 295.7 [286.0, 306.5] | 482.0 | 506.1 | 9 | [9, 9]
+    measure_test.go:113: search semantic and BM25 | 285.1 | 289.9 [286.8, 296.1] | 482.0 | 506.3 | 9 | [9, 9]
+    measure_test.go:113: personal model search: 5000 visible items
+    measure_test.go:113: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:113: search semantic with exact hit | 317.4 | 324.1 [318.0, 327.0] | 527.3 | 551.6 | 9 | [9, 9]
+    measure_test.go:113: search semantic paraphrase | 318.7 | 320.2 [314.8, 326.4] | 525.1 | 549.1 | 9 | [9, 9]
+    measure_test.go:113: search semantic and BM25 | 321.3 | 319.6 [310.2, 322.3] | 549.1 | 549.4 | 9 | [9, 9]
+    measure_test.go:113: index after one note shared: 4500 items, 0 passages embedded, 0 reused
+    measure_test.go:113: index after one note personal: 501 items, 1 passages embedded, 0 reused
+    measure_test.go:113: index after one note | 678.0 ms | 471.6 MiB peak RSS | 11 Git calls
+--- PASS: TestMeasureReads (4776.78s)
+    --- PASS: TestMeasureReads/personal (4776.78s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/cli	4776.787s
