@@ -12,27 +12,25 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: prep `e62c2b7..ce26bef` needs paraphrase/strict controls, expected ID plus `semantic:true` on both paths/views, and dropped-flag/downgrade wrapper regressions; rule-3 `e6709fc` approved (median 281 ms)
-    * next: @lead-dev adds the positive/strict controls and wrapper regressions, then times first index and warm shared/personal Gemma search on 5k items/50 MB at 4 CPUs (1 s target); record build time, alert if over 1 s; Mac/tagged install remain
+    * range/status: harness/guard/rule-3 `581496c`, `150e8a9`, `5e85054` integrated; README patch `0c78b88` awaits @architect's check
+    * next: full-size Gemma index/timings are running; report rate, projected finish and peak RSS, then finish warm 5k/50 MB search; README and Mac run remain
 
 - [ ] Aikit fork documentation follow-up (@architect-2)
     * owner: @architect-2
-    * PR #4: `0b1b868..1f7bd74` (`pkieltyka/docs-pins`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
+    * range/status: PR #4 `0b1b868..1f7bd74` approved; @operator is merging
+    * next: record the merge commit when reported
 
 - [ ] Goinfer fork documentation follow-up (@architect-2)
     * owner: @architect-2
-    * PR #5: `a759890b..93adb19f3` (`pkieltyka/fork-docs-v0.2`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
-
-- [ ] pbrain phase 16: URL imports (@architect-2)
-    * owner: @architect-2
-    * range/status: `698dfab..57c7694` on `peter/architect-2`, approved by @reviewer with no findings; scenario 20 passed with controlled local servers
-    * next: @operator integrates; @reviewer proceeds to aikit #4 and goinfer #5 docs
+    * range/status: PR #5 rebases from `a759890..93adb19f3` onto goinfer main `765dab39e`; changes required on two RELEASING.md claims
+    * next: @architect-2 distinguishes root releases from optional submodules and makes Peter the live exception approver; retain Francis as history, then request re-review
 
 ## Backlog
 
 ## Done
+
+- [x] pbrain phase 16: URL imports (@architect-2) `f753d2c`
+    * Reviewer approved `698dfab..57c7694`; merged and pushed; master tests pass.
 
 - [x] pbrain phase 15: importer files and linked items (@architect-2) `e3b694b`
     * Reviewer approved `f3dfbcb..b4a40a5`; merged, module checks and full tests passed.
@@ -41,7 +39,6 @@ TODO
     * Approved by @architect-2 and merged; built-binary warm harness covers shared/personal/outside-Git and BM25 cases.
 
 - [x] pbrain init selector usable from caller's directory (@architect-2) `90b4644`
-    * Reviewer approved `db929d2..9ed8766`; merged and pushed; master `go test -p 2 ./...` passed.
 
 - [x] pbrain spec: record released cut-offs and model state (@architect) `4eff5a7`
 
