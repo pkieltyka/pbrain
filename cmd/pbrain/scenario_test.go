@@ -43,7 +43,11 @@ func scenarioCLI(ctx context.Context, e cli.Env) int {
 		panic(err)
 	}
 	e.Now = func() time.Time { return now }
-	e.Models = embedtest.New(nil).Registry
+	kit, err := scenarioModelKit(e.Getenv("PBRAIN_TEST_EMBED_TABLE"))
+	if err != nil {
+		panic(err)
+	}
+	e.Models = kit.Registry
 	n := newScriptNetwork(e.Getenv("PBRAIN_TEST_HTTP"))
 	e.Net.Resolver, e.Net.Dialer = n, n
 	if mode := e.Getenv("PBRAIN_TEST_FAULT"); mode != "" {
@@ -52,7 +56,7 @@ func scenarioCLI(ctx context.Context, e cli.Env) int {
 	if e.Getenv("PBRAIN_TEST_NO_GIT") == "1" {
 		e.Git = gitx.NewRunner("/missing-scenario-git", nil)
 	}
-	code := cli.RunWith(ctx, e, cli.Features{BM25: true})
+	code := cli.RunWith(ctx, e, cli.Features{BM25: e.Getenv("PBRAIN_TEST_BM25") != "off"})
 	if n.unexpected.Load() {
 		fmt.Fprintln(e.Stderr, "scenario: attempted unconfigured network access")
 		return 99
@@ -76,6 +80,8 @@ func TestScenarios(t *testing.T) {
 			"parallel-add": parallelAdd,
 			"killed-add":   killedAdd,
 			"budgets":      scenarioBudgets,
+			"testmodel":    scenarioTestModel,
+			"damage-index": scenarioDamageIndex,
 		},
 	})
 }

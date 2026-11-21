@@ -18,14 +18,20 @@ import (
 // to system DNS, a proxy, or a socket, including for model downloads.
 type scriptNetwork struct {
 	enabled    bool
+	offline    bool
 	unexpected atomic.Bool
 }
 
-func newScriptNetwork(mode string) *scriptNetwork { return &scriptNetwork{enabled: mode == "fixture"} }
+func newScriptNetwork(mode string) *scriptNetwork {
+	return &scriptNetwork{enabled: mode == "fixture", offline: mode == "offline-model"}
+}
 
 var scriptIP = netip.MustParseAddr("8.8.8.8")
 
 func (n *scriptNetwork) LookupNetIP(ctx context.Context, host string) ([]netip.Addr, error) {
+	if n.offline && host == "models.test" {
+		return nil, errors.New("fixture model server is offline")
+	}
 	if n.enabled {
 		switch host {
 		case "pages.test":
