@@ -1,0 +1,46 @@
+# Functional spec §15, scenario 9.
+cp $WORK/ignore .gitignore
+exec git add -f docs/brain/ignored/hidden.md
+pbrain list --brain docs/brain --json
+ids results
+pbrain init
+symlink docs/brain/leak.md -> personal/secret.md
+pbrain list --json
+ids results
+status 1 pbrain add --title Nothing --json
+! stdout .
+! exists docs/brain/notes
+exec git add .gitignore docs/brain/pbrain.toml docs/brain/.gitignore
+exec git commit -qm fixture
+exec git worktree add --detach $WORK/linked HEAD
+cd $WORK/linked
+pbrain list --json
+ids results
+status 1 pbrain add --title Nothing --json
+! exists docs/brain/notes
+
+-- repo/docs/brain/ignored/hidden.md --
+---
+kind: note
+title: secret
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/personal/secret.md --
+---
+kind: note
+title: secret
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/pbrain.toml --
+
+
+-- ignore --
+docs/brain/ignored/
+docs/brain/notes/
+docs/brain/personal/
+docs/brain/personal.toml
+docs/brain/.pbrain/

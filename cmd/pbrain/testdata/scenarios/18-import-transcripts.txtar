@@ -1,0 +1,31 @@
+# Functional spec §15, scenario 18.
+pbrain init
+pbrain import $WORK/a/transcript.md --json
+jsonenv A id
+pbrain import $WORK/b/transcript.md --source http://pages.test/markdown --shared --json
+jsonenv B id
+pbrain-test list --json
+stdout '"id":"'$A'"'
+stdout '"id":"'$B'"'
+status 1 pbrain import $WORK/a/transcript.md --json
+stderr '"code":"duplicate"'
+env PBRAIN_TEST_HTTP=fixture
+pbrain-test import http://pages.test/markdown --shared --json
+jsonenv U id
+pbrain get $B --json
+stdout '"origin":"file"'
+! stdout '"replacement"'
+pbrain get $U --json
+stdout '"origin":"url"'
+status 1 pbrain import $WORK/missing --json
+stderr '"code":"not_found"'
+status 1 pbrain add --title missing --body-file $WORK/missing --json
+stderr '"code":"not_found"'
+pbrain list --json
+stdout -count=3 '"id":'
+
+-- a/transcript.md --
+# first transcript
+
+-- b/transcript.md --
+# second transcript

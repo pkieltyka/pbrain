@@ -1,0 +1,113 @@
+# Functional spec §15, scenario 2.
+pbrain init
+pbrain-test search job queue --json
+ids results D N
+stdout '"link":"from"'
+stdout '"link":"to"'
+pbrain-test search Redis
+stdout 'relates to: D'
+! stdout '^D  '
+pbrain-test search job queue --all --json
+ids results D N Old
+! stdout 'hidden-doubt'
+pbrain-test search job queue --personal --json
+stdout 'hidden-doubt'
+stdout '"personal":true'
+! exists docs/brain/.pbrain
+cp $WORK/unlinked docs/brain/N.md
+pbrain-test search job queue
+! stdout 'relates to:|newer related:'
+cp stdout $WORK/plain-pair
+cp $WORK/linked docs/brain/N.md
+# The two main rows fit exactly; extras cannot displace either row.
+pagebudget PAIR $WORK/plain-pair
+pbrain-test search job queue --max-chars $PAIR
+stdout '^2 results.'
+! stdout 'relates to:|newer related:'
+# Old remains the only title-class match, but it cannot outrank current hits.
+cp $WORK/lower docs/brain/D.md
+cp $WORK/body-note docs/brain/N.md
+pbrain-test search job queue --all --json
+ids results D N Old
+cp $WORK/linked docs/brain/N.md
+pbrain-test search job queue --json
+ids results N D
+
+-- repo/docs/brain/D.md --
+---
+kind: decision
+title: We use Postgres for the job queue
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [Old]
+---
+
+-- repo/docs/brain/Old.md --
+---
+kind: decision
+title: Job queue
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+---
+
+-- repo/docs/brain/N.md --
+---
+kind: note
+title: Maybe move the job queue to Redis?
+author: human:test
+created: 2026-11-14T00:00:00Z
+relates: [D]
+---
+
+-- repo/docs/brain/personal/hidden-doubt.md --
+---
+kind: note
+title: Private job queue
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- unlinked --
+---
+kind: note
+title: Maybe move the job queue to Redis?
+author: human:test
+created: 2026-11-14T00:00:00Z
+---
+
+-- linked --
+---
+kind: note
+title: Maybe move the job queue to Redis?
+author: human:test
+created: 2026-11-14T00:00:00Z
+relates: [D]
+---
+
+-- lower --
+---
+kind: decision
+title: We use Postgres
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [Old]
+---
+
+for the job queue
+
+-- body-note --
+---
+kind: note
+title: Recent doubt
+author: human:test
+created: 2026-11-14T00:00:00Z
+relates: [D]
+---
+
+for the job queue

@@ -1,0 +1,175 @@
+# Functional spec §15, scenario 6.
+pbrain init
+pbrain search shared
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain list
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain prime
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain get visible
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain get vault-id-s
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain get vault-id-secret
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain check
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain add --title replace --replaces vault-id-secret
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain import --shared docs/brain/personal/vault-id-secret.md
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain add --body-file docs/brain/personal/vault-id-secret.md --title copy
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain search shared --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain list --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain prime --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain get visible --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain get vault-id-s --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain get vault-id-secret --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+pbrain check --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain add --title replace --replaces vault-id-secret --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain import --shared docs/brain/personal/vault-id-secret.md --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+! pbrain add --body-file docs/brain/personal/vault-id-secret.md --title copy --json
+! stdout 'vault-id-secret|treasure-sentinel'
+! stderr 'vault-id-secret|treasure-sentinel'
+rm docs/brain/personal/vault-id-secret.md
+cp $WORK/raw docs/brain/personal/vault-id-secret.md
+cp $WORK/config docs/brain/personal.toml
+symlink alias-private -> $WORK/elsewhere/.pbrain/data
+symlink public-copy -> docs/brain/personal/vault-id-secret.md
+status 1 pbrain import --shared public-copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file public-copy --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared docs/brain/personal.toml --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file docs/brain/personal.toml --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared docs/brain/personal/vault-id-secret.md --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file docs/brain/personal/vault-id-secret.md --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared $WORK/other/.pbrain/data --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file $WORK/other/.pbrain/data --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared $WORK/other/personal/.pbrain/data --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file $WORK/other/personal/.pbrain/data --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared $WORK/elsewhere/.pbrain/data --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file $WORK/elsewhere/.pbrain/data --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared alias-private --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file alias-private --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain import --shared public/.PBRAIN/data --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+status 1 pbrain add --body-file public/.PBRAIN/data --title copy --json
+stderr '"code":"not_found"'
+! stdout .
+! stderr 'vault-id-secret|treasure-sentinel'
+! exists docs/brain/.pbrain/originals
+tree-absent docs/brain/.pbrain treasure-sentinel
+tree-absent docs/brain/.pbrain vault-id-secret
+
+-- repo/docs/brain/visible.md --
+---
+kind: note
+title: shared
+author: human:test
+created: 2026-11-01T00:00:00Z
+relates: [vault-id-secret]
+---
+
+-- repo/docs/brain/personal/vault-id-secret.md --
+---
+kind: note
+title: treasure-sentinel
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- config --
+path = "../../../alternative"
+
+-- other/pbrain.toml --
+
+
+-- other/personal.toml --
+path = "../elsewhere"
+
+-- other/.pbrain/data --
+treasure-sentinel
+
+-- other/personal/.pbrain/data --
+treasure-sentinel
+
+-- elsewhere/.pbrain/data --
+treasure-sentinel
+
+-- repo/public/.PBRAIN/data --
+treasure-sentinel
+
+-- raw --
+treasure-sentinel

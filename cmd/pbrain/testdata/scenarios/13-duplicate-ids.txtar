@@ -1,0 +1,54 @@
+# Functional spec §15, scenario 13.
+pbrain init
+status 1 pbrain get mixed --json
+stderr 'ambiguous_id'
+status 1 pbrain verify MIXED --json
+stderr 'ambiguous_id'
+pbrain list --tag same --limit 1 --json
+stdout '"next":1'
+stdout '"id":"Mixed"'
+pbrain list --tag same --limit 1 --offset 1 --json
+ids results mixed
+cp docs/brain/a/Mixed.md docs/brain/b/Mixed.md
+status 1 pbrain verify Mixed --json
+stderr 'ambiguous_id'
+pbrain list --tag same --json
+ids results Mixed Mixed mixed
+pbrain search café --json
+ids results café
+pbrain search café --json
+ids results café
+
+-- repo/docs/brain/a/Mixed.md --
+---
+kind: note
+title: One
+author: human:test
+created: 2026-11-01T00:00:00Z
+tags: [same]
+---
+
+-- repo/docs/brain/b/mixed.md --
+---
+kind: note
+title: Two
+author: human:test
+created: 2026-11-01T00:00:00Z
+tags: [same]
+---
+
+-- repo/docs/brain/café.md --
+---
+kind: note
+title: café
+author: human:test
+created: 2026-11-01T00:00:00Z
+---
+
+-- repo/docs/brain/café.md --
+---
+kind: note
+title: café
+author: human:test
+created: 2026-11-01T00:00:00Z
+---

@@ -1,0 +1,16 @@
+# Functional spec §15, scenario 7.
+pbrain init
+pbrain check --json
+! stdout 'broken|bad_front_matter'
+status 1 pbrain --personal check --json
+stdout 'bad_front_matter'
+stdout 'broken'
+pbrain import --shared --link-only http://pages.test/markdown --json
+env PBRAIN_TEST_HTTP=fixture
+pbrain-test import --personal http://pages.test/markdown --json
+stdout '"section":"personal"'
+
+-- repo/docs/brain/personal/broken.md --
+---
+kind: [
+---

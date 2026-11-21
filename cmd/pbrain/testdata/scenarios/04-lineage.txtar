@@ -1,0 +1,44 @@
+# Functional spec §15, scenario 4.
+pbrain init
+pbrain get A --json
+stdout '"replacement":\["B"\]'
+stdout '"current":\["C"\]'
+pbrain get C --history --json
+ids history A B C
+status 0 pbrain search ghostword --json
+ids results
+
+-- repo/docs/brain/A.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+source: archive
+---
+
+-- repo/docs/brain/B.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [A]
+source: v2
+---
+
+-- repo/docs/brain/C.md --
+---
+kind: decision
+title: Session store
+author: human:test
+created: 2025-11-21T00:00:00Z
+decided: human:alex
+status: verified
+replaces: [B]
+source: release meeting
+---
