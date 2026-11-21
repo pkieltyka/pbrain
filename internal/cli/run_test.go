@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/pkieltyka/pbrain/internal/errs"
+	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
@@ -75,9 +77,9 @@ func TestCLINoBrainDispatch(t *testing.T) {
 func TestInitDispatch(t *testing.T) {
 	env := Env{Dir: t.TempDir(), Files: sys.Native()}
 	status, stdout, stderr := invoke(t, env, Features{}, "--personal", "init", "--path", "notes", "--json")
-	var init initOutput
+	var init struct{ Path, Selector, Hint string }
 	oneJSON(t, stdout, &init)
-	if status != 0 || stderr != "" || init.Path != "notes" || !strings.Contains(init.Hint, "--brain") {
+	if status != 0 || stderr != "" || init.Path != "notes" || init.Selector != "" || !strings.Contains(init.Hint, "--brain") {
 		t.Fatalf("init: %d %+v %q", status, init, stderr)
 	}
 	for _, name := range []string{"pbrain.toml", ".gitignore"} {
@@ -96,12 +98,51 @@ func TestInitDispatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	status, stdout, stderr = invoke(t, env, Features{}, "--brain", "unselected", "init", "--path", "notes")
-	if status != 0 || stdout != "initialized notes\nOutside this folder, use --brain or PBRAIN_DIR.\n" || stderr != "" {
+	if status != 0 || stdout != "initialized notes — outside the brain, use --brain or PBRAIN_DIR (from this directory, use this path)\n" || stderr != "" {
 		t.Fatalf("repeated init: %d %q %q", status, stdout, stderr)
 	}
 	after, err := os.Stat(marker)
 	if err != nil || !os.SameFile(info, after) || !after.ModTime().Equal(info.ModTime()) {
 		t.Fatalf("repeated init rewrote marker, stat %v", err)
+	}
+}
+
+func TestInitSelectorOutput(t *testing.T) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not installed")
+	}
+	for _, tc := range []struct {
+		name, path, text, jsonPath, jsonSelector string
+	}{
+		{"subfolder", "notes", "initialized notes\noutside the brain, use --brain or PBRAIN_DIR (from this directory): ../notes\n", `"notes"`, `"../notes"`},
+		{"quoted path", "a \"b\u2028c", "initialized \"a \\\"b\\u2028c\"\noutside the brain, use --brain or PBRAIN_DIR (from this directory): \"../a \\\"b\\u2028c\"\n", `"a \"b\u2028c"`, `"../a \"b\u2028c"`},
+		{"withheld path", "bad\xff", "initialized ? — selector unavailable (invalid UTF-8)\n", "", ""},
+		{"default", "docs/brain", "initialized docs/brain\n", `"docs/brain"`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root := t.TempDir()
+			if out, err := exec.Command(git, "-C", root, "init", "-q").CombinedOutput(); err != nil {
+				t.Fatalf("git init: %s: %v", out, err)
+			}
+			env := Env{Dir: filepath.Join(root, "src"), Files: sys.Native(), Git: gitx.NewRunner(git, os.Environ())}
+			if err := os.Mkdir(env.Dir, 0700); err != nil {
+				t.Fatal(err)
+			}
+			status, out, diag := invoke(t, env, Features{}, "init", "--path", tc.path)
+			if status != 0 || out != tc.text || diag != "" {
+				t.Fatalf("text: %d %q %q", status, out, diag)
+			}
+			if _, err := os.Stat(filepath.Join(root, tc.path, "pbrain.toml")); err != nil {
+				t.Fatal(err)
+			}
+			status, out, diag = invoke(t, env, Features{}, "init", "--path", tc.path, "--json")
+			var fields map[string]json.RawMessage
+			oneJSON(t, out, &fields)
+			if status != 0 || diag != "" || string(fields["path"]) != tc.jsonPath || string(fields["selector"]) != tc.jsonSelector || strings.Contains(out, root) || strings.Contains(out, "\ufffd") {
+				t.Fatalf("json: %d %q %q", status, out, diag)
+			}
+		})
 	}
 }
 

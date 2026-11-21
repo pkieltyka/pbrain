@@ -10,15 +10,10 @@ TODO
     * branch: `pkieltyka/sync-upstream`; PR #6 includes `2ba9f26`, worktree clean
     * next: hold merge/tag v0.3.0 for owner's go-ahead
 
-- [ ] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2)
-    * owner: @architect-2 (patch flow)
-    * range/status: `2edd0d1..2233197` on `peter/gemma-default`, approved by @reviewer; cutoff 0.72, default resolution/`none`, registry and skill changes
-    * next: @operator integrates; Phase 28 release measurements follow
-
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * ranges: harness prep `e62c2b7..ce26bef`, report `ce26bef..eedbe8a` on `peter/lead-dev`
-    * next: run release measurements after phase 27 integrates; full model timings, Mac runtime and tagged install remain
+    * ranges/evidence: harness `f9821c3..e551bb9`; prep `e62c2b7..ce26bef`; Phase 27 reported Gemma warm rule-3 time 255–376 ms
+    * next: @architect-2 reviews both ranges; @lead-dev measures rule 3 on the built release binary (Linux, four cores) now and Mac when available; report immediately if over 600 ms
 
 - [ ] pbrain init selector usable from caller's directory (@architect-2)
     * owner: @architect-2 (patch flow)
@@ -47,18 +42,20 @@ TODO
 
 ## Backlog
 
-- [ ] Update semantic cutoff/model state wording after Phase 27 (@architect)
-
 ## Done
+
+- [x] pbrain spec: record released cut-offs and model state (@architect) `4eff5a7`
+    * Both cut-offs and gate figures are recorded; rule-3 and cross-platform measurement gaps remain explicit.
+
+- [x] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2) `2233197`
+    * Reviewer approved; Gemma 0.72 became the default beside BGE, and the corrected individual/combined gates passed. Master tests passed.
 
 - [x] pbrain phase 25: BGE gates and release wiring (@lead-dev-2) `8f32814`
     * BGE wiring and corrected README records merged as `8f32814`, `9b27eb9`, `049fe9e`; BGE cutoff 0.65 and model-free/Gemma gates recorded.
 
 - [x] pbrain phase 18: calibration and `--bm25` gates (@lead-dev) `e5aa38a`
-    * Approved and merged as `ad2da67`, `48912a6`, `e5aa38a`; both stages rerun after the snippet fix, with evidence reach updated and retrieval/gate counts unchanged.
 
 - [x] pbrain skill guidance: first index on a machine (@architect) `05f788e`
-    * Five-topic guidance and the 400-word core pointer are in the approved skill design; committed to master.
 
 - [x] pbrain spec: EmbeddingGemma 2 default model (@architect) `7bdf4b2`
 

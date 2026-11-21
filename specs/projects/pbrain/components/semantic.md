@@ -522,7 +522,7 @@ func Entry() embed.Entry
 | `Name` | `bge-small-en-v1.5` |
 | `Runtime` | `aikit` |
 | `Dim` | 384 |
-| `Cutoff` | set by the calibration tool before the row ships; the row is not in a release until both gates pass |
+| `Cutoff` | 0.65, set on the calibration half of the fixture (phase 25). On the held-out half, alone and with `--bm25`: 29 of 30 unanswerable pages empty, every regression case passed, and an expected id on the first page for 40 of 47 answerable questions against 16 for strict search, none lost. The record is `internal/semantic/calibrate/README.md`. |
 | Preparation version | `bge-1`: the query instruction, CLS pooling, L2 normalisation, the 510-token cut rule and the special-token rule below |
 
 Files, from `https://huggingface.co/BAAI/bge-small-en-v1.5/resolve/5c38ec7c405ec4b44b94cc5a9bb96e735b38267a/<path>`; `File.Name` is the local name, flat, as in every model folder:
@@ -580,7 +580,7 @@ The handover is what keeps the checked bytes private. Go allows a caller of `Rea
 
 ### The EmbeddingGemma 2 adapter
 
-Package `internal/embed/gemma2` is the only package of pbrain that imports goinfer. It is designed from `goinfer-embeddinggemma2.md` and `goinfer-architecture-review.md`; the parts that are not built yet are marked.
+Package `internal/embed/gemma2` is the only package of pbrain that imports goinfer. It is designed from `goinfer-embeddinggemma2.md` and `goinfer-architecture-review.md`; it is built and, since phase 27, in the release registry as the default model.
 
 **The library** is the goinfer column of "Our libraries" above. It was first measured at the original's release v0.24.1.
 
@@ -591,7 +591,7 @@ Package `internal/embed/gemma2` is the only package of pbrain that imports goinf
 | `Name` | `embeddinggemma-2` |
 | `Runtime` | `goinfer` |
 | `Dim` | 768 |
-| `Cutoff` | set by the calibration tool; the row is in no release until the rules of architecture §8.7 and both gates pass |
+| `Cutoff` | 0.72, set on the calibration half of the fixture (phase 27). On the held-out half, alone and with `--bm25`: 30 of 30 unanswerable pages empty, every regression case passed, and an expected id on the first page for 42 of 47 answerable questions against 16 for strict search, none lost. The record is `internal/semantic/calibrate/README.md`. Rule 3 of architecture §8.7 is not yet shown on the built adapter. |
 | Preparation version | `gemma2-1`: the prompts, pooling, cut rule and special-token rule below |
 
 `Source`, from `https://huggingface.co/google/embeddinggemma-2/resolve/f9972ac2…/<path>` (the full revision id is pinned when the row is built):
