@@ -212,7 +212,11 @@ func (s session) modelScores(text string, eligible []*item.Item) ([]search.Seman
 	if err != nil {
 		return nil, err
 	}
-	model, err := files.OpenRoot(s.model.path, false)
+	modelPath, err := filepath.Abs(s.model.path)
+	if err != nil {
+		return nil, err
+	}
+	model, _, err := sys.OpenNamed(files, modelPath, false)
 	if err != nil {
 		return nil, err
 	}

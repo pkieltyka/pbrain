@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"github.com/rogpeppe/go-internal/testscript"
@@ -112,12 +114,43 @@ func scenarioPTYSkip(ts *testscript.TestScript, neg bool, args []string) {
 	ts.Logf("skipped: %s", ptyUnavailable())
 }
 
-// scenarioCondition adds [pty]: a pseudo-terminal can be opened here.
+// scenarioCondition adds [pty], a pseudo-terminal can be opened here, and the file system's traits
+// some scenarios depend on: [badnames], it keeps a name that is not valid UTF-8 (APFS refuses one);
+// [nfdistinct], it keeps "café" in NFC and in NFD as two names (APFS takes them as one); and
+// [casedistinct], it keeps "Mixed" and "mixed" as two names (APFS by default does not).
 func scenarioCondition(cond string) (bool, error) {
-	if cond == "pty" {
+	switch cond {
+	case "pty":
 		return ptyAvailable(), nil
+	case "badnames", "nfdistinct", "casedistinct":
+		fsTraitsOnce.Do(probeFSTraits)
+		return fsTraits[cond], nil
 	}
 	return false, fmt.Errorf("unknown condition %q", cond)
+}
+
+var (
+	fsTraitsOnce sync.Once
+	fsTraits     = map[string]bool{}
+)
+
+// probeFSTraits tries each trait once in a temporary folder of the file system the scripts run on.
+func probeFSTraits() {
+	dir, err := os.MkdirTemp("", "pbrain-fs-traits-")
+	if err != nil {
+		return
+	}
+	defer os.RemoveAll(dir)
+	fsTraits["badnames"] = os.WriteFile(filepath.Join(dir, "x\xff"), nil, 0o600) == nil
+	distinct := func(a, b string) bool {
+		if os.WriteFile(filepath.Join(dir, a), nil, 0o600) != nil {
+			return false
+		}
+		_, err := os.Stat(filepath.Join(dir, b))
+		return errors.Is(err, fs.ErrNotExist)
+	}
+	fsTraits["nfdistinct"] = distinct("caf\u00e9", "cafe\u0301")
+	fsTraits["casedistinct"] = distinct("Mixed", "mixed")
 }
 
 // fits FILE N fails when FILE holds more than N code points.
@@ -211,4 +244,22 @@ func scenarioCountFiles(ts *testscript.TestScript, neg bool, args []string) {
 	if n != want {
 		ts.Fatalf("%s holds %d files, want %d", args[0], n, want)
 	}
+}
+
+// modelpath PATH writes docs/brain/personal.toml naming PATH as model_path; script files cannot
+// expand $WORK, so a script that needs a path of its own (a link, say) sets it this way.
+func scenarioModelPath(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 1 {
+		ts.Fatalf("usage: modelpath PATH")
+	}
+	ts.Check(os.WriteFile(ts.MkAbs("docs/brain/personal.toml"), []byte("model_path = "+strconv.Quote(args[0])+"\n"), 0o600))
+}
+
+// fsnote MESSAGE logs why the lines a file-system condition leaves out did not run, so the skip is
+// never silent; a script runs it as, say, [!nfdistinct] fsnote '...'.
+func scenarioFSNote(ts *testscript.TestScript, neg bool, args []string) {
+	if neg || len(args) != 1 {
+		ts.Fatalf("usage: fsnote MESSAGE")
+	}
+	ts.Logf("skipped: %s", args[0])
 }

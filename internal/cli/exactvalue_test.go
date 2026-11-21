@@ -99,6 +99,9 @@ func TestNameAdmissionCommands(t *testing.T) {
 	if _, _, errOut := rb.run("search", "quokkaword"); errOut != "" {
 		t.Fatalf("a file without front matter raised %q", errOut)
 	}
+	if !badNamesKept(t) {
+		t.Skip(badNamesSkip)
+	}
 	rb.put("notes/x\xff.md", []string{"kind: note", "title: Bad name", "author: agent:x"}, "wombatword\n")
 	rb.put("notes/x\uFFFD.md", []string{"kind: note", "title: Real name", "author: agent:x"}, "wombatword\n")
 	for _, js := range []bool{false, true} {
@@ -163,4 +166,13 @@ func TestRefusedReplacesTargetIsOneToken(t *testing.T) {
 	if code != 1 || diag.Error.Code != "invalid" || diag.Error.Message != `replaces "20261121-120000-a\"b": target has higher standing` {
 		t.Fatalf("JSON: %d %q", code, errOut)
 	}
+}
+
+// badNamesSkip is why a case that needs a name that is not valid UTF-8 is skipped where the file
+// system refuses one (APFS); the macOS side is in the Mac backlog.
+const badNamesSkip = "the file system refuses names that are not valid UTF-8; macOS tracked in the Mac backlog"
+
+// badNamesKept reports whether the file system under the test's temporary folder keeps such a name.
+func badNamesKept(t *testing.T) bool {
+	return os.WriteFile(filepath.Join(t.TempDir(), "x\xff"), nil, 0o600) == nil
 }
