@@ -104,9 +104,9 @@ Only the frozen 5 / 4 / 2 rule was checked on held-out negatives.
 | Strict | 16 | 30 | 0 | 0 |
 | Guided retry | 18 | 25 | 1 | 1 |
 | Any clause by count | 35 | 0 | 6 | 3 |
-| Any clause by BM25 | 42 | 0 | 6 | 3 |
-| BM25 with stemming | 41 | 0 | 6 | 4 |
-| BM25 with heading weights | 42 | 0 | 6 | 3 |
+| Any clause by BM25 | 42 | 0 | 6 | 4 |
+| BM25 with stemming | 41 | 0 | 6 | 6 |
+| BM25 with heading weights | 42 | 0 | 6 | 4 |
 | Partial tier | 22 | 30 | 4 | 4 |
 
 The partial tier passed every held-out regression and preserved all 16
@@ -114,6 +114,13 @@ strict first-page answers. The shared replay matched byte for byte and
 all eight personal controls opened in the personal view. This enables
 `--bm25` for the release without a model. A release that lists bge-small
 still needs the combined gate in phase 25.
+
+The four tool-only arms now choose snippets by the product's distinct-clause
+coverage rule. The comparison rows and reads changed, and the search pages
+consumed fewer characters in both halves. First-page expected IDs, abstention
+and long-source retrieval counts stayed the same. Evidence reached increased
+from three to four for BM25 and heading weights, and from four to six for
+stemming. The plain count arm still reached evidence for three.
 
 The architecture §8.6 harness also timed the enabled flag on Linux/amd64
 with four CPUs and three warm samples per case. At 5,000 items and 50 MB,

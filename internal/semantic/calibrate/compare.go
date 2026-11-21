@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/outline"
@@ -149,15 +150,19 @@ func rankItem(it *item.Item, body []byte, clauses []query.Clause, mode compariso
 	for _, tag := range it.Header.Tags {
 		fields = append(fields, query.Tokens(tag))
 	}
-	firstBodyMatch := -1
+	const width = 200
+	bodyChars := utf8.RuneCount(body)
+	var found []search.SnippetOccurrence
 	for fi, tokens := range fields {
 		c.length += len(tokens)
 		for i, clause := range clauses {
-			count, first := clauseMatches(tokens, clause, mode)
-			c.tf[i] += count
-			if fi == 1 && first >= 0 && (firstBodyMatch < 0 || first < firstBodyMatch) {
-				firstBodyMatch = first
+			var visit func(int, int)
+			if fi == 1 && bodyChars > width {
+				visit = func(start, end int) {
+					found = append(found, search.SnippetOccurrence{Start: start, End: end, Clause: i})
+				}
 			}
+			c.tf[i] += clauseMatches(tokens, clause, mode, visit)
 		}
 	}
 	for _, tf := range c.tf {
@@ -166,33 +171,31 @@ func rankItem(it *item.Item, body []byte, clauses []query.Clause, mode compariso
 			c.occurrences += tf
 		}
 	}
-	c.snippetStart = max(0, firstBodyMatch-40)
+	c.snippetStart = search.SnippetStart(bodyChars, width, len(clauses), found)
 	if mode == withHeadingWeight {
 		c.headings = make([]int, len(clauses))
 		c.sections = outline.Parse(body)
 		for _, section := range c.sections {
 			tokens := query.Tokens(section.Title)
 			for i, clause := range clauses {
-				count, _ := clauseMatches(tokens, clause, mode)
-				c.headings[i] += count
+				c.headings[i] += clauseMatches(tokens, clause, mode, nil)
 			}
 		}
 	}
 	return c
 }
 
-func clauseMatches(tokens []query.Token, clause query.Clause, mode comparison) (count, first int) {
-	first = -1
+func clauseMatches(tokens []query.Token, clause query.Clause, mode comparison, visit func(start, end int)) (count int) {
 	for i := 0; i+len(clause.Words) <= len(tokens); i++ {
 		if !tokensMatch(tokens[i:i+len(clause.Words)], clause, mode) {
 			continue
 		}
 		count++
-		if first < 0 {
-			first = tokens[i].Start
+		if visit != nil {
+			visit(tokens[i].Start, tokens[i+len(clause.Words)-1].End)
 		}
 	}
-	return count, first
+	return count
 }
 
 func tokensMatch(tokens []query.Token, clause query.Clause, mode comparison) bool {
