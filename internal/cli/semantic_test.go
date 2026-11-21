@@ -104,11 +104,16 @@ func TestCLISemanticCommands(t *testing.T) {
 	if status != 1 || !strings.HasPrefix(errOut, "invalid_config: the model \"nope\" is not supported; supported models: test-model") {
 		t.Fatalf("index with an unknown model: %d %q", status, errOut)
 	}
-	// No model named.
-	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), nil, 0o644)
+	// Turning semantic off takes precedence even over an unavailable local model folder.
+	if err := os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte(`semantic.model = "none"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(rb.dir, "personal.toml"), []byte(`model_path = "missing"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	expect(t, rb, "model: none\nshared: 0 of 3 items indexed (built for another model)\n", "index", "--status")
 	_, _, errOut = rb.run("search", "zzz", "--semantic")
-	if errOut != "semantic_not_ready: semantic search is off: pbrain.toml names no model\n" {
+	if errOut != "semantic_not_ready: semantic search is off: pbrain.toml sets model = \"none\"\n" {
 		t.Fatalf("no model: %q", errOut)
 	}
 	status, _, errOut = rb.run("index")
@@ -154,7 +159,7 @@ func TestSemanticNoticeTable(t *testing.T) {
 		code string
 		msg  string
 	}{
-		{&shared, search.SemanticState{Asked: true, Reason: search.NoModel}, "semantic_not_ready", "semantic search is off: pbrain.toml names no model"},
+		{&shared, search.SemanticState{Asked: true, Reason: search.NoModel}, "semantic_not_ready", "semantic search is off: pbrain.toml sets model = \"none\""},
 		{&shared, search.SemanticState{Asked: true, Reason: search.UnsupportedModel}, "semantic_not_ready", "this pbrain does not support the model pbrain.toml names: pbrain index lists the supported names"},
 		{&shared, search.SemanticState{Asked: true, Reason: search.CacheExposed}, "semantic_not_ready", "the cache folder lies in the brain, the personal section or a Git repository: set PBRAIN_CACHE to a folder outside them"},
 		{&personal, search.SemanticState{Asked: true, Reason: search.ModelAbsent}, "semantic_not_ready", "the model is not on this machine: run pbrain index --personal, or set model_path"},
