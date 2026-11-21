@@ -491,12 +491,12 @@ Both adapters run on libraries the project holds as its own (owner's decision, 2
 |---|---|---|
 | Module, the path in `go.mod` and in imports | `github.com/pkieltyka/goinfer` | `github.com/pkieltyka/aikit` |
 | Forked from | `github.com/townsendmerino/goinfer` at `e0d66171` | `github.com/townsendmerino/aikit` at `b719bbda`, the release v1.78.0 |
-| Release pbrain pins | v0.1.0, where our numbering starts: the tokenizer pack. Tagged on the merge of the module rename, not made when this was written | v1.79.0 (`3c0896c0`): the loader from bytes, under our module path |
-| Still to come | the loader from bytes and the pack, in a later release, which the adapter needs | nothing pbrain needs |
+| Release pbrain pins | v0.2.0 (`a759890b`): the tokenizer pack and the loader from bytes. Our numbering started at v0.1.0 (`bdf9daf9`), the module rename | v1.79.0 (`3c0896c0`): the loader from bytes, under our module path |
+| Still to come | nothing in goinfer: the pack and its derive step are the adapter's, in pbrain | nothing pbrain needs |
 | Offered to the original author | `townsendmerino/goinfer#1194` | `townsendmerino/aikit#38` |
 | Imported by | `embed/gemma2`: the text encoder and tokenizer packages | `embed/bge`: `encoder` and `embed`; and goinfer itself |
 
-- **The pins** (owner's decision, 2026-11-21). pbrain requires `github.com/pkieltyka/aikit v1.79.0` and `github.com/pkieltyka/goinfer v0.1.0`; `go.sum` pins their content. A pin is always a tag on our `main`, never an untagged commit. aikit v1.79.0 exists and holds everything the bge-small adapter uses. goinfer v0.1.0 is decided and not yet tagged; the EmbeddingGemma 2 adapter cannot be built on it, since the loader from bytes and the pack come in a later release.
+- **The pins** (owner's decision, 2026-11-21). pbrain requires `github.com/pkieltyka/aikit v1.79.0` and `github.com/pkieltyka/goinfer v0.2.0`; `go.sum` pins their content. A pin is always a tag on our `main`, never an untagged commit. Both tags exist: aikit v1.79.0 holds everything the bge-small adapter uses, and goinfer v0.2.0 everything the EmbeddingGemma 2 adapter uses.
 - **One aikit.** goinfer requires our aikit too. Go links one copy of a module, the newer of the versions required, so pbrain's requirement of aikit is kept at or after the one in the goinfer release it pins, and `TestBgeParity` and `TestGemmaParity` run on what is linked.
 - **Changes** are made on a topic branch and reach our `main` through a reviewed pull request in our repository; then pbrain's pin moves. A new pin is read first (what changed in the packages pbrain links, and in the kernels they use), then must pass every test below.
 - **The original author's work** is taken only by a deliberate merge into our `main`, read and tested like any change; after the rename such a merge touches every import line. Offering our changes back is optional and is the owner's step. Parity is shown on each pinned commit, not assumed from the releases first measured, goinfer v0.24.1 and aikit v1.78.0.
@@ -578,7 +578,7 @@ The handover is what keeps the checked bytes private. Go allows a caller of `Rea
 
 ### The EmbeddingGemma 2 adapter
 
-Package `internal/embed/gemma2` is the only package of pbrain that imports goinfer. It is designed from `goinfer-embeddinggemma2.md` and `goinfer-architecture-review.md`; three parts are not built yet and are marked.
+Package `internal/embed/gemma2` is the only package of pbrain that imports goinfer. It is designed from `goinfer-embeddinggemma2.md` and `goinfer-architecture-review.md`; the parts that are not built yet are marked.
 
 **The library** is the goinfer column of "Our libraries" above. It was first measured at the original's release v0.24.1.
 
@@ -613,7 +613,7 @@ Package `internal/embed/gemma2` is the only package of pbrain that imports goinf
 **The three changes to goinfer, in the order they are done.**
 
 1. **A fast tokenizer: done** (merged into our `main` at `2e413ee1`; `goinfer-tokenizer-spike.md`). `tokenizer.BuildPack(tokenizerJSON []byte) ([]byte, error)` writes a binary form of the tokenizer, always the same bytes for the same input, in under a second; `tokenizer.LoadPack(pack []byte) (*Tokenizer, error)` loads it in 24 to 26 ms at four threads, against 441 to 502 ms for the JSON, opening no file and keeping about 17 MB. Token ids are identical on goinfer's 48 reference texts, on 10,000 random encodings in both special-token modes, and on 3,052 texts against the Hugging Face tokenizer. It serves the Gemma tokenizer family only and refuses others. The fallbacks planned for this task are not needed.
-2. **A loader from bytes** (prototyped in scratch, not in our goinfer yet; the next task). Two constructors. One builds the model from its configuration, the token table as a 16-bit view and the other tensors from an in-memory safetensors file; it widens one token row per lookup, and widens the other tensors once, across the processors, without the second copy the published loader makes. The other builds the encoder from an already built model, a tokenizer and the prompt table, because the published `LoadEncoder` reads all three from a folder. Measured on the real checkpoint: weights ready in 97 to 137 ms against about 1,000, with vectors identical to the published loader's.
+2. **A loader from bytes: done** (goinfer v0.2.0, `a759890b`). `embeddinggemma2.NewModel(cfg Config, tokens, layers []byte) (*Model, error)` builds the model from its configuration, the token table's bytes as stored and an in-memory safetensors file of the other tensors. It keeps the table as it is and widens one row per token, widens the other tensors once, across the processors, without the second copy the loader by path makes, and does not keep the layers bytes. `embeddinggemma2.LoadConfigBytes(raw)` reads the configuration from memory. `embeddinggemma2.NewEncoder(m, tok, prompts)` builds the encoder from an already built model, a tokenizer and the prompt table, because `LoadEncoder` reads all three from a folder. Measured on the real checkpoint at four threads: weights ready in 41 ms against 693 ms for the loader by path on the same warm machine; the 48 reference texts give the reference's ids and a worst cosine of 0.999999989, and 28 of them were compared with the loader by path, bit for bit equal.
 3. **The pack.** `gemma2.Entry().Derive` is the model's procedure, pure and deterministic: from the four verified source files it returns the token table's bytes (`tokens.bf16`), `layers.safetensors` as specified in the table above, `tokenizer.bin` from our goinfer's writer, and `config.json`. `embed.Pack` checks those bytes against the pinned digests before it writes anything, so a derive that goes wrong leaves no pack.
 
 **Opening and `Embed`.**
