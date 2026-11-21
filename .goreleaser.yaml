@@ -1,6 +1,7 @@
 # GoReleaser configuration for pbrain's release binaries (architecture section 16, decision 10):
 # Linux and macOS on amd64 and arm64, built with CGO_ENABLED=0 and no build tags, with SHA-256
-# checksums. .github/workflows/release.yml runs it when a v* tag is pushed. Local check:
+# checksums. The macOS binaries are built but untested and unsupported for now (architecture
+# section 17). .github/workflows/release.yml runs it when a v* tag is pushed. Local check:
 #   goreleaser check && goreleaser release --snapshot --clean --skip=publish --parallelism 1
 version: 2
 
