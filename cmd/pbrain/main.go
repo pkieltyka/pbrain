@@ -12,6 +12,8 @@ import (
 	_ "time/tzdata"
 
 	"github.com/pkieltyka/pbrain/internal/cli"
+	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/embed/bge"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/sys"
 	"golang.org/x/sys/unix"
@@ -47,8 +49,9 @@ func run() int {
 		Dir: dir, Now: clock, Rand: rand.Reader, Git: gitx.NewRunner(gitPath, environ),
 		Getenv: func(name string) string { return values[name] },
 		Files:  sys.Native(),
-		// The fetch client supplies the native defaults for a zero Net.
-		// A release registry is supplied by the model provisioning phase.
+		// The fetch client supplies the native defaults for a zero Net. The release registry
+		// holds the models whose gates pass (semantic.md "Calibration").
+		Models: embed.NewRegistry(bge.Entry()),
 	}
 	if _, err := unix.IoctlGetTermios(int(os.Stdin.Fd()), terminalRequest); err != nil {
 		env.Stdin = os.Stdin

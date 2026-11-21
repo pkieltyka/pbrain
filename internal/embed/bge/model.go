@@ -29,7 +29,10 @@ var modelFiles = [...]struct {
 var modelRow = makeModel()
 
 func makeModel() embed.Model {
-	m := embed.Model{Name: "bge-small-en-v1.5", Runtime: "aikit", Dim: 384}
+	// Cutoff is calibrated on the evaluation fixture (semantic.md "Calibration"): the
+	// calibration tool chose 0.65 on the calibration half, and the held-out abstention gate (29 of
+	// 30 empty), the gain gate (16 to 40 of 47) and the gate with --bm25 (29 of 30) pass with it.
+	m := embed.Model{Name: "bge-small-en-v1.5", Runtime: "aikit", Dim: 384, Cutoff: 0.65}
 	h := sha256.New()
 	h.Write([]byte(m.Name + "\n"))
 	for _, f := range modelFiles {
