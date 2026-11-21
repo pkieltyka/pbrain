@@ -681,7 +681,7 @@ func (r *reader) outlineDoc(it *item.Item, body []byte) *render.Doc {
 	secs := outline.Parse(body)
 	bodyChars := utf8.RuneCount(body)
 	off := r.in.page.offset
-	head := it.ID + "\n" + fmt.Sprintf("outline: %d sections, body %d", len(secs), bodyChars)
+	head := it.ID + "\n" + fmt.Sprintf("outline: %s, body %d", counted(len(secs), "section", "sections"), bodyChars)
 	d := &render.Doc{
 		Head: []render.Part{{
 			Text:  head,

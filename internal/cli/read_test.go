@@ -149,7 +149,7 @@ memcached for sessions
 1 item. 1 more: --offset 1.
 `, "get", redisID, "--history", "--limit", "1")
 	expect(t, rb, redisID+`
-outline: 1 sections, body 90
+outline: 1 section, body 90
 0  90  L12  # Cache
 1 section.
 `, "get", redisID, "--outline")
