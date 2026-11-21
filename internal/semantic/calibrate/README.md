@@ -134,6 +134,9 @@ admitted rows separately.
 
 ## EmbeddingGemma 2 release gates (phase 27)
 
+The release defaults to bge-small-en-v1.5. A project selects EmbeddingGemma 2
+with `semantic.model = "embeddinggemma-2"`. The figures below apply to that model.
+
 The corrected tool at `9695d1b` replayed the frozen questions above with the verified
 local pack. Calibration selected **0.72**. On the held-out check, both
 `--semantic` alone and `--semantic --bm25` returned an expected ID on

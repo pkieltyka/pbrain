@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/cli"
 )
 
@@ -118,7 +119,7 @@ func TestReleaseBinaryOutput(t *testing.T) {
 	// A supplied model_path is the only source for the optional release checks.
 	modelName := os.Getenv("PBRAIN_SCENARIO_MODEL")
 	if modelName == "" {
-		modelName = "embeddinggemma-2"
+		modelName = brain.DefaultModel
 	}
 	if modelName != "embeddinggemma-2" && modelName != "bge-small-en-v1.5" {
 		t.Fatalf("unknown release model %q", modelName)

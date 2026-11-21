@@ -71,7 +71,7 @@ Both measurements used `where is login state kept`. The first row uses
 `BenchmarkGemmaFirstQuery` from the binary's source revision with
 `-benchtime=1x -count=5`. The second row times fresh release processes running
 `search --semantic --json` after one untimed warm-up. The scratch brain
-uses the default model and a local indexed note about session storage.
+used embeddinggemma-2, the default at that revision, and a local indexed note about session storage.
 Strict search returns zero results. Every timed process returns one
 semantic hit with empty stderr. Maximum peak RSS is 1,131,164 KiB (1.08 GiB).
 The complete command includes verification, load and inference, and is

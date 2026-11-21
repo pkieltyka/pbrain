@@ -514,7 +514,8 @@ func TestReadProjectSettings(t *testing.T) {
 	}
 	for _, tc := range []struct{ setting, want string }{
 		{"[semantic]", DefaultModel},
-		{`semantic.model = "embeddinggemma-2"`, DefaultModel},
+		{`semantic.model = "bge-small-en-v1.5"`, DefaultModel},
+		{`semantic.model = "embeddinggemma-2"`, "embeddinggemma-2"},
 		{`semantic.model = "none"`, ""},
 		{`semantic.model = "None"`, "None"},
 		{`semantic.model = "custom-model"`, "custom-model"},
