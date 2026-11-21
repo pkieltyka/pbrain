@@ -43,6 +43,13 @@ func TestPassagesSections(t *testing.T) {
 	if ps := Passages("T", []byte("Head\n====\n\n")); len(ps) != 1 || ps[0].Start != 0 || ps[0].End != 0 || ps[0].Text != "T" {
 		t.Fatalf("setext empty: %+v", ps)
 	}
+	// "#foo" is not an ATX heading: outline reads it as setext text, and its section is empty too.
+	if ps := Passages("T", []byte("#foo\n====\n")); len(ps) != 1 || ps[0].Text != "T" || ps[0].End != 0 {
+		t.Fatalf("setext #foo: %+v", ps)
+	}
+	if ps := Passages("T", []byte("  ## H\n\n")); len(ps) != 1 || ps[0].Text != "T" {
+		t.Fatalf("an indented ATX heading with nothing under it: %+v", ps)
+	}
 	// An empty body gives the title passage.
 	if ps := Passages("Only title", nil); len(ps) != 1 || ps[0].Text != "Only title" || ps[0].End != 0 {
 		t.Fatalf("empty body: %+v", ps)
@@ -71,6 +78,27 @@ func TestPassagesSplit(t *testing.T) {
 	}
 	if len(ps) < 3 {
 		t.Fatalf("a long section gave %d parts", len(ps))
+	}
+	// A closing line with a tab after its marker does not close the fence (only spaces may follow),
+	// and an indented closer does: in both cases the paragraphs agree with outline's fence.
+	long := func(c string) string { return strings.Repeat(c, 499) + "\n" }
+	tabbed := "# S\n\n```\n" + long("c") + "```\t\n\n" + long("p") + "\n" + long("q") + "\n" + long("r")
+	if secs := outline.Parse([]byte(tabbed)); len(secs) != 1 {
+		t.Fatalf("outline found %d sections", len(secs))
+	}
+	ps = Passages("T", []byte(tabbed))
+	trs := []rune(tabbed)
+	// The heading alone is closed first (filling would pass 1,400); the open fence is then one
+	// paragraph, cut at its last line feed before 1,800.
+	if len(ps) < 2 || ps[0].End != 5 || ps[1].End < 1400 || ps[1].End-ps[1].Start > partMax || trs[ps[1].End-1] != '\n' {
+		t.Fatalf("a tab after the closing marker closed the fence: parts end at %d and %d", ps[0].End, ps[1].End)
+	}
+	indented := "# S\n\n```\n" + long("c") + "   ```  \n\n" + long("p") + "\n" + long("q") + "\n" + long("r")
+	ps = Passages("T", []byte(indented))
+	irs := []rune(indented)
+	// Closed, the fence is a paragraph of its own: heading, fence and p fill the first part.
+	if len(ps) < 2 || !strings.Contains(string(irs[ps[0].Start:ps[0].End]), "ppp") || string(irs[ps[1].Start:ps[1].Start+3]) != "qqq" {
+		t.Fatalf("an indented closer did not close the fence: parts %+v", [][2]int{{ps[0].Start, ps[0].End}, {ps[1].Start, ps[1].End}})
 	}
 	// One 4,000-code-point line with spaces is cut after a space; without spaces at 1,800.
 	line := strings.Repeat("abcdefghi ", 400)

@@ -126,7 +126,7 @@ type Section = outline.Section
 func blankAfterHeading(rs []rune) bool {
 	first := lineEnd(rs, 0)
 	rest := rs[first:]
-	if !strings.HasPrefix(strings.TrimLeft(string(rs[:first]), " "), "#") {
+	if !isATX(lineText(rs[:first])) {
 		rest = rest[lineEnd(rest, 0):] // setext: the underline is the second line
 	}
 	for _, r := range rest {
@@ -204,7 +204,7 @@ func paragraphs(rs []rune, start, end int) [][2]int {
 	fenceLen := 0
 	for i := start; i < end; {
 		j := min(lineEnd(rs, i), end)
-		line := strings.TrimRight(string(rs[i:j]), "\r\n")
+		line := lineText(rs[i:j])
 		blank := strings.TrimSpace(line) == ""
 		if fenceLen == 0 && !blank && sawBlank && i > pstart {
 			out = append(out, [2]int{pstart, i})
@@ -213,10 +213,11 @@ func paragraphs(rs []rune, start, end int) [][2]int {
 		if fenceLen == 0 {
 			sawBlank = blank
 		}
-		mark, n := fenceRun(line)
+		trimmed := indent(line)
+		mark, n := fenceRun(trimmed)
 		switch {
 		case fenceLen > 0:
-			if mark == fence && n >= fenceLen && strings.TrimSpace(strings.TrimLeft(line, " ")[n:]) == "" {
+			if mark == fence && n >= fenceLen && strings.Trim(trimmed[n:], " ") == "" {
 				fenceLen = 0
 				sawBlank = false
 			}
@@ -231,19 +232,44 @@ func paragraphs(rs []rune, start, end int) [][2]int {
 	return out
 }
 
-// fenceRun is the fence character and run length opening line, after at most three spaces.
-func fenceRun(line string) (rune, int) {
-	trimmed := strings.TrimLeft(line, " ")
-	if len(line)-len(trimmed) > 3 || trimmed == "" {
-		return 0, 0
+// lineText is a line without its line feed and a carriage return before it (architecture 7.4).
+func lineText(rs []rune) string {
+	s := string(rs)
+	if t, ok := strings.CutSuffix(s, "\n"); ok {
+		s = strings.TrimSuffix(t, "\r")
 	}
-	c := rune(trimmed[0])
-	if c != '\x60' && c != '~' {
-		return 0, 0
+	return s
+}
+
+// indent drops up to three leading spaces, as outline does; a line indented further keeps a space
+// in front and so is neither a fence nor a heading.
+func indent(line string) string {
+	for n := 0; n < 3 && strings.HasPrefix(line, " "); n++ {
+		line = line[1:]
 	}
+	return line
+}
+
+// isATX reports an ATX heading line: up to three spaces, one to six '#', then a space, a tab or
+// the end of the line. "#foo" is not one; outline may read it as setext text.
+func isATX(line string) bool {
+	t := indent(line)
 	n := 0
-	for n < len(trimmed) && rune(trimmed[n]) == c {
+	for n < len(t) && t[n] == '#' {
 		n++
 	}
-	return c, n
+	return n >= 1 && n <= 6 && (n == len(t) || t[n] == ' ' || t[n] == '\t')
+}
+
+// fenceRun is the fence character and run length that open an indented line, as outline reads it.
+func fenceRun(trimmed string) (rune, int) {
+	if trimmed == "" || trimmed[0] != '\x60' && trimmed[0] != '~' {
+		return 0, 0
+	}
+	c := trimmed[0]
+	n := 1
+	for n < len(trimmed) && trimmed[n] == c {
+		n++
+	}
+	return rune(c), n
 }
