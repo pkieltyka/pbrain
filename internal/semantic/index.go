@@ -251,6 +251,55 @@ func (x *indexDB) removeItem(ctx context.Context, path string) error {
 	return nil
 }
 
+// removeItems drops the items at paths and their passages in one transaction.
+func (x *indexDB) removeItems(ctx context.Context, paths []string) error {
+	tx, err := x.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() //nolint:errcheck // after Commit it does nothing
+	for _, p := range paths {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM item WHERE path = ?`, p); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	for _, p := range paths {
+		delete(x.items, p)
+	}
+	return nil
+}
+
+// vectorByDigest returns a stored vector of a passage with this digest, from any row, the rows of
+// items gone from the section included; a row whose vector is not a unit vector of dim values is
+// passed over.
+func (x *indexDB) vectorByDigest(ctx context.Context, digest [32]byte) ([]float32, bool, error) {
+	rows, err := x.conn.QueryContext(ctx, `SELECT vector FROM passage WHERE digest = ?`, digest[:])
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var blob []byte
+		if err := rows.Scan(&blob); err != nil {
+			return nil, false, err
+		}
+		if len(blob) != 4*x.dim {
+			continue
+		}
+		v := make([]float32, x.dim)
+		for i := range v {
+			v[i] = math.Float32frombits(binary.LittleEndian.Uint32(blob[4*i:]))
+		}
+		if validVector(v, x.dim) {
+			return v, true, nil
+		}
+	}
+	return nil, false, rows.Err()
+}
+
 // passagesOf returns an item's stored passages in order.
 func (x *indexDB) passagesOf(ctx context.Context, id int64) ([]storedPassage, error) {
 	rows, err := x.conn.QueryContext(ctx, `SELECT ord, start, stop, digest, vector FROM passage WHERE item_id = ? ORDER BY ord`, id)
