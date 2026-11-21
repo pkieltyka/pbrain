@@ -10,23 +10,17 @@ Stack: Go, shipped as a single binary; qmd is an optional outside tool. Principl
 
 ## Tasks
 
-Tasks and bugs are tracked in `TODO.md` at the repo root. Put the title on a checkbox line. When it needs more detail, add four-space `*` description bullets. Use the same bullets for record fields (`owner`, `criteria`, `work`, `verdict`, `next`) as they become known. Indent nested lists eight spaces. Leave exactly one blank line between items in the same section and none inside an item.
+Tasks and bugs are GitHub Issues on pkieltyka/pbrain, managed with `todos` (github.com/pkieltyka/todos); the board is pkieltyka/3 (https://github.com/users/pkieltyka/projects/3), columns Backlog, Todo, In progress, Done. Run from the checkout. Learn it once with `todos skill`; agent operations always pass `--json`.
 
-```markdown
-- [ ] Title
-    * description
-    * criteria: ...
-    * next: ...
-        1. ...
+Only a person moves an issue into Todo. That column means the operator may assign it without asking; it is not an assignment to a member. Assigned work moves to In progress.
 
-- [ ] Fix the README typo
-```
+@pm owns tracker writes, or the operator when there is no @pm. Members report discoveries to that owner, who records them in Backlog. Record owner, criteria, branch or commit, verdict and next step on the issue, as comments. Integrated work is closed (`todos close N --reason completed --comment '<commit>'`) and moves to Done.
 
-`## Ready` holds, in the order they will be done, the items the operator may assign without asking the user; only a person puts an item there or reorders it, never the team. Members report discoveries to @pm, or the operator when there is no @pm, who records them in `## Backlog`. An assigned item moves to `## In progress` with its owner at the end of the checkbox line, `(@lead-dev)`. Integrated work moves to the top of `## Done` as `- [x]` with its commit. Keep the tracker small: each Done item is one line (title, owner, commit), with short detail only on the three newest; in-progress items carry at most owner, range or branch, and next step. Evidence lives in Git.
+Check the board with `todos board --json`; pass `--project pkieltyka/3` if it shows another. Check failures with `todos doctor --json`; reconcile an uncertain write before retrying. Never run `todos rm`; close instead, after confirmed integration. A change counts as integrated only when its GitHub Actions run is green on Linux and macOS.
 
 ## Workflow
 
-1. The operator assigns tasks with acceptance criteria. @pm records owner, criteria, branch or commit, verdict and next step in the tracker, and only @pm updates it.
+1. The operator assigns tasks with acceptance criteria. @pm records owner, criteria, branch or commit, verdict and next step on the issue, and only @pm updates the tracker.
 2. Consult an architect before deciding a shared interface, the storage format or the CLI surface. Architects' plans are advice; the operator decides.
 3. Developers agree shared interfaces before parallel work, implement, then ask @reviewer with the task, criteria and exact diff or commit. They fix findings until approved; after three rounds on one task the operator decides how to go on.
 4. The operator reviews the result and integrates it into `master`. Work goes straight to `master`; there are no pull requests.
