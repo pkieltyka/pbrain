@@ -142,3 +142,25 @@ func TestNameAdmissionCommands(t *testing.T) {
 		t.Fatalf("check: %d %q\n%s", code, errOut, out)
 	}
 }
+
+// A refused replaces link names its target as one token (spec 6.2): graph hands the target over and
+// cli writes it.
+func TestRefusedReplacesTargetIsOneToken(t *testing.T) {
+	rb := newReadBrain(t)
+	const target = "20261121-120000-a\"b"
+	rb.put("decisions/"+target+".md", []string{"kind: decision", "title: Quoted", "created: 2026-11-21T12:00:00Z",
+		"author: human:x", "decided: human:x", "status: verified"}, "body\n")
+	add := []string{"add", "--kind", "note", "--title", "New note", "--body", "new body", "--author", "agent:test", "--replaces", target}
+	code, out, errOut := rb.run(add...)
+	if code != 1 || out != "" || errOut != `invalid: replaces "20261121-120000-a\"b": target has higher standing`+"\n" {
+		t.Fatalf("text: %d %q %q", code, out, errOut)
+	}
+	code, _, errOut = rb.run(append(add, "--json")...)
+	var diag struct {
+		Error struct{ Code, Message string } `json:"error"`
+	}
+	oneJSON(t, errOut, &diag)
+	if code != 1 || diag.Error.Code != "invalid" || diag.Error.Message != `replaces "20261121-120000-a\"b": target has higher standing` {
+		t.Fatalf("JSON: %d %q", code, errOut)
+	}
+}

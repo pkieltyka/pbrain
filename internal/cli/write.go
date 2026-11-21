@@ -372,6 +372,10 @@ func validateLinks(plan store.WritePlan, cat *store.Catalog, g *graph.Graph, dra
 		if err != nil {
 			e := domainError(err)
 			message := e.Message
+			var refused *graph.LinkError
+			if errors.As(err, &refused) {
+				message = "replaces " + safeDiagnosticValue(refused.Target) + ": " + refused.Reason
+			}
 			for _, it := range cat.Lookup(id) {
 				if !visible(it.Section, plan.Disclose) {
 					message = "replacement target refused in the selected section"
