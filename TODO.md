@@ -12,18 +12,18 @@ TODO
 
 - [ ] pbrain phase 28: measurement before a release (@lead-dev)
     * owner: @lead-dev
-    * range/status: fix `d6f05cc..437914c` approved by @architect-2; rule-3 `e6709fc` approved; README patch `0c78b88` awaits @architect's check
-    * next: full-size Gemma index is running; report steady embedding rate/projected finish and peak RSS, then finish warm 5k/50 MB search; BGE, Mac and tagged install remain
+    * range/status: harness/guard/rule-3 `581496c`, `150e8a9`, `5e85054` integrated; README patch `0c78b88` awaits @architect's check
+    * next: full-size Gemma index/timings are running; report rate, projected finish and peak RSS, then finish warm 5k/50 MB search; README and Mac run remain
 
 - [ ] Aikit fork documentation follow-up (@architect-2)
     * owner: @architect-2
-    * PR #4: `0b1b868..1f7bd74` (`pkieltyka/docs-pins`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
+    * range/status: PR #4 `0b1b868..1f7bd74` approved; @operator is merging
+    * next: record the merge commit when reported
 
 - [ ] Goinfer fork documentation follow-up (@architect-2)
     * owner: @architect-2
-    * PR #5: `a759890b..93adb19f3` (`pkieltyka/fork-docs-v0.2`)
-    * next: @reviewer reviews when there is a gap; @operator merges after green CI
+    * range/status: PR #5 rebases from `a759890..93adb19f3` onto goinfer main `765dab39e`; changes required on two RELEASING.md claims
+    * next: @architect-2 distinguishes root releases from optional submodules and makes Peter the live exception approver; retain Francis as history, then request re-review
 
 ## Backlog
 
