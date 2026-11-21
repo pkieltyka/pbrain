@@ -194,11 +194,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		emitNotice(env.Stderr, in.json, errs.Notice{Code: "model_download", Message: downloadMessage(m, bytes)})
 	}
 	progress := func(p semantic.Progress) {
-		msg := fmt.Sprintf("%s: %d of %d items", sectionName(p.Section), p.Done, p.Total)
-		if p.Waiting {
-			msg = sectionName(p.Section) + ": waiting for another pbrain index"
-		}
-		emitNotice(env.Stderr, in.json, errs.Notice{Code: "index_progress", Message: msg})
+		emitNotice(env.Stderr, in.json, errs.Notice{Code: "index_progress", Message: progressMessage(p)})
 	}
 	skipped := map[string]bool{}
 	var lines []string
@@ -214,7 +210,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 				return semantic.SectionInput{}, err
 			}
 			for _, s := range cat.Skipped() {
-				if s.Section == d.Section {
+				if s.Section == d.Section && broken(s) {
 					skipped[s.Path] = true
 				}
 			}
@@ -239,6 +235,14 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		emitNotice(env.Stderr, in.json, errs.Notice{Code: "skipped_files", Message: msg})
 	}
 	return textOrJSON(in.json, strings.Join(lines, "\n")+"\n", render.Object{"model": opt.ModelName, "sections": rows})
+}
+
+// progressMessage is the index_progress text: "<section>: <Done> of <Total> item[s]", or the wait.
+func progressMessage(p semantic.Progress) string {
+	if p.Waiting {
+		return sectionName(p.Section) + ": waiting for another pbrain index"
+	}
+	return fmt.Sprintf("%s: %d of %s", sectionName(p.Section), p.Done, counted(p.Total, "item", "items"))
 }
 
 // downloadMessage is "downloading model <name>, <n> MB, from <hosts>".

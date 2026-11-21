@@ -35,7 +35,7 @@ const (
 type Skipped struct {
 	Section      item.Section
 	Path         string // absolute, for caller's display-path policy
-	Code         string // bad_front_matter or not_an_item
+	Code         string // bad_front_matter, bad_file_name or not_an_item
 	Reason       string // fixed category, never file content
 	Line, Column int    // 1-based when available, otherwise zero
 }
@@ -122,7 +122,14 @@ type Catalog struct {
 func (c *Catalog) Items() []*item.Item { return c.items }
 
 // Lookup returns the items whose folded id equals id folded; more than one is ambiguous.
-func (c *Catalog) Lookup(id string) []*item.Item { return c.byKey[item.Fold(id)] }
+// Lookup returns the items whose folded id is id's fold; nothing for an argument that is not valid
+// UTF-8, which the fold would decode to U+FFFD and match with a stem that really holds it.
+func (c *Catalog) Lookup(id string) []*item.Item {
+	if !utf8.ValidString(id) {
+		return nil
+	}
+	return c.byKey[item.Fold(id)]
+}
 
 // Skipped is the files no read may use.
 func (c *Catalog) Skipped() []Skipped { return c.skipped }
@@ -486,6 +493,11 @@ func (c *Catalog) readOne(files sys.Files, cand candidate) (*item.Item, []byte, 
 	h, bodyAt, problems, err := item.Parse(id, data)
 	if errors.Is(err, item.ErrNoFrontMatter) {
 		return skip("not_an_item", "", 0, 0)
+	}
+	// The name is admitted next, before the parser's own errors: a stem that is not valid UTF-8
+	// is no id, since its fold would decode the bad bytes to U+FFFD and take another file's key.
+	if !utf8.ValidString(id) {
+		return skip("bad_file_name", "invalid_utf8", 0, 0)
 	}
 	var fe *item.FrontMatterError
 	if errors.As(err, &fe) {

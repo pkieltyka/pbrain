@@ -51,8 +51,8 @@ func TestAudienceListPaging(t *testing.T) {
 	mustBeMissing(t, filepath.Join(env.Dir, "personal.toml"))
 	putBytes(t, env.Dir, "personal.toml", []byte("audience=[{match='z.org',to='personal'},{match='A.org.',to='shared'}]\n"))
 	mustEqual("a.org  shared\nz.org  personal\n2 rules.\n")
-	mustEqual("a.org  shared\n1 rules. 1 more: --offset 1\n", "--limit=1")
-	mustEqual("z.org  personal\n1 rules.\n", "--offset=1", "--limit=1")
+	mustEqual("a.org  shared\n1 rule. 1 more: --offset 1\n", "--limit=1")
+	mustEqual("z.org  personal\n1 rule.\n", "--offset=1", "--limit=1")
 	mustEqual("{\"more\":1,\"next\":1,\"rules\":[{\"match\":\"a.org\",\"to\":\"shared\"}]}\n", "--json", "--limit=1")
 	mustEqual("{\"rules\":[{\"match\":\"z.org\",\"to\":\"personal\"}]}\n", "--offset=1", "--json", "--limit=1")
 	mustEqual("0 rules.\n", "--offset", strconv.Itoa(int(^uint(0)>>1)))
@@ -85,7 +85,7 @@ func TestAudienceSetCanonicalUnsetAbsent(t *testing.T) {
 	if out := audienceOK(t, env, "set", "example.org/a/", "personal", "--json"); out != "{\"match\":\"example.org/a\",\"to\":\"personal\"}\n" {
 		t.Fatal(out)
 	}
-	if out := audienceOK(t, env, "--personal"); out != "example.org/a  personal\n1 rules.\n" {
+	if out := audienceOK(t, env, "--personal"); out != "example.org/a  personal\n1 rule.\n" {
 		t.Fatal(out)
 	}
 	data := append([]byte("# kept on a no-op\n"), getBytes(t, path)...)

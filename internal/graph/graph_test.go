@@ -379,6 +379,11 @@ func TestCheckNewReplaces(t *testing.T) {
 		if !errors.As(err, &de) || de.Code != tc.code || !strings.Contains(de.Message, tc.part) {
 			t.Errorf("%s: got %v, want %s %q", tc.id, err, tc.code, tc.part)
 		}
+		// A refused link carries its target for the caller to write; no message names it.
+		var le *LinkError
+		if tc.code == "invalid" && (!errors.As(err, &le) || le.Target != tc.id || de.Message != "replaces target: "+le.Reason || le.Error() != de.Message) {
+			t.Errorf("%s: link error %+v, message %q", tc.id, le, de.Message)
+		}
 		assertItems(t, items, tc.items...)
 	}
 	newHeader.Status = item.Verified

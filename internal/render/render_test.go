@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -170,6 +172,7 @@ func TestPageSizeMatchesOutput(t *testing.T) {
 			if f == JSON || p.shown > 0 || len(d.Hints) == 0 {
 				p.hints = rng.Intn(len(d.Hints) + 1)
 			}
+			p.resync()
 			size, err := p.size()
 			if err != nil {
 				t.Fatal(err)
@@ -418,5 +421,90 @@ func TestExactPathProjection(t *testing.T) {
 	}
 	if _, enc, _ := ExactPath("x\U000E0001"); string(enc) != `"x\udb40\udc01"` {
 		t.Fatalf("surrogate pair: %s", enc)
+	}
+}
+
+// Fitting N rows costs about N row measurements, not 1 + 2 + … + N: the size of the admitted rows is
+// kept as they are admitted (render.md "Whole rows"). Bytes counted grow linearly with N.
+func TestFitSizesIncrementally(t *testing.T) {
+	counted := func(n int, f Format) int {
+		d := &Doc{Head: []Part{{JSON: Envelope{Rows: "results"}}}, Total: n}
+		for i := range n {
+			d.Units = append(d.Units, Unit{Main: Part{Text: "r" + strconv.Itoa(i%10), JSON: Object{"r": i % 10}}})
+		}
+		d.Foot = func(State) Part { return Part{JSON: Object{}} }
+		total := 0
+		runesHook = func(s string, n int) int { total += len(s); return n }
+		defer func() { runesHook = nil }()
+		if _, err := Fit(d, 1<<30, f); err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	for _, f := range []Format{Text, JSON} {
+		small, large := counted(200, f), counted(1600, f)
+		// Linear: eight times the rows, about eight times the bytes; quadratic would be about 64.
+		if large > 12*small {
+			t.Fatalf("format %d: %d bytes counted for 200 rows, %d for 1600", f, small, large)
+		}
+	}
+}
+
+// A page whose counts pass MaxInt fails with an internal error instead of wrapping to a size that
+// would fit, in both formats; rolling back keeps the error until the page is measured again.
+func TestPageSizeOverflowIsChecked(t *testing.T) {
+	for _, f := range []Format{Text, JSON} {
+		p := &page{d: &Doc{Units: make([]Unit, 2)}, f: f, cost: []int{math.MaxInt - 1, 5}}
+		p.setShown(1)
+		if _, err := p.size(); err != nil && f == Text {
+			t.Fatalf("format %d: one unit below MaxInt: %v", f, err)
+		}
+		p.setShown(2)
+		if n, err := p.size(); err == nil {
+			t.Fatalf("format %d: size %d past MaxInt", f, n)
+		} else if e := (*errs.Error)(nil); !errors.As(err, &e) || e.Code != "io" {
+			t.Fatalf("format %d: %v", f, err)
+		}
+		p.setShown(1)
+		if _, err := p.size(); err == nil {
+			t.Fatalf("format %d: the overflow was forgotten", f)
+		}
+	}
+	if _, ok := addChecked(math.MinInt, -1); ok {
+		t.Fatal("negative overflow")
+	}
+	if n, ok := addChecked(math.MaxInt-1, 1); !ok || n != math.MaxInt {
+		t.Fatal("MaxInt itself")
+	}
+}
+
+// One text unit whose main line and extras together pass MaxInt marks the page, so its size fails
+// instead of wrapping to a small one; JSON counts one encoded row per unit.
+func TestUnitCostOverflowIsChecked(t *testing.T) {
+	huge := math.MaxInt/2 + 1
+	runesHook = func(s string, n int) int {
+		if strings.HasPrefix(s, "HUGE") {
+			return huge
+		}
+		return n
+	}
+	defer func() { runesHook = nil }()
+	d := &Doc{Units: []Unit{{
+		Main:   Part{Text: "HUGE main", JSON: Object{"id": "a"}},
+		Extras: []Part{{Text: "HUGE extra", JSON: Object{"id": "b"}}},
+	}}}
+	p := &page{d: d, f: Text, shown: 1, chosen: []Part{d.Units[0].Main}, extras: []int{1}}
+	p.resync()
+	if n, err := p.size(); err == nil {
+		t.Fatalf("size %d from a unit past MaxInt", n)
+	}
+	p.extras[0] = 0
+	p.recost(0)
+	if _, err := p.size(); err == nil {
+		t.Fatal("the overflow was forgotten before the page was measured again")
+	}
+	p.resync()
+	if n, err := p.size(); err != nil || n != huge+1 {
+		t.Fatalf("the main line alone: %d %v", n, err)
 	}
 }

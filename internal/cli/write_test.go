@@ -178,7 +178,7 @@ func TestWriteViewsAndDisclosure(t *testing.T) {
 	storeItem(t, env.Dir, "", "shared", item.Draft{Kind: item.Note}, "")
 	storeItem(t, env.Dir, "personal", "private-replaced", item.Draft{Kind: item.Note}, "")
 	storeItem(t, env.Dir, "personal", "private-successor", item.Draft{Kind: item.Note, Replaces: []string{"private-replaced"}}, "")
-	putBytes(t, env.Dir, "personal/notes/skipped.md", []byte("not front matter"))
+	putBytes(t, env.Dir, "personal/notes/skipped.md", []byte("---\ntitle: a\ntitle: b\n---\n")) // a duplicate key: broken
 	add := []string{"add", "--title", "routed", "--source", "https://example.test/private/page"}
 	var out, diag bytes.Buffer
 	env.Stderr, env.Stdout = &diag, &out

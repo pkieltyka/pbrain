@@ -204,18 +204,36 @@ func (route writeRoute) destinationNotice(wc writeContext, suffix string) {
 	wc.notify("destination", message+" "+distribution+suffix)
 }
 
+// safeDiagnosticValue is an id or a path as a message names it: withheld when the secret scan flags
+// it, otherwise one token on one line (render.ExactValue).
 func safeDiagnosticValue(value string) string {
 	if secretscan.Sensitive(value) {
-		return "[withheld]"
+		return withheldValue
 	}
-	return render.OneLine(value, 0)
+	return render.ValueText(value)
+}
+
+const withheldValue = "[withheld]"
+
+// valueTexts writes each id of a result list through render.ExactValue; a withheld one stays as it is.
+func valueTexts(ids []string) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id
+		if id != withheldValue {
+			out[i] = render.ValueText(id)
+		}
+	}
+	return out
 }
 
 func visible(section item.Section, view brain.View) bool {
 	return section == item.Shared || view == brain.PersonalView
 }
 
-// disclosedIDs keeps list ordering and counts within the command's allowed view.
+// disclosedIDs keeps list ordering and counts within the command's allowed view. With markPersonal
+// the ids are for a message: written as tokens and marked personal; otherwise they are the stored
+// ids of a result, with a flagged one withheld.
 func disclosedIDs(view brain.View, candidates []*item.Item, markPersonal bool) []string {
 	items := slices.DeleteFunc(slices.Clone(candidates), func(it *item.Item) bool {
 		return !visible(it.Section, view)
@@ -225,7 +243,13 @@ func disclosedIDs(view brain.View, candidates []*item.Item, markPersonal bool) [
 	})
 	var ids []string
 	for _, it := range items {
-		id := safeDiagnosticValue(it.ID)
+		id := it.ID
+		switch {
+		case secretscan.Sensitive(id):
+			id = withheldValue
+		case markPersonal:
+			id = render.ValueText(id)
+		}
 		if markPersonal && it.Section == item.Personal {
 			id += " (personal)"
 		}
@@ -254,7 +278,7 @@ func writeSkipped(wc writeContext, cat *store.Catalog) {
 	}
 	seen := make(map[string]struct{})
 	for _, entry := range cat.Skipped() {
-		if visible(entry.Section, wc.View) {
+		if visible(entry.Section, wc.View) && broken(entry) {
 			seen[entry.Path] = struct{}{}
 		}
 	}
@@ -263,7 +287,7 @@ func writeSkipped(wc writeContext, cat *store.Catalog) {
 		if wc.View == brain.PersonalView {
 			command += " --personal"
 		}
-		wc.notify("skipped_files", fmt.Sprintf("%d files skipped: run %s", n, command))
+		wc.notify("skipped_files", fmt.Sprintf("%s skipped: run %s", counted(n, "file", "files"), command))
 	}
 }
 
@@ -348,6 +372,10 @@ func validateLinks(plan store.WritePlan, cat *store.Catalog, g *graph.Graph, dra
 		if err != nil {
 			e := domainError(err)
 			message := e.Message
+			var refused *graph.LinkError
+			if errors.As(err, &refused) {
+				message = "replaces " + safeDiagnosticValue(refused.Target) + ": " + refused.Reason
+			}
 			for _, it := range cat.Lookup(id) {
 				if !visible(it.Section, plan.Disclose) {
 					message = "replacement target refused in the selected section"

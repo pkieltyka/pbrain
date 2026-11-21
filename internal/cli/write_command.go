@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/audience"
 	"github.com/pkieltyka/pbrain/internal/brain"
@@ -69,19 +70,30 @@ func runAddCommand(ctx context.Context, in *invocation, wc writeContext) outcome
 	return writeOutcome(in.json, r, err)
 }
 
+// writeOutput is a write's or a delete's result. JSON carries the id and the path as stored, and no
+// path that is not valid UTF-8; text writes each through render.ExactValue (spec 6.2).
 type writeOutput struct {
 	ID      string `json:"id"`
 	Section string `json:"section"`
-	Path    string `json:"path"`
+	Path    string `json:"path,omitempty"`
+	text    string
 }
 
 func displayWrite(r writeResult) writeOutput {
-	return writeOutput{render.OneLine(r.ID, 0), r.Section.String(), render.OneLine(r.Path, 0)}
+	out := writeOutput{ID: r.ID, Section: r.Section.String(), Path: jsonPath(r.Path)}
+	out.text = render.ValueText(r.ID) + "  " + out.Section + "  " + render.ValueText(r.Path) + "\n"
+	return out
 }
 
-func (r writeOutput) line() string {
-	return r.ID + "  " + r.Section + "  " + r.Path + "\n"
+// jsonPath is a path as JSON carries it: "" (left out) when it is not valid UTF-8.
+func jsonPath(p string) string {
+	if !utf8.ValidString(p) {
+		return ""
+	}
+	return p
 }
+
+func (r writeOutput) line() string { return r.text }
 
 func writeOutcome(jsonMode bool, r writeResult, err error) outcome {
 	if err != nil {
@@ -112,7 +124,7 @@ func deleteOutcome(jsonMode bool, r deleteResult, err error) outcome {
 	value := deleteOutput{
 		writeOutput: displayWrite(r.Item), Deleted: r.Deleted,
 		CurrentAgain: firstCurrent, CurrentAgainMore: moreCurrent,
-		Dangling: firstDangling, DanglingMore: moreDangling, Original: r.Original,
+		Dangling: firstDangling, DanglingMore: moreDangling, Original: jsonPath(r.Original),
 	}
 	var text strings.Builder
 	if r.Deleted {
@@ -122,13 +134,13 @@ func deleteOutcome(jsonMode bool, r deleteResult, err error) outcome {
 	}
 	text.WriteString(value.line())
 	if len(r.CurrentAgain) > 0 {
-		fmt.Fprintf(&text, "current again: %s\n", idList(r.CurrentAgain))
+		fmt.Fprintf(&text, "current again: %s\n", idList(valueTexts(r.CurrentAgain)))
 	}
 	if len(r.Dangling) > 0 {
-		fmt.Fprintf(&text, "left dangling: %s\n", idList(r.Dangling))
+		fmt.Fprintf(&text, "left dangling: %s\n", idList(valueTexts(r.Dangling)))
 	}
 	if r.Original != "" {
-		fmt.Fprintf(&text, "original: %s\n", r.Original)
+		fmt.Fprintf(&text, "original: %s\n", render.ValueText(r.Original))
 	}
 	out := textOrJSON(jsonMode, text.String(), value)
 	out.committed = r.Deleted

@@ -284,3 +284,32 @@ func withLines(c bodyCase) bodyCase {
 	c.lfsp = new([]int)
 	return c
 }
+
+// An empty slice (an empty body, or an offset past its end) adds no line in text, so the colour
+// pass does not charge one: the first pair fits in exactly its own eight code points.
+func TestFitBodyColourEmptySlice(t *testing.T) {
+	for _, c := range []struct {
+		body   string
+		offset int
+	}{{"", 0}, {"abc\n", 9}} {
+		d := &BodyDoc{
+			Doc:  Doc{Head: []Part{{Text: "id-1\nnote  provisional", Marks: []Mark{{Start: 0, End: 4, Style: Bold}}}}, Offset: c.offset, Total: utf8.RuneCountInString(c.body)},
+			Body: []byte(c.body),
+		}
+		if c.offset < d.Doc.Total {
+			t.Fatal("the fixture must not slice")
+		}
+		plain, err := FitBody(d, 1000, Text)
+		if err != nil {
+			t.Fatal(err)
+		}
+		n := utf8.RuneCount(plain)
+		got, err := FitBody(d, n+8, TextColor)
+		if err != nil || !strings.HasPrefix(string(got), "\x1b[1mid-1\x1b[0m") || utf8.RuneCount(got) != n+8 {
+			t.Fatalf("offset %d: %q, %v", c.offset, got, err)
+		}
+		if got, _ := FitBody(d, n+7, TextColor); string(got) != string(plain) {
+			t.Fatalf("offset %d: one short of the pair: %q", c.offset, got)
+		}
+	}
+}

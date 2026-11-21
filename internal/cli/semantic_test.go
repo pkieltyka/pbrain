@@ -183,14 +183,34 @@ func TestSemanticNoticeTable(t *testing.T) {
 
 // TestSemanticAlignment is step 1 of render.md's alignment fixture: a query whose clauses do not all
 // match lexically finds, by meaning, a passage in one of two sections with the same title; its
-// locator names that section, its offset is that section's outline row, and get opens there.
+// locator names that section, its offset is that section's outline row, and get opens there. The
+// stored file has LF line ends, CRLF, or a byte-order mark before its front matter; text and JSON
+// give the same line and offset, and that line of the stored file holds the section's heading.
 func TestSemanticAlignment(t *testing.T) {
+	layouts := map[string]func(string) string{
+		"lf":   func(s string) string { return s },
+		"crlf": func(s string) string { return strings.ReplaceAll(s, "\n", "\r\n") },
+		"bom":  func(s string) string { return "\ufeff" + s },
+	}
+	for name, layout := range layouts {
+		t.Run(name, func(t *testing.T) { semanticAlignment(t, layout) })
+	}
+}
+
+func semanticAlignment(t *testing.T, layout func(string) string) {
 	rb, _ := semanticBrain(t)
 	os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte("[semantic]\nmodel = \"test-model\"\n\n[get]\nmax_chars = 100\n"), 0o644)
 	body := "Préambule ünïcode, ça va.\n\n# Alpha\n\nalpha text\n\n## Setup\n\nfirst setup delta words\n\n" +
 		"\x60\x60\x60\n# not a heading\n\x60\x60\x60\n\n# Beta\n\nbeta text\n\n## Setup\n\nsecond setup gamma words\n"
 	const id = "20261105-000000-align-a2a2"
 	rb.put("notes/"+id+".md", []string{"kind: note", "title: Align", "created: 2026-11-05T00:00:00Z", "author: agent:x"}, body)
+	path := filepath.Join(rb.dir, "notes", id+".md")
+	stored, _ := os.ReadFile(path)
+	stored = []byte(layout(string(stored)))
+	if err := os.WriteFile(path, stored, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	fileLines := strings.Split(string(stored), "\n")
 	if status, _, errOut := rb.run("index"); status != 0 {
 		t.Fatal(errOut)
 	}
@@ -243,6 +263,15 @@ func TestSemanticAlignment(t *testing.T) {
 		if hit.SnippetOffset != want.Offset || hit.SnippetLine != want.FileLine {
 			t.Fatalf("%q: offset %d line %d, want the outline row %+v", query, hit.SnippetOffset, hit.SnippetLine, want)
 		}
+		if l := strings.TrimSuffix(fileLines[hit.SnippetLine-1], "\r"); l != "## Setup" {
+			t.Fatalf("%q: line %d of the stored file is %q", query, hit.SnippetLine, l)
+		}
+		// Text: the same line in the location, the same offset, and get opens on the same line.
+		_, text, _ := rb.run("search", query, "--semantic")
+		loc := fmt.Sprintf("notes/%s.md:%d  [body L", id, hit.SnippetLine)
+		if !strings.Contains(text, loc) || !strings.Contains(text, fmt.Sprintf(", offset %d/", hit.SnippetOffset)) {
+			t.Fatalf("%q: text does not name line %d offset %d:\n%s", query, hit.SnippetLine, hit.SnippetOffset, text)
+		}
 		var got struct {
 			Body     string `json:"body"`
 			LineFrom int    `json:"line_from"`
@@ -251,6 +280,10 @@ func TestSemanticAlignment(t *testing.T) {
 		oneJSON(t, out, &got)
 		if !strings.HasPrefix(got.Body, "## Setup") || got.LineFrom != hit.SnippetLine {
 			t.Fatalf("%q: get at %d: line %d %q", query, hit.SnippetOffset, got.LineFrom, got.Body[:min(20, len(got.Body))])
+		}
+		_, text, _ = rb.run("get", id, "--offset", fmt.Sprint(hit.SnippetOffset), "--max-chars", "2000")
+		if !strings.Contains(text, "\n## Setup") || !strings.Contains(text, fmt.Sprintf("; file L%d–", hit.SnippetLine)) {
+			t.Fatalf("%q: text get at %d:\n%s", query, hit.SnippetOffset, text)
 		}
 	}
 }
