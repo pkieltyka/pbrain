@@ -3,12 +3,16 @@ package semantic
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +23,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/item"
+	"github.com/pkieltyka/pbrain/internal/search"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
@@ -243,9 +248,13 @@ func TestBuildFirstAndNoOp(t *testing.T) {
 		t.Fatalf("index/ holds %q", names)
 	}
 	db := s.manifestDB()
+	digests := contentCalls.digest.Load()
 	r = e.mustBuild(s)
 	if r.Items != 3 || r.PassagesEmbedded != 0 || r.PassagesReused != 0 {
 		t.Fatalf("second build: %+v", r)
+	}
+	if contentCalls.digest.Load() != digests {
+		t.Fatal("a build with nothing to do computed ContentDigest")
 	}
 	if e.kit.Opens.Load() != 1 || s.manifestDB() != db || e.dl.Requests() != 1 {
 		t.Fatal("a build with nothing to do opened the runtime, published or downloaded")
@@ -294,13 +303,13 @@ func TestPutItemRollsBack(t *testing.T) {
 	}
 	defer x.Close()
 	old := []storedPassage{{Ord: 0, Stop: 1, Vector: []float32{1, 0}}, {Ord: 1, Start: 1, Stop: 2, Vector: []float32{0, 1}}}
-	if err := x.putItem(ctx, "a.md", [32]byte{1}, old); err != nil {
+	if err := x.putItem(ctx, "a.md", [32]byte{1}, Check{CRC: 1, Size: 8}, old); err != nil {
 		t.Fatal(err)
 	}
 	before := x.items["a.md"]
 	// A duplicate key in the new passages fails the second insert.
 	dup := []storedPassage{{Ord: 0, Stop: 1, Vector: []float32{1, 0}}, {Ord: 0, Start: 1, Stop: 2, Vector: []float32{1, 0}}}
-	if err := x.putItem(ctx, "a.md", [32]byte{2}, dup); err == nil {
+	if err := x.putItem(ctx, "a.md", [32]byte{2}, Check{CRC: 2, Size: 8}, dup); err == nil {
 		t.Fatal("a duplicate key was stored")
 	}
 	if x.items["a.md"] != before {
@@ -1083,5 +1092,90 @@ func TestBuildKeepsLockAndTooLarge(t *testing.T) {
 	}
 	if s.manifestDB() != db {
 		t.Fatal("the old index did not stay")
+	}
+}
+
+// writeFormat2 replaces the section's index with one of format 2 as v0.1.1 published it: that
+// release's schema, an item row without crc and size, and a manifest naming the file's SHA-256.
+func writeFormat2(t *testing.T, s *section, m embed.Model) string {
+	t.Helper()
+	ctx := context.Background()
+	x, err := memoryDB(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer x.Close()
+	for _, q := range []string{
+		"CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) WITHOUT ROWID",
+		"CREATE TABLE item (id INTEGER PRIMARY KEY, path TEXT NOT NULL UNIQUE, content BLOB NOT NULL CHECK (length(content) = 32))",
+		fmt.Sprintf("CREATE TABLE passage (id INTEGER PRIMARY KEY, item_id INTEGER NOT NULL REFERENCES item(id) ON DELETE CASCADE, ord INTEGER NOT NULL, start INTEGER NOT NULL, stop INTEGER NOT NULL CHECK (stop >= start), digest BLOB NOT NULL CHECK (length(digest) = 32), vector BLOB NOT NULL CHECK (length(vector) = %d), UNIQUE (item_id, ord))", 4*m.Dim),
+		"CREATE INDEX passage_digest ON passage(digest)",
+		"INSERT INTO meta (key, value) VALUES ('format', '2'), ('fingerprint', '" + IndexFingerprint(m) + "'), ('model', '" + m.Name + "'), ('dim', '" + strconv.Itoa(m.Dim) + "')",
+		"INSERT INTO item (id, path, content) VALUES (1, 'notes/a.md', zeroblob(32))",
+		fmt.Sprintf("INSERT INTO passage (item_id, ord, start, stop, digest, vector) VALUES (1, 0, 0, 10, zeroblob(32), zeroblob(%d))", 4*m.Dim),
+	} {
+		if _, err := x.conn.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	data, err := x.serialize(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.RemoveAll(s.index())
+	os.MkdirAll(s.index(), 0o700)
+	const db = "0123456789abcdef.db"
+	sum := sha256.Sum256(data)
+	manifest := fmt.Sprintf(`{"format":2,"fingerprint":%q,"model":%q,"dim":%d,"db":%q,"size":%d,"sha256":%q}`,
+		IndexFingerprint(m), m.Name, m.Dim, db, len(data), hex.EncodeToString(sum[:]))
+	if err := os.WriteFile(filepath.Join(s.index(), db), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.index(), "manifest"), []byte(manifest), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+// An index of format 2 is unreadable; the next build replaces it, taking every shared vector from
+// the cache and embedding the personal section again.
+func TestIndexFormatChange(t *testing.T) {
+	ctx := context.Background()
+	e := newEnv(t)
+	shared, personal := newSection(t, item.Shared), newSection(t, item.Personal)
+	basic(shared)
+	personal.put("me.md", "Mine", "delta private\n")
+	e.mustBuild(shared) // fills the cache with the shared vectors
+	e.mustBuild(personal)
+	opens, texts := e.kit.Opens.Load(), e.kit.Texts.Load()
+	for _, s := range []*section{shared, personal} {
+		old := writeFormat2(t, s, e.m())
+		in, _ := s.scan(ctx)
+		res, err := Status(ctx, e.opts(), []SectionInput{in})
+		if err != nil || res.Sections[0].State != IndexUnreadable || res.Sections[0].Indexed != 0 {
+			t.Fatalf("%v status: %+v %v", s.kind, res, err)
+		}
+		src, items := e.source(ctx, e.opts(), "alpha", s)
+		sr, _ := src.Score(ctx, "alpha", items)
+		src.Close()
+		if sr.Ready || sr.Reason != search.NoIndex {
+			t.Fatalf("%v search: %+v", s.kind, sr)
+		}
+		r := e.mustBuild(s)
+		x, state := s.open(e.m())
+		if state != IndexOK || len(x.items) != r.Items {
+			t.Fatalf("%v: %v after the build", s.kind, state)
+		}
+		x.Close()
+		if names := s.indexNames(); slices.Contains(names, old) || len(names) != 3 {
+			t.Fatalf("%v: index/ holds %q", s.kind, names)
+		}
+		if s == shared {
+			if r.PassagesEmbedded != 0 || r.PassagesReused != 3 || e.kit.Opens.Load() != opens {
+				t.Fatalf("shared: %+v, opens %d", r, e.kit.Opens.Load()-opens)
+			}
+		} else if r.PassagesEmbedded != 1 || e.kit.Texts.Load() != texts+1 {
+			t.Fatalf("personal: %+v", r)
+		}
 	}
 }

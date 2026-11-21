@@ -4,7 +4,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"hash/crc32"
 	"strings"
+	"sync/atomic"
 	"unicode"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
@@ -30,19 +32,46 @@ type Passage struct {
 	Digest     [32]byte // SHA-256 of Text
 }
 
-// ContentDigest is the SHA-256 of the title's length in bytes as 8 little-endian bytes, the
-// title's bytes and the body's bytes: everything an item's passages are cut from. The length
-// frames the title, so no title and body can be mistaken for another pair.
-func ContentDigest(title string, body []byte) [32]byte {
-	h := sha256.New()
+// contentCalls counts ContentCheck and ContentDigest, for the test that pins which commands
+// hash what.
+var contentCalls struct{ check, digest atomic.Int64 }
+
+// titleFrame is the title's length in bytes as 8 little-endian bytes, which frames the title.
+func titleFrame(title string) []byte {
 	var n [8]byte
 	binary.LittleEndian.PutUint64(n[:], uint64(len(title)))
-	h.Write(n[:])
+	return n[:]
+}
+
+// ContentDigest is the SHA-256 of the title's length in bytes as 8 little-endian bytes, the
+// title's bytes and the body's bytes: everything an item's passages are cut from. The length
+// frames the title, so no title and body can be mistaken for another pair. Only the build calls
+// it, and only for an item it is about to cut.
+func ContentDigest(title string, body []byte) [32]byte {
+	contentCalls.digest.Add(1)
+	h := sha256.New()
+	h.Write(titleFrame(title))
 	h.Write([]byte(title))
 	h.Write(body)
 	var d [32]byte
 	copy(d[:], h.Sum(nil))
 	return d
+}
+
+// Check is the cheap identity of the bytes ContentDigest hashes: their CRC-32C (Castagnoli,
+// hash/crc32) and their count, 8 + len(title) + len(body).
+type Check struct {
+	CRC  uint32
+	Size int64
+}
+
+// ContentCheck is what every command computes to ask whether an entry still holds an item's text.
+func ContentCheck(title string, body []byte) Check {
+	contentCalls.check.Add(1)
+	c := crc32.Update(0, castagnoli, titleFrame(title))
+	c = crc32.Update(c, castagnoli, []byte(title))
+	c = crc32.Update(c, castagnoli, body)
+	return Check{CRC: c, Size: 8 + int64(len(title)) + int64(len(body))}
 }
 
 // IndexFingerprint is the lower-case hex SHA-256 of "pbrain-index\n" + ChunkerVersion + "\n" + m.Fingerprint.
