@@ -47,4 +47,5 @@ In the spec's delivery order (section 16), each after phase 28 for what it ships
 ## Notes
 
 - **Two places where this order departs from architecture 18**, which stays as it is. `outline` is built with `item`, not after `search`, because `item` takes a title's fallback from it. `secretscan` is built with `graph`, not with the writing commands, because `check` in phase 12 needs it.
+- **Renamed since.** The `pbrain index` of phases 23 and 25 is `pbrain sync` (owner's decision, 2026-11-21; spec 9.4). `index` stays as a hidden alias for one release.
 - **Lanes.** @lead-dev-2: 0, 2, 5, 7, 8, 11, 12, 15, 16, 20, 22, 23, 28. @lead-dev: 1, 4, 6, 9, 13, 14, 18, 19, 21, 24, 25, 27. @architect-2: 17, then the third lane: 3, 10 and the fetch client of 16. @architect: 26.

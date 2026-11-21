@@ -4,7 +4,7 @@ status: complete
 
 # Importing outside sources
 
-`internal/importer` prepares the content and provenance for one new `source` item. `internal/importer/fetch` retrieves one public resource. The CLI resolves the destination and prints the destination notice **before** acquisition, reads a local file through `store.OpenInput`, and runs the add/publish transaction. Importer never edits a previous item, invokes a model or drives a connector. Model downloads belong to the index command.
+`internal/importer` prepares the content and provenance for one new `source` item. `internal/importer/fetch` retrieves one public resource. The CLI resolves the destination and prints the destination notice **before** acquisition, reads a local file through `store.OpenInput`, and runs the add/publish transaction. Importer never edits a previous item, invokes a model or drives a connector. Model downloads belong to `pbrain sync`.
 
 ## Interfaces
 

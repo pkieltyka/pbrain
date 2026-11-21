@@ -6,7 +6,7 @@ status: complete
 
 ## Purpose and scope
 
-The write handlers orchestrate `add`, `verify` and `delete`. Imports reuse the new-item transaction after the importer prepares content. The handlers decide the view, validate writes under the section lock, report commit outcomes, and keep private material out of diagnostics. `secretscan` supplies the same warning rules to writes and `check`. CLI owns flag parsing and final serialization. Store owns guarded I/O and mutation commit points. Model work belongs to the explicit index command. [Architecture §§7.3, 10 and 13](../architecture.md) · [Functional spec §§5.2, 6.3 and 8](../functional_spec.md)
+The write handlers orchestrate `add`, `verify` and `delete`. Imports reuse the new-item transaction after the importer prepares content. The handlers decide the view, validate writes under the section lock, report commit outcomes, and keep private material out of diagnostics. `secretscan` supplies the same warning rules to writes and `check`. CLI owns flag parsing and final serialization. Store owns guarded I/O and mutation commit points. Model work belongs to `pbrain sync`. [Architecture §§7.3, 10 and 13](../architecture.md) · [Functional spec §§5.2, 6.3 and 8](../functional_spec.md)
 
 ## Interfaces
 
