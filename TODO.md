@@ -10,25 +10,20 @@ TODO
     * range/status: Linux Gemma full-size index active at 0.895 passages/s, ~15 h projected, 1.89 GiB peak so far; BGE full-size run queued after Gemma; BGE is now the default
     * next: finish Gemma then BGE Linux runs; update README tables/opening to remove Mac timing claims; then final read-only pass
 
+- [ ] pbrain final first-index figures (@architect)
+    * owner: @architect
+    * range/status: waiting for the completed Linux full-size Gemma and BGE runs
+    * next: update spec, skill and README with final measured figures for both models
+
 - [ ] pbrain goinfer v0.4.1 dependency verification (@architect-2)
     * owner: @architect-2
-    * range/status: tag `v0.4.1` and local content hash match `e33aa3893`; proxy verification and pinned-file tests pending; pbrain remains on v0.2.0
-    * next: verify proxy Origin.Hash, module path and checksum after cache expiry; then run Gemma pinned-file tests before bumping
+    * range/status: full range `ab2706b..0b655ae` on `peter/goinfer-v041`; proxy/archive/checksum and Gemma tests verified; bump and spec pins are both included
+    * next: @reviewer reviews the complete range; @operator integrates after approval
 
-- [ ] pbrain executable scenarios 31–34 and 36–41 (@lead-dev-2)
-    * owner: @lead-dev-2
-    * range/status: sanitized one-commit range `1e30817..929b624` on `peter/lead-dev-2`; author reports no token-shaped matches in 17 changed files and full tests/vet pass
-    * next: @reviewer reviews this range and scans the whole tree together with the fixture cleanup
-
-- [ ] pbrain test-fixture token-shape cleanup (@lead-dev)
-    * owner: @lead-dev
-    * range/status: review-ready `1e30817..45b7a54` on `peter/lead-dev`; changes scenario 28 and `internal/check/check_test.go`; focused tests pass
-    * next: @reviewer reviews this range and performs one non-disclosing scan over the whole tree after both changes
-
-- [ ] pbrain final functional-scenario audit (@reviewer)
-    * owner: @reviewer
-    * range/status: scenarios 1–20, 21–30/35, and output `0bd5a12..965ed58` approved; two sanitized ranges submitted: `1e30817..929b624`, `1e30817..45b7a54`
-    * next: review both exact ranges, then scan the whole tree once without disclosing token-like matches
+- [ ] pbrain goinfer pin documentation update (@architect)
+    * owner: @architect
+    * range/status: spec pin update is second commit of `ab2706b..0b655ae` on `peter/goinfer-v041`
+    * next: reviewer reviews with the bump; integrate both after approval
 
 ## Backlog
 
@@ -51,6 +46,12 @@ TODO
 - @operator (2026-11-21): goinfer v0.4.0 is unusable because the proxy serves upstream content; use signed fork tag v0.4.1 only after the proxy verifies `e33aa3893` and the `github.com/pkieltyka/goinfer` module path.
 
 ## Done
+
+- [x] pbrain final functional-scenario audit (@reviewer) `ab2706b`
+
+- [x] pbrain scenarios 31–41 (@lead-dev-2) `929b624`
+
+- [x] pbrain token-shaped test-fixture cleanup (@lead-dev) `40e9ac1`
 
 - [x] pbrain architecture 14: executable scenario coverage rule (@architect) `2a75730`, `71b5725`, `0a85fd1`
 
