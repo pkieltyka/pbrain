@@ -1,0 +1,907 @@
+[
+  {
+    "id": "a001",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "I pulled a teammate’s new notes. How do I make the new wording findable by meaning?",
+    "expect": [
+      "index-refresh"
+    ]
+  },
+  {
+    "id": "a002",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Why did a search by meaning silently skip a document I just edited while still finding other notes?",
+    "expect": [
+      "partial-readiness"
+    ]
+  },
+  {
+    "id": "a003",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "An agent searches with both optional modes. Which group gets first chance at the few slots on screen?",
+    "expect": [
+      "hybrid-order"
+    ]
+  },
+  {
+    "id": "a004",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "How could both retrieval modes pass the empty-answer test individually but fail the release together?",
+    "expect": [
+      "combined-gate"
+    ]
+  },
+  {
+    "id": "a005",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "The search returned an offset. My editor opened several lines too early. Which coordinates go where?",
+    "expect": [
+      "file-navigation"
+    ]
+  },
+  {
+    "id": "a006",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Can I ask for surrounding lines without losing a result from the page?",
+    "expect": [
+      "context-budget"
+    ]
+  },
+  {
+    "id": "a007",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "I want to remove a mistaken entry. How can I see what that would undo before changing anything?",
+    "expect": [
+      "delete-preview"
+    ]
+  },
+  {
+    "id": "a008",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "If two imports copied the same attachment, what happens to it when I remove the first item?",
+    "expect": [
+      "original-refcount"
+    ]
+  },
+  {
+    "id": "a009",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "I'm updating a shared record while viewing both sections. Which writer must I serialize with?",
+    "expect": [
+      "routed-lock"
+    ]
+  },
+  {
+    "id": "a010",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Which details from a restricted document can everyone see when I share only a pointer?",
+    "expect": [
+      "linked-summary"
+    ]
+  },
+  {
+    "id": "a011",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Can my private notes leave reusable embeddings in the cache another checkout uses?",
+    "expect": [
+      "model-cache"
+    ]
+  },
+  {
+    "id": "a012",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Who can change the order in which our factory team starts new tickets?",
+    "expect": [
+      "factory-ready"
+    ]
+  },
+  {
+    "id": "a013",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "What keeps an agent's tentative alternative from overturning a decision someone signed off on?",
+    "expect": [
+      "standing-rule"
+    ]
+  },
+  {
+    "id": "a014",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "Do I need to install the team-management skill separately for every coding agent?",
+    "expect": [
+      "factory-install"
+    ]
+  },
+  {
+    "id": "a015",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "After the reviewer signs off on a branch, who integrates it and records the merge?",
+    "expect": [
+      "factory-review"
+    ]
+  },
+  {
+    "id": "a016",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "A retrieval hit names the right document but shows none of the answer. How should we count the follow-up?",
+    "expect": [
+      "fixture-reader"
+    ]
+  },
+  {
+    "id": "a017",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "A model loads much faster now. What evidence still matters before choosing it for agents?",
+    "expect": [
+      "adoption-gates"
+    ]
+  },
+  {
+    "id": "a018",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "My label isn't in the team's list. Does the writer reject the note, and can its diagnostic print a secret?",
+    "expect": [
+      "tag-map"
+    ]
+  },
+  {
+    "id": "a019",
+    "kind": "answerable",
+    "style": "short",
+    "q": "local midnight until",
+    "expect": [
+      "time-window"
+    ]
+  },
+  {
+    "id": "a020",
+    "kind": "answerable",
+    "style": "short",
+    "q": "outside window count",
+    "expect": [
+      "outside-window"
+    ]
+  },
+  {
+    "id": "a021",
+    "kind": "answerable",
+    "style": "short",
+    "q": "tag counts personal",
+    "expect": [
+      "tag-count-view"
+    ]
+  },
+  {
+    "id": "a022",
+    "kind": "answerable",
+    "style": "short",
+    "q": "cross-worktree vector cache",
+    "expect": [
+      "model-cache"
+    ]
+  },
+  {
+    "id": "a023",
+    "kind": "answerable",
+    "style": "short",
+    "q": "preview dangling links",
+    "expect": [
+      "delete-preview"
+    ]
+  },
+  {
+    "id": "a024",
+    "kind": "answerable",
+    "style": "short",
+    "q": "resume stopped teammates",
+    "expect": [
+      "factory-resume"
+    ]
+  },
+  {
+    "id": "a025",
+    "kind": "answerable",
+    "style": "short",
+    "q": "ticket merge review",
+    "expect": [
+      "factory-review"
+    ]
+  },
+  {
+    "id": "a026",
+    "kind": "answerable",
+    "style": "short",
+    "q": "original digest references",
+    "expect": [
+      "original-refcount"
+    ]
+  },
+  {
+    "id": "a027",
+    "kind": "answerable",
+    "style": "short",
+    "q": "attached source summary",
+    "expect": [
+      "linked-summary"
+    ]
+  },
+  {
+    "id": "a028",
+    "kind": "answerable",
+    "style": "short",
+    "q": "editor body offset",
+    "expect": [
+      "file-navigation"
+    ]
+  },
+  {
+    "id": "a029",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "budget_too_small",
+    "expect": [
+      "budget-minimum"
+    ]
+  },
+  {
+    "id": "a030",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "semantic_partial",
+    "expect": [
+      "partial-readiness"
+    ]
+  },
+  {
+    "id": "a031",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "confirm_required",
+    "expect": [
+      "delete-preview"
+    ]
+  },
+  {
+    "id": "a032",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "undeclared_tag",
+    "expect": [
+      "tag-map"
+    ]
+  },
+  {
+    "id": "a033",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "dangling_link",
+    "expect": [
+      "missing-links"
+    ]
+  },
+  {
+    "id": "a034",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "body_line",
+    "expect": [
+      "file-navigation"
+    ]
+  },
+  {
+    "id": "a035",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "--fresh",
+    "expect": [
+      "factory-resume"
+    ]
+  },
+  {
+    "id": "a036",
+    "kind": "answerable",
+    "style": "identifier",
+    "q": "--link-only",
+    "expect": [
+      "linked-summary"
+    ]
+  },
+  {
+    "id": "a037",
+    "kind": "answerable",
+    "style": "superseded",
+    "q": "How large is the current default search page after the location fields were added?",
+    "expect": [
+      "search-page-size"
+    ]
+  },
+  {
+    "id": "a038",
+    "kind": "answerable",
+    "style": "superseded",
+    "q": "Do we still serialize dense vectors into our own flat segment format?",
+    "expect": [
+      "vector-sql"
+    ]
+  },
+  {
+    "id": "a039",
+    "kind": "answerable",
+    "style": "superseded",
+    "q": "Which runtime should the bge adapter link in the current design?",
+    "expect": [
+      "bge-aikit"
+    ]
+  },
+  {
+    "id": "a040",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "What's the time limit on a single Git subprocess in the discovery wrapper?",
+    "expect": [
+      "discovery-field-guide"
+    ],
+    "evidence": "cap each call at ten seconds or the parent deadline"
+  },
+  {
+    "id": "a041",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "Why strip the trailing slash when checking a directory for tracked entries?",
+    "expect": [
+      "discovery-field-guide"
+    ],
+    "evidence": "Omit a folder's final slash so the query covers both the directory's children and a tracked entry at the same path."
+  },
+  {
+    "id": "a042",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "Which check prevents an ignored child directory from being enumerated during a breadth-level scan?",
+    "expect": [
+      "storage-field-guide"
+    ],
+    "evidence": "Never enumerate a child whose batch result is ignored, including a tracked file below that child."
+  },
+  {
+    "id": "a043",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "Exactly how far should the writer read when validating an original that already exists?",
+    "expect": [
+      "storage-field-guide"
+    ],
+    "evidence": "Hash at most the expected length plus one sentinel byte, require exact EOF and unchanged metadata"
+  },
+  {
+    "id": "a044",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "After deserializing the packed tokenizer, may the caller discard its input buffer?",
+    "expect": [
+      "tokenizer-report"
+    ],
+    "evidence": "`LoadPack` does not keep the pack's bytes."
+  },
+  {
+    "id": "a045",
+    "kind": "answerable",
+    "style": "long-document",
+    "q": "How are the merge ranks and vocabulary rebuilt when opening the optimized tokenizer?",
+    "expect": [
+      "tokenizer-report"
+    ],
+    "evidence": "the vocabulary map and the merge table are filled in parallel"
+  },
+  {
+    "id": "a046",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "What did the fast-tokenizer change actually buy us at startup?",
+    "expect": ["pack-startup", "tokenizer-report"]
+  },
+  {
+    "id": "a047",
+    "kind": "answerable",
+    "style": "reworded",
+    "q": "I added the private folder to Git's ignore file. Why can the team still fail its exposure check?",
+    "expect": ["guard-tracked", "discovery-field-guide"]
+  },
+  {
+    "id": "u001",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which build produced the Stockholm support handoff that the operator approved on Friday?",
+    "half": "calibration",
+    "regression": true
+  },
+  {
+    "id": "u002",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What was the fingerprint of the RavenDB embedding model used in the billing postmortem?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u003",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which team owns the Fuchsia worktree on the shared benchmark host?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u004",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What is the measured cold-cache latency on the M6 Mac named Cirrus?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u005",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Who verified the switch to the Firefly tokenizer in our mobile release?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u006",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which PR fixed duplicate item IDs in the Orion migration?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u007",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What timeout did the Atlas team choose for its inbound attachment webhook?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u008",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Where is the cut-off calibration report for multilingual incident bundle Pelican?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u009",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Why was the nightly Cypress agent barred from the private changelog?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u010",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Who maintains the Bracken vocabulary for frontend accessibility tags?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u011",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What offset did the pager print for the broken diagram in migration note XL-19?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u012",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which job uploaded the Pineglass tokenizer checksum to the mirrors?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u013",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What was the measured memory peak for 25 concurrent hybrid queries on Darwin?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u014",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "When did the team retire the Sparrow test branch after its approval?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u015",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Where do I rotate the certificate for our Android signing keystore?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u016",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which retention class should payroll use for tax exports?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u017",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How much free disk space does the warehouse restore require?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u018",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What frequency does the greenhouse temperature transponder use?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u019",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which checksum identifies the production FPGA bitstream?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u020",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Who can approve an overtime exception for the Toronto support rota?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u021",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How many machines failed last Thursday's kernel rollout?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u022",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How should I adjust the focal distance on the inspection microscope?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u023",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which object bucket holds build artifacts for the iOS nightly job?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u024",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What is the permitted differential pressure across the pump inlet filter?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u025",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Where is the vendor's wire transfer routing number documented?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u026",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Who owns the New South Wales regional failover drill?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u027",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "Which machine was reserved for the Larkspur dry run?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u028",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "At what time is the Meridian notebook handed back?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u029",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "What name does the Quartz checklist give the final checkpoint?",
+    "half": "calibration",
+    "regression": true
+  },
+  {
+    "id": "u030",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "Who reviews the Sundial rehearsal document?",
+    "half": "calibration",
+    "regression": false
+  },
+  {
+    "id": "u031",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Who verified the decision to import the Zurich Slack transcript?",
+    "half": "held-out",
+    "regression": true
+  },
+  {
+    "id": "u032",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What ticket introduced an Alpine-only sqlite-vec workaround in the Nebula release?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u033",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which operator approved the Cobalt workspace's exception for personal exports?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u034",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What was the actual cutoff selected for support conversations in Portuguese?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u035",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Where is the arm64 Mac trace from the Orchid branch's first production index?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u036",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What SHA was deployed after the Delta reader escaped a page boundary?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u037",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which recovery meeting assigned ownership of the Windlass vector rebuild?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u038",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "How many notes were lost during the Marigold worktree rollback?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u039",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What sample size justified the recency adjustment for firmware component Badger?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u040",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What was the recorded root cause of duplicate citations in the Juniper rollout?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u041",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which maintainer signed the Ember audit of the protected-path rules?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u042",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What company proxy approved the Lakeshore tokenizer artifact on Saturday?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u043",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "What wording did the owner accept for the missing Wren import's title?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u044",
+    "kind": "unanswerable",
+    "style": "near",
+    "q": "Which flags did the Zephyr team use during their customer-data rehearsal?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u045",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What was the last successful PostGIS snapshot of the map tiles?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u046",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How often do we recalibrate the dosing pump in the east plant?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u047",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which exchange rate did accounting use to close the yen ledger?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u048",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What's the harness pinout for the humidity board connector?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u049",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Who is the escalation contact for the parking garage intercom?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u050",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which CSS variable sets the sales portal’s muted foreground?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u051",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How much did the fleet spend on cross-zone replication last quarter?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u052",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What TTL did our DNS team set for the authentication service?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u053",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "How many samples passed the blue dye contamination assay?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u054",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which oven profile should I load for lead-free board assembly?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u055",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "Which Debian package version fixed the warehouse scanner's barcode driver?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u056",
+    "kind": "unanswerable",
+    "style": "far",
+    "q": "What's the maximum overnight inventory allowed at the Incheon depot?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u057",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "Which backend runner did I reserve for the Mallow test?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u058",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "What is the label on the Kestrel export snapshot?",
+    "half": "held-out",
+    "regression": false
+  },
+  {
+    "id": "u059",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "Where was the Hazel evidence binder filed?",
+    "half": "held-out",
+    "regression": true
+  },
+  {
+    "id": "u060",
+    "kind": "unanswerable",
+    "style": "personal-only",
+    "q": "Who owns the Thistle dress-rehearsal timing probe?",
+    "half": "held-out",
+    "regression": false
+  }
+]
