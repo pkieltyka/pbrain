@@ -150,7 +150,7 @@ func TestContentDigestFraming(t *testing.T) {
 		}
 		seen[d] = i
 	}
-	if ContentDigest("t", []byte("b")) != ContentDigest("t", []byte("b")) {
+	if first, again := ContentDigest("t", []byte("b")), ContentDigest("t", []byte("b")); first != again {
 		t.Fatal("not deterministic")
 	}
 }

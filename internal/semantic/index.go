@@ -478,7 +478,11 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 			}
 			meta[k] = v
 		}
+		err = rows.Err()
 		rows.Close()
+		if err != nil {
+			return false
+		}
 		if meta["format"] != strconv.Itoa(indexFormat) || meta["fingerprint"] != m.Fingerprint ||
 			meta["model"] != m.Model || meta["dim"] != strconv.Itoa(m.Dim) {
 			return false
@@ -503,7 +507,11 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 			copy(c[:], content)
 			x.items[path] = storedItem{id: id, content: c}
 		}
+		err = items.Err()
 		items.Close()
+		if err != nil {
+			return false
+		}
 		if !full {
 			return true
 		}
