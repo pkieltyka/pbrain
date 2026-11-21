@@ -2,7 +2,7 @@
 
 Moving development from `thinkpax` (Linux, 16 cores, 62 GB) to a new machine. The factory team is the same, but every agent session starts fresh. Read this first, then `FACTORY.md`, the board and `specs/projects/pbrain/`.
 
-**Tracker:** TODO.md is retired. Tasks are GitHub Issues on pkieltyka/pbrain managed with `todos`; board https://github.com/users/pkieltyka/projects/3 (Backlog, Todo, In progress, Done). Open: #1–#4 in progress (CI fixes, gemma measurement, docs), #5–#9 backlog (v0.1.1 release, help texts, Mac checks). Closed #10–#17 record the main finished work and decisions. Install `todos` from github.com/pkieltyka/todos (`make build`) and run `todos board use pkieltyka/3` in the checkout.
+**Tracker:** TODO.md is retired. Tasks are GitHub Issues on pkieltyka/pbrain managed with `todos`; board https://github.com/users/pkieltyka/projects/3 (Backlog, Todo, In progress, Done). The board is ordered: **Todo** (in order) #1 macOS fix (CI), #18 review the phase 28 rerun kit, #3 gemma and final-pin measurements, #4 gemma docs, #5 release v0.1.1. **Backlog:** #9 Mac runtime checks, #19 index-build memory, #6–#8 help texts, #20 tidy branches. **Done:** #2 (store test fix) and #10–#17, which record the main finished work and decisions. Nothing is In progress: the old sessions ended. Install `todos` from github.com/pkieltyka/todos (`make build`) and run `todos board use pkieltyka/3` in the checkout.
 
 Only what is on GitHub carries over. This file lists everything that existed only on the old machine.
 
