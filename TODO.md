@@ -12,8 +12,8 @@ TODO
 
 - [ ] pbrain phase 25: BGE gates and release wiring (@lead-dev-2)
     * owner: @lead-dev-2 for BGE; @lead-dev for gate tooling
-    * ranges/evidence: tool `f66c268..8ecfb9e`, registry follow-up `50816cd..e62c2b7`, BGE wiring `a278c0c..eebe8b0`; Gemma replay passed at 0.72 (report `abd42f40`), cutoff reruns pending
-    * next: @lead-dev fixes the nil-score cutoff denominator and adds private-ID personal-search checks; then @lead-dev-2 reruns BGE and @architect-2 reruns Gemma before re-review.
+    * range/status: tool fix `6779723..9695d1b` approved; registry follow-up `50816cd..e62c2b7` approved; README `e05ff80..2976b3a` pending review; BGE 0.65 rerun passed (29/30, 40/47); Gemma rerun pending
+    * next: @operator may integrate the approved tool/follow-up; @reviewer reviews the BGE record, and @architect-2 reports Gemma results before model wiring
 
 - [ ] pbrain phase 27: EmbeddingGemma 2 gates and release wiring (@architect-2)
     * owner: @architect-2 (patch flow)
