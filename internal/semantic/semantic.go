@@ -10,7 +10,6 @@ import (
 	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/item"
-	"github.com/pkieltyka/pbrain/internal/search"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
@@ -50,25 +49,6 @@ type CacheOptions struct {
 
 var ErrCacheExposed = errors.New("cache folder is exposed")
 
-// Start needs no scan and never fails. It runs the cheap checks and, when they pass, begins
-// in the background to verify the model, open it and embed text as a query.
-func Start(ctx context.Context, opt Options, text string, dirs []SectionDir) *Source {
-	panic("not implemented")
-}
-
-// Attach gives the source the scanned items. Call it once, after the scan, before Score.
-func (s *Source) Attach(secs []SectionInput) { panic("not implemented") }
-
-// Score joins the background task and compares. text must be the text given to Start.
-// It returns only the context's error.
-func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) (search.Scores, error) {
-	panic("not implemented")
-}
-
-// Close cancels the background task, waits for it and closes an opened embedder exactly once.
-// It is safe to call when Attach or Score were never reached.
-func (s *Source) Close() error { panic("not implemented") }
-
 type BuildResult struct {
 	Section          item.Section
 	Items            int // items the index holds after the run
@@ -94,13 +74,4 @@ type StatusResult struct {
 	Supported    bool
 	ModelPresent bool
 	Sections     []SectionStatus
-}
-
-// Status loads no model and writes nothing. It returns only file-system errors (io).
-func Status(ctx context.Context, opt Options, secs []SectionInput) (StatusResult, error) {
-	panic("not implemented")
-}
-
-// Source is the search.Semantic implementation for one command (semantic.md).
-type Source struct { /* unexported */
 }

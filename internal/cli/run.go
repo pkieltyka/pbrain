@@ -168,6 +168,8 @@ func runCommand(ctx context.Context, env Env, in *invocation, b *brain.Brain, fe
 		return runTags(ctx, env, in, b)
 	case "check":
 		return runCheck(ctx, env, in, b)
+	case "index":
+		return runIndex(ctx, env, in, b)
 	case "add":
 		return runAddCommand(ctx, in, newWriteContext(env, in, b))
 	case "verify":
