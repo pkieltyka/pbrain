@@ -24,8 +24,9 @@ type response struct {
 
 type searchPage struct {
 	Results []struct {
-		ID     string `json:"id"`
-		Offset *int   `json:"snippet_offset"`
+		ID       string `json:"id"`
+		Offset   *int   `json:"snippet_offset"`
+		Personal bool   `json:"personal"`
 	} `json:"results"`
 	Alone []struct {
 		Clause string `json:"clause"`
@@ -77,19 +78,24 @@ func (s session) search(text string, bm25 bool) (attempt, error) {
 }
 
 func (s session) searchMode(text string, bm25, semantic bool) (attempt, error) {
-	args := []string{"search", "--json"}
+	var flags []string
 	if bm25 {
-		args = append(args, "--bm25")
+		flags = append(flags, "--bm25")
 	}
 	if semantic {
-		args = append(args, "--semantic")
+		flags = append(flags, "--semantic")
 	}
+	return s.searchJSON(text, flags...)
+}
+
+func (s session) searchJSON(text string, flags ...string) (attempt, error) {
+	args := append([]string{"search", "--json"}, flags...)
 	got, err := s.command(append(args, "--", text)...)
 	if err != nil {
 		return attempt{}, err
 	}
-	if semantic && (bytes.Contains(got.diagnostic, []byte(`"semantic_not_ready"`)) ||
-		bytes.Contains(got.diagnostic, []byte(`"semantic_partial"`))) {
+	if bytes.Contains(got.diagnostic, []byte(`"semantic_not_ready"`)) ||
+		bytes.Contains(got.diagnostic, []byte(`"semantic_partial"`)) {
 		return attempt{}, fmt.Errorf("cannot gate an incomplete semantic search: %s", got.diagnostic)
 	}
 	return decodePage(got)

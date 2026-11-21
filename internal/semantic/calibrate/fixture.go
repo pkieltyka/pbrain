@@ -244,7 +244,9 @@ func validateEvidence(q question, cat *store.Catalog) error {
 
 func normalize(text string) string { return strings.Join(strings.Fields(text), " ") }
 
-func (f *fixture) installPersonal(ctx context.Context) ([]string, error) {
+type personalControl struct{ id, query string }
+
+func (f *fixture) installPersonal(ctx context.Context) ([]personalControl, error) {
 	if err := copyFixtureTree(filepath.Join(f.dir, "personal"), f.overlay); err != nil {
 		return nil, err
 	}
@@ -252,14 +254,22 @@ func (f *fixture) installPersonal(ctx context.Context) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ids []string
+	var controls []personalControl
 	for _, it := range c.cat.Items() {
-		if it.Section == item.Personal {
-			ids = append(ids, it.ID)
+		if it.Section != item.Personal {
+			continue
 		}
+		var words []string
+		for _, tok := range query.Tokens(it.Header.Title) {
+			words = append(words, tok.Word)
+		}
+		if len(words) == 0 {
+			return nil, fmt.Errorf("personal control %s needs a searchable title", it.ID)
+		}
+		controls = append(controls, personalControl{it.ID, `"` + strings.Join(words, " ") + `"`})
 	}
-	if len(ids) == 0 {
+	if len(controls) == 0 {
 		return nil, errors.New("fixture personal overlay contains no items")
 	}
-	return ids, nil
+	return controls, nil
 }

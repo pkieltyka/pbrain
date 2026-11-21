@@ -12,8 +12,9 @@ go run ./internal/semantic/calibrate -stage check internal/semantic/calibrate/te
 Both commands print a JSON report. Exit 1 means the partial gate failed.
 The calibration stage uses only calibration negatives. Run the check on the
 held-out negatives only after choosing and freezing the candidate rule.
-Each stage checks that adding personal items changes no shared response or
-diagnostic and that the private controls open in the personal view.
+Each stage compares the shared responses and diagnostics byte for byte
+after adding personal items, then verifies each private control with
+both search and get in the personal view.
 
 The count and BM25 controls use identical candidates. The separate stemming
 control uses English suffix rules on unquoted words. The heading control
@@ -35,7 +36,8 @@ text-only pack as `-model-path`.
 
 The tool builds the scratch index, uses uncensored production scores and
 the complete exact-result list to choose the cutoff on calibration
-negatives, then evaluates the held-out JSON pages at that cutoff. It
+negatives. The 5% allowance uses only questions that produced a score.
+The tool then evaluates the held-out JSON pages at that cutoff. It
 also reports reciprocal-rank fusion of positive BM25 ranks and semantic
 ranks at the same cutoff, with equal weights and a rank constant of 60.
 No model files are downloaded. The scratch indexes and cache are removed

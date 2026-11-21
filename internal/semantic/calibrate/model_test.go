@@ -16,14 +16,21 @@ import (
 )
 
 func TestChooseCutoff(t *testing.T) {
-	// One of twenty may still reach the chosen cutoff. Missing maxima
-	// cannot reach any cutoff.
+	// Two observed maxima allow zero above the cutoff, even with 18
+	// questions that produced no score.
 	scores := make([]*float32, 20)
 	scores[0], scores[1] = new(float32(0.55)), new(float32(0.64))
+	if got := chooseCutoff(scores); got != 0.65 {
+		t.Fatalf("got %.2f, want 0.65 for two observed scores", got)
+	}
+	// A full set of twenty observed scores permits one equal or higher.
+	for i := 2; i < len(scores); i++ {
+		scores[i] = new(float32(0.5))
+	}
 	if got := chooseCutoff(scores); got != 0.56 {
 		t.Fatalf("got %.2f, want 0.56; 0.55 still admits both", got)
 	}
-	scores[0], scores[1] = nil, nil
+	clear(scores)
 	if got := chooseCutoff(scores); got != -1 {
 		t.Fatalf("got %.2f for absent maxima, want -1", got)
 	}
@@ -157,8 +164,9 @@ func TestModelCalibrationUsesRealIndexAndCLI(t *testing.T) {
 		r.Model.Semantic.Abstention.Empty != 29 || r.Model.Combined.Pass {
 		t.Fatalf("wrong model outcome: %+v", r.Model)
 	}
-	if !r.SharedOutputStable || r.PersonalReads != 1 || len(r.Arms) != 10 || r.arm("rank-fusion").Found != 30 {
-		t.Fatalf("incomplete rendered evaluation: %t/%d private check, %d arms", r.SharedOutputStable, r.PersonalReads, len(r.Arms))
+	if !r.SharedOutputStable || r.PersonalReads != 1 || r.PersonalSearches != 1 || len(r.Arms) != 10 || r.arm("rank-fusion").Found != 30 {
+		t.Fatalf("incomplete rendered evaluation: stable %t, %d private reads, %d private searches, %d arms",
+			r.SharedOutputStable, r.PersonalReads, r.PersonalSearches, len(r.Arms))
 	}
 	if kit.Opens.Load() == 0 || kit.Opens.Load() != kit.Closes.Load() {
 		t.Fatal("test did not use and close the actual indexed source")

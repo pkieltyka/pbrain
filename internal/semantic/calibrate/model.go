@@ -174,10 +174,16 @@ func questionMaximum(ctx context.Context, c corpus, text string, score scoreItem
 	return best, nil
 }
 
-// Missing maxima reach no cut-off. Try the same float32 hundredths the
-// production comparison uses, including its inclusive >= boundary.
+// Only observed maxima contribute to either side of the 5% calculation.
+// Try the production comparison's inclusive float32 hundredths.
 func chooseCutoff(maxima []*float32) float32 {
-	allowed := len(maxima) / 20
+	scored := 0
+	for _, score := range maxima {
+		if score != nil {
+			scored++
+		}
+	}
+	allowed := scored / 20
 	for cent := -100; cent <= 100; cent++ {
 		candidate := float32(cent) / 100
 		reached := 0

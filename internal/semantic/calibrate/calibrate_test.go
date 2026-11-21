@@ -45,9 +45,9 @@ func TestCalibrate(t *testing.T) {
 			t.Fatal(err)
 		}
 		want := []string{strict, "guided-retry", "any-count", "any-bm25", "bm25-stemming", "bm25-heading-weight", partial}
-		if len(r.Arms) != len(want) || !r.SharedOutputStable || r.PersonalReads != 8 || r.ReleaseCheck {
-			t.Fatalf("wrong calibration report: %d arms, private check %t/%d, release %t",
-				len(r.Arms), r.SharedOutputStable, r.PersonalReads, r.ReleaseCheck)
+		if len(r.Arms) != len(want) || !r.SharedOutputStable || r.PersonalReads != 8 || r.PersonalSearches != 8 || r.ReleaseCheck {
+			t.Fatalf("wrong calibration report: %d arms, stable %t, %d private reads, %d private searches, release %t",
+				len(r.Arms), r.SharedOutputStable, r.PersonalReads, r.PersonalSearches, r.ReleaseCheck)
 		}
 		for i, arm := range r.Arms {
 			if arm.Name != want[i] || arm.Answers != 47 || arm.Negatives != 30 || arm.Evidence.Questions != 6 ||
