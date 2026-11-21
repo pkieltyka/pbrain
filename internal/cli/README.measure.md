@@ -18,8 +18,9 @@ PBRAIN_MEASURE=1 PBRAIN_MEASURE_PROCS=4 \
 
 Set `PBRAIN_TEST_BGE_MODEL` to the absolute directory containing the
 five pinned bge-small files to add model cases. To measure a release that
-lists EmbeddingGemma 2, run separately with `PBRAIN_TEST_GEMMA2_PACK` set
-to the pinned pack directory and use `-timeout=18h`. The binary must
+lists EmbeddingGemma 2, run separately with `PBRAIN_ALLOW_GEMMA2=1` (the
+owner-only team switch) and `PBRAIN_TEST_GEMMA2_PACK` set to the pinned
+pack directory and use `-timeout=18h`. The binary must
 register the selected model. To measure both views after one index build,
 select `-run '^TestMeasureReads$/^personal$'`. It builds one 5,000-item,
 50 MB fixture with 4,500 shared and 500 personal items. The timed shared

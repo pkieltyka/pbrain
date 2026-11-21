@@ -46,6 +46,10 @@ func TestMeasureReads(t *testing.T) {
 	if os.Getenv("PBRAIN_MEASURE") != "1" {
 		t.Skip("set PBRAIN_MEASURE=1 to time the generated 5,000-item brains")
 	}
+	model := measureModelFromEnv(t)
+	if model == nil {
+		t.Log("set PBRAIN_TEST_BGE_MODEL or PBRAIN_TEST_GEMMA2_PACK to add index and semantic timings")
+	}
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -82,10 +86,6 @@ func TestMeasureReads(t *testing.T) {
 	bm25 := bytes.Contains(help, []byte("--bm25"))
 	if !bm25 {
 		t.Log("this binary does not expose --bm25")
-	}
-	model := measureModelFromEnv(t)
-	if model == nil {
-		t.Log("set PBRAIN_TEST_BGE_MODEL or PBRAIN_TEST_GEMMA2_PACK to add index and semantic timings")
 	}
 
 	for _, mode := range []string{"shared", "personal", "outside Git"} {
