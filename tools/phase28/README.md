@@ -54,7 +54,7 @@ tools/phase28/run-linux.sh full "$work" bge "$bge" &&
 
 ## Resume and provenance
 
-> **On hold (owner decision, 2026-11-21):** no EmbeddingGemma 2 build, resume or measurement runs until the owner clears the model; a separate effort is making goinfer faster for it. bge-small is the only model measured. The gemma steps below are kept for that time.
+> **On hold (owner decision, 2026-11-21):** no EmbeddingGemma 2 build, resume or measurement runs until the owner clears the model; a separate effort is making goinfer faster for it. bge-small is the only model measured. The gemma steps below are kept for that time. `run-linux.sh` refuses `pack` and every gemma `provision`, `full`, `resume` and `warm` unless `PBRAIN_ALLOW_GEMMA2=1`, which only the owner sets.
 
 The live old-machine Gemma process resumed under `pbrain-phase28-gemma-resume.service` at 17:45:50 UTC on 2026-11-21. The first portion had run for 5,873.416 s and peaked at 2,068,220 KiB. The initial checkpoint had 545 shared items and 5,251 published passages, with 5,272 cached vectors. The saved pause record, resume start, sampled checkpoint progress, and separate rule-3 measurements are in `evidence/`.
 

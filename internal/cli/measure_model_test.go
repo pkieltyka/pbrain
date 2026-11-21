@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 )
 
 const (
@@ -31,6 +32,7 @@ func measureModelFromEnv(t *testing.T) *measureModelOptions {
 	t.Helper()
 	name, path, wait := measureBGEName, os.Getenv("PBRAIN_TEST_BGE_MODEL"), 4*time.Hour
 	if gemma := os.Getenv("PBRAIN_TEST_GEMMA2_PACK"); gemma != "" {
+		embedtest.SkipGemma2(t)
 		if path != "" {
 			t.Fatal("select one pinned release model per measurement run")
 		}

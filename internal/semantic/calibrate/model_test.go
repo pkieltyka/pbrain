@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/pkieltyka/pbrain/internal/brain"
@@ -198,5 +199,18 @@ func writeQuestions(t *testing.T, root string, qs []question) {
 	}
 	if err := os.WriteFile(filepath.Join(root, "questions.json"), raw, 0o600); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// EmbeddingGemma 2 runs only behind the team switch; the tool names it in its refusal.
+func TestGemma2NeedsTheTeamSwitch(t *testing.T) {
+	if allowGemma2 != embedtest.AllowGemma2 {
+		t.Fatalf("switch %q, tests use %q", allowGemma2, embedtest.AllowGemma2)
+	}
+	t.Setenv(allowGemma2, "")
+	var out, diag bytes.Buffer
+	args := []string{"-model", "embeddinggemma-2", "-model-path", t.TempDir(), "testdata/retrieval"}
+	if exit := run(t.Context(), args, &out, &diag); exit != 2 || out.Len() != 0 || !strings.Contains(diag.String(), "PBRAIN_ALLOW_GEMMA2=1") {
+		t.Fatalf("exit %d, out %q, diag %q", exit, out.String(), diag.String())
 	}
 }

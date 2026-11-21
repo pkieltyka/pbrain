@@ -19,8 +19,19 @@ EOF
     exit 2
 }
 
+# EmbeddingGemma 2 workloads are off for the team unless the owner turns them on.
+need_gemma() {
+    [[ ${PBRAIN_ALLOW_GEMMA2:-} == 1 ]] && return
+    printf 'EmbeddingGemma 2 workloads are off for the team: PBRAIN_ALLOW_GEMMA2=1 turns them on (owner only).\n' >&2
+    exit 1
+}
+
 [[ $# -ge 2 ]] || usage
 action=$1
+case "$action" in
+    pack) need_gemma ;;
+    provision|full|resume|warm) [[ ${3:-} != gemma ]] || need_gemma ;;
+esac
 mkdir -p -- "$2"
 work=$(cd -- "$2" && pwd -P)
 shift 2

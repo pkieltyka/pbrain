@@ -8,6 +8,8 @@ Background: https://github.com/pkieltyka/factory/issues/62 (`gh issue view 62 -R
 
 Stack: Go, shipped as a single binary; qmd is an optional outside tool. Principles: keep it small and simple; Markdown files in Git are the source of truth and any index is derived and rebuildable; shared by default, with a Git-ignored personal section; every word an agent reads costs context.
 
+EmbeddingGemma 2 workloads are off for the team: do not build, download or run it. PBRAIN_ALLOW_GEMMA2=1 turns them back on; only the owner flips it.
+
 ## Tasks
 
 Tasks and bugs are GitHub Issues on pkieltyka/pbrain, managed with `todos` (github.com/pkieltyka/todos); the board is pkieltyka/3 (https://github.com/users/pkieltyka/projects/3), columns Backlog, Todo, In progress, Done. Run from the checkout. Learn it once with `todos skill`; agent operations always pass `--json`.

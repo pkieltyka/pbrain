@@ -32,7 +32,8 @@ go run ./internal/semantic/calibrate -model bge-small-en-v1.5 \
 ```
 
 For EmbeddingGemma 2, pass `-model embeddinggemma-2` and the pinned
-text-only pack as `-model-path`.
+text-only pack as `-model-path`, with `PBRAIN_ALLOW_GEMMA2=1`, the
+owner-only team switch; without it the tool refuses that model.
 
 The tool builds the scratch index, uses uncensored production scores and
 the complete exact-result list to choose the cutoff on calibration

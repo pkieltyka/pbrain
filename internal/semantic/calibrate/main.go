@@ -24,6 +24,9 @@ const partial = "partial"
 const hybrid = "hybrid"
 const combined = "bm25-and-semantic"
 
+// allowGemma2 is the team switch (embedtest.AllowGemma2) that lets this tool load EmbeddingGemma 2.
+const allowGemma2 = "PBRAIN_ALLOW_GEMMA2"
+
 func main() {
 	os.Exit(run(context.Background(), os.Args[1:], os.Stdout, os.Stderr))
 }
@@ -59,6 +62,10 @@ func runWithRegistry(ctx context.Context, args []string, out, diag io.Writer, mo
 	}
 	if flags.NArg() != 1 || (*model == "") != (*modelPath == "") {
 		flags.Usage()
+		return 2
+	}
+	if *model == gemma2.Entry().Model.Name && os.Getenv(allowGemma2) != "1" {
+		fmt.Fprintf(diag, "calibrate: EmbeddingGemma 2 workloads are off for the team: %s=1 turns them on (owner only)\n", allowGemma2)
 		return 2
 	}
 	fix, err := loadFixture(ctx, flags.Arg(0))

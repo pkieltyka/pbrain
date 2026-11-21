@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkieltyka/goinfer/tokenizer"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
@@ -43,6 +44,7 @@ func fixtureDir(t testing.TB, variable string) sys.Dir {
 	if name == "" {
 		t.Skipf("set %s to run against the pinned local model", variable)
 	}
+	embedtest.SkipGemma2(t)
 	name, err := filepath.Abs(name)
 	if err != nil {
 		t.Fatal(err)
