@@ -19,6 +19,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/render"
 	"github.com/pkieltyka/pbrain/internal/search"
 	"github.com/pkieltyka/pbrain/internal/secretscan"
+	"github.com/pkieltyka/pbrain/internal/semantic"
 	"github.com/pkieltyka/pbrain/internal/store"
 )
 
@@ -239,6 +240,19 @@ func (r *reader) pathOf(it *item.Item) (string, json.RawMessage, bool) {
 
 func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, features Features) outcome {
 	r := &reader{env: env, in: in, b: b, now: in.now}
+	// With --semantic the source starts before the scan, and is closed on every path after it.
+	var src *semantic.Source
+	var dirs []semantic.SectionDir
+	if in.boolean("semantic") {
+		opt, release, _ := semanticOptions(ctx, env, b, false)
+		defer release()
+		var err error
+		if dirs, err = sectionDirs(in, b); err != nil {
+			return outcome{err: err}
+		}
+		src = semantic.Start(ctx, opt, in.query, dirs)
+		defer src.Close()
+	}
 	if err := r.scan(ctx, store.KeepAll); err != nil {
 		return outcome{err: err}
 	}
@@ -251,11 +265,18 @@ func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, fea
 		Now: in.now, Snippet: snippetLength, LongBody: longBody, Text: in.query,
 		BM25: features.BM25 && in.boolean("bm25"), Context: in.context,
 	}
+	if src != nil {
+		src.Attach(inputs(dirs, r.cat))
+		req.Semantic = src
+	}
 	res, err := search.Run(ctx, r.cat, r.g, req)
 	if err != nil {
 		return outcome{err: err}
 	}
 	r.skipped()
+	if n, ok := semanticNotice(in, res.Sem); ok {
+		emitNotice(env.Stderr, in.json, n)
+	}
 	data, err := render.Fit(r.searchDoc(res), in.page.maxChars, in.format)
 	if err != nil {
 		return outcome{err: err}
