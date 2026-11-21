@@ -101,7 +101,7 @@ var allowed = map[string][]string{
 	"internal/embed/bge":      {"embed", "sys", "errs"},
 	"internal/importer":       {"item", "errs", "importer/fetch"},
 	"internal/importer/fetch": {"errs"},
-	"internal/search":         {"graph", "item", "query", "outline"},
+	"internal/search":         {"graph", "item", "query", "outline", "errs"},
 	"internal/render":         {"errs"},
 	"internal/store":          {"brain", "item", "gitx", "sys"},
 	"internal/brain":          {"audience", "item", "gitx", "sys", "errs"}, // errs: brain.md "Dependencies"
