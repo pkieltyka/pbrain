@@ -16,6 +16,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/embed/bge"
+	"github.com/pkieltyka/pbrain/internal/embed/gemma2"
 )
 
 const strict = "strict"
@@ -28,7 +29,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out, diag io.Writer) int {
-	return runWithRegistry(ctx, args, out, diag, embed.NewRegistry(bge.Entry()))
+	return runWithRegistry(ctx, args, out, diag, embed.NewRegistry(bge.Entry(), gemma2.Entry()))
 }
 
 func runWithRegistry(ctx context.Context, args []string, out, diag io.Writer, models embed.Registry) int {

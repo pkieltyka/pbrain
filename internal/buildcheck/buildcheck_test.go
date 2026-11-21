@@ -118,7 +118,7 @@ var allowed = map[string][]string{
 	"internal/errs":            nil,
 	"internal/sys":             nil,
 
-	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
+	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "embed/gemma2", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
 
 	"internal/buildcheck": nil,
 }
