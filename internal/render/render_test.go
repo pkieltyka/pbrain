@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -170,6 +171,7 @@ func TestPageSizeMatchesOutput(t *testing.T) {
 			if f == JSON || p.shown > 0 || len(d.Hints) == 0 {
 				p.hints = rng.Intn(len(d.Hints) + 1)
 			}
+			p.resync()
 			size, err := p.size()
 			if err != nil {
 				t.Fatal(err)
@@ -418,5 +420,31 @@ func TestExactPathProjection(t *testing.T) {
 	}
 	if _, enc, _ := ExactPath("x\U000E0001"); string(enc) != `"x\udb40\udc01"` {
 		t.Fatalf("surrogate pair: %s", enc)
+	}
+}
+
+// Fitting N rows costs about N row measurements, not 1 + 2 + … + N: the size of the admitted rows is
+// kept as they are admitted (render.md "Whole rows"). Bytes counted grow linearly with N.
+func TestFitSizesIncrementally(t *testing.T) {
+	counted := func(n int, f Format) int {
+		d := &Doc{Head: []Part{{JSON: Envelope{Rows: "results"}}}, Total: n}
+		for i := range n {
+			d.Units = append(d.Units, Unit{Main: Part{Text: "r" + strconv.Itoa(i%10), JSON: Object{"r": i % 10}}})
+		}
+		d.Foot = func(State) Part { return Part{JSON: Object{}} }
+		total := 0
+		runesCounted = func(k int) { total += k }
+		defer func() { runesCounted = nil }()
+		if _, err := Fit(d, 1<<30, f); err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	for _, f := range []Format{Text, JSON} {
+		small, large := counted(200, f), counted(1600, f)
+		// Linear: eight times the rows, about eight times the bytes; quadratic would be about 64.
+		if large > 12*small {
+			t.Fatalf("format %d: %d bytes counted for 200 rows, %d for 1600", f, small, large)
+		}
 	}
 }

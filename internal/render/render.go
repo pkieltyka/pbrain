@@ -112,7 +112,15 @@ func budgetErr(limit, minimum int) error {
 	}
 }
 
-func runes(s string) int { return utf8.RuneCountInString(s) }
+// runesCounted, when set by a test, receives the length of every string runes counts.
+var runesCounted func(n int)
+
+func runes(s string) int {
+	if runesCounted != nil {
+		runesCounted(len(s))
+	}
+	return utf8.RuneCountInString(s)
+}
 
 // encodeJSON is the one encoder of every JSON piece: compact, HTML escaping off, no final newline.
 func encodeJSON(v any) (string, error) {
@@ -179,6 +187,66 @@ type page struct {
 	env    Envelope
 	// JSON caches, by shown unit.
 	rowEnc []string
+	// Size caches (render.md "Whole rows"): each unit's cost in the page's format, the running sum
+	// over the shown units, and the head's fixed cost. Fit keeps them current as it admits a unit,
+	// swaps in an alternative or adds an extra, so a trial costs no recount of the admitted rows.
+	cost      []int
+	sum       int
+	headCost  int
+	headLines int
+}
+
+// unitCost is unit i's share of the page size: its encoded row in JSON; in text, its chosen line
+// and its admitted extras, each with its line feed.
+func (p *page) unitCost(i int) int {
+	if p.f == JSON {
+		return runes(p.rowEnc[i])
+	}
+	n := runes(p.chosen[i].Text) + 1
+	for j := range p.extras[i] {
+		n += runes(p.d.Units[i].Extras[j].Text) + 1
+	}
+	return n
+}
+
+// resync measures the head and every unit and recomputes the shown sum from the page's fields.
+func (p *page) resync() {
+	p.headCost, p.headLines = 0, 0
+	for _, h := range p.d.Head {
+		if h.Text != "" {
+			p.headCost += runes(h.Text) + 1
+			p.headLines++
+		}
+	}
+	p.cost = make([]int, len(p.d.Units))
+	p.sum = 0
+	for i := range p.d.Units {
+		p.cost[i] = p.unitCost(i)
+		if i < p.shown {
+			p.sum += p.cost[i]
+		}
+	}
+}
+
+// setShown shows the first k units, keeping the sum current.
+func (p *page) setShown(k int) {
+	for p.shown < k {
+		p.sum += p.cost[p.shown]
+		p.shown++
+	}
+	for p.shown > k {
+		p.shown--
+		p.sum -= p.cost[p.shown]
+	}
+}
+
+// recost measures unit i again after its chosen part or its extras changed.
+func (p *page) recost(i int) {
+	old := p.cost[i]
+	p.cost[i] = p.unitCost(i)
+	if i < p.shown {
+		p.sum += p.cost[i] - old
+	}
 }
 
 func (p *page) state() State {
@@ -300,10 +368,7 @@ func (p *page) size() (int, error) {
 		}
 		n := runes(skel) + 1
 		if p.shown > 0 {
-			n += -1 + 2 + max(0, p.shown-1)
-			for _, s := range p.rowEnc[:p.shown] {
-				n += runes(s)
-			}
+			n += -1 + 2 + max(0, p.shown-1) + p.sum
 		}
 		if p.hints > 0 {
 			h, err := p.hintsArray()
@@ -314,37 +379,21 @@ func (p *page) size() (int, error) {
 		}
 		return n, nil
 	}
-	n := 0
-	lines := 0
-	for _, h := range p.d.Head {
-		if h.Text != "" {
-			n += runes(h.Text)
-			lines++
-		}
-	}
-	for i := range p.shown {
-		n += runes(p.chosen[i].Text)
-		lines++
-		for j := range p.extras[i] {
-			n += runes(p.d.Units[i].Extras[j].Text)
-			lines++
-		}
-	}
+	n := p.headCost + p.sum
 	last := foot.Text
 	if last != "" {
-		n += runes(last)
-		lines++
+		n += runes(last) + 1
 	}
 	if p.hints > 0 {
-		if last == "" && lines == 0 {
-			lines++
+		if last == "" && p.headLines == 0 && p.shown == 0 {
+			n++ // the hints make a line of their own
 		}
 		n += runes(" Alone: ") + runes(".") + 2*(p.hints-1)
 		for i := range p.hints {
 			n += runes(p.d.Hints[i].Text)
 		}
 	}
-	return n + lines, nil
+	return n, nil
 }
 
 // textParts lists the parts of the plain text output in output order, each with the number of its
@@ -515,13 +564,14 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 			}
 		}
 	}
+	p.resync()
 	fits := func() (bool, int, error) {
 		n, err := p.size()
 		return n <= limit, n, err
 	}
 	// The required output: zero units for an empty page, the first unit otherwise.
 	if len(d.Units) > 0 {
-		p.shown = 1
+		p.setShown(1)
 	}
 	ok, n, err := fits()
 	if err != nil {
@@ -531,11 +581,11 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 		return nil, budgetErr(limit, n)
 	}
 	for p.shown < len(d.Units) {
-		p.shown++
+		p.setShown(p.shown + 1)
 		if ok, _, err := fits(); err != nil {
 			return nil, err
 		} else if !ok {
-			p.shown--
+			p.setShown(p.shown - 1)
 			break
 		}
 	}
@@ -549,6 +599,7 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 					return nil, err
 				}
 			}
+			p.recost(i)
 			ok, _, err := fits()
 			if err != nil {
 				return nil, err
@@ -557,6 +608,7 @@ func Fit(d *Doc, limit int, f Format) ([]byte, error) {
 				break
 			}
 			p.chosen[i], p.rowEnc[i] = prev, prevEnc
+			p.recost(i)
 		}
 	}
 	// Extras in unit order, stopping at the first that does not fit.
@@ -569,6 +621,7 @@ extras:
 					return nil, err
 				}
 			}
+			p.recost(i)
 			ok, _, err := fits()
 			if err != nil {
 				return nil, err
@@ -580,6 +633,7 @@ extras:
 						return nil, err
 					}
 				}
+				p.recost(i)
 				break extras
 			}
 		}
@@ -873,7 +927,10 @@ func (b *bodyPage) render(slice string, colour bool, limit int) ([]byte, error) 
 		if err != nil {
 			return nil, err
 		}
-		used = fixed + b.sliceCost(utf8.RuneCountInString(slice), 0, strings.HasSuffix(slice, "\n"))
+		used = fixed
+		if b.nonEmpty() { // fixedSize already holds the whole response of an empty slice
+			used += b.sliceCost(utf8.RuneCountInString(slice), 0, strings.HasSuffix(slice, "\n"))
+		}
 	}
 	var out strings.Builder
 	for _, h := range b.d.Doc.Head {
