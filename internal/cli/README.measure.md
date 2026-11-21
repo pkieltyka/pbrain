@@ -1,7 +1,8 @@
 # Release measurements
 
-Run on Linux and on an arm64 Mac. Keep the machine idle and record its
-CPU, OS, filesystem, executable revision and the cache preparation
+Measure on Linux before the first release. Apple silicon Mac measurements
+are tracked separately in architecture §17. Keep the machine idle and
+record its CPU, OS, filesystem, executable revision and cache preparation
 method. The release targets are in functional spec §16 and architecture
 §§8.6–8.7. Publish the first sample separately from the warm samples.
 
@@ -43,9 +44,9 @@ and in model cases its second argument is the model directory. Describe
 which pages you actually evicted. The harness labels the first sample's
 cache state uncontrolled when the helper is absent.
 
-Measure architecture §8.7 rule 3 separately on both machines. The
-benchmark reads and verifies the model, opens it, embeds one query and
-closes it. Each line below the header is one timed run.
+Measure architecture §8.7 rule 3 separately from the full CLI timings.
+The benchmark reads and verifies the model, opens it, embeds one query
+and closes it. Each line below the header is one timed run.
 
 ```sh
 GOMAXPROCS=4 go test -p 2 -run '^$' -bench '^BenchmarkBgeFirstQuery$' \
@@ -54,6 +55,48 @@ GOMAXPROCS=4 go test -p 2 -run '^$' -bench '^BenchmarkBgeFirstQuery$' \
 
 For an EmbeddingGemma 2 release, use `BenchmarkGemmaFirstQuery` in
 `./internal/embed/gemma2` with the pinned pack.
+
+## bge-small-en-v1.5, Linux
+
+2026-11-21. Whole commands used the `9f53910` baseline, built with Go
+1.27.3, `CGO_ENABLED=0` and `-trimpath`. Linux 6.18.63 on an Intel Core
+Ultra 7 255H, btrfs, CPUs 0–3 and `GOMAXPROCS=4`. The generated fixture had
+5,000 items and 50,000,000 bytes, including 500 personal items. All commands
+used the local pinned model files. The first build started with an empty
+vector cache and includes process start. Peak RSS is the maximum resident
+set reported for the `pbrain` child, separate from the Go test process.
+
+| Command | Wall time | Peak RSS | Git calls |
+| --- | ---: | ---: | ---: |
+| First index, both sections | 6,072.9 s (1 h 41 m 13 s) | 1,350.9 MiB | 15 |
+| Index after one new personal note | 0.770 s | 469.1 MiB | 11 |
+
+The first build embedded 43,642 shared passages and 4,869 personal
+passages, with zero reuses in both sections. The total was 48,511 passages,
+or 7.99 passages/s across the whole build. The update embedded one personal
+passage and reused zero.
+
+Each search row has ten warm samples after an untimed priming read.
+The first sample's cache state was uncontrolled. Every sample had nine
+Git calls. The paraphrase and combined rows required the expected ID marked
+`semantic: true`. The lexical control omitted that ID.
+
+| Search and view | First (ms) | Warm median (ms) | Warm range (ms) | Max warm RSS (MiB) |
+| --- | ---: | ---: | ---: | ---: |
+| Semantic, shared, exact hit | 310.1 | 309.2 | 296.5–323.5 | 506.4 |
+| Semantic, shared, paraphrase | 279.0 | 302.3 | 284.9–321.4 | 503.9 |
+| Semantic + BM25, shared, paraphrase | 282.7 | 298.4 | 287.0–319.0 | 504.4 |
+| Semantic, personal, exact hit | 313.3 | 333.2 | 322.1–357.2 | 549.4 |
+| Semantic, personal, paraphrase | 344.6 | 331.8 | 309.8–361.3 | 546.8 |
+| Semantic + BM25, personal, paraphrase | 350.2 | 335.1 | 311.8–353.2 | 547.2 |
+
+Shared searches saw 4,500 items. Personal searches saw all 5,000. Across
+the personal lexical cases, warm search medians were 135.4–189.3 ms and
+the `--bm25` medians were 151.9–196.2 ms. The `get` median was 134.3 ms.
+
+In the separate Linux rule-3 run from `4eff5a7`, verifying files, opening
+the model, embedding one query and closing took 89–123 ms over five warm
+samples, with a median of 93 ms.
 
 ## EmbeddingGemma 2, Linux
 
