@@ -50,6 +50,34 @@ semantic gates and their combined gate all pass. Exit 1 means one or
 more gates failed. An incomplete index or a semantic fallback stops
 the evaluation as an error instead of counting a lexical-only page.
 
+## bge-small release check
+
+Tool `8ecfb9e` selected cutoff **0.65** on the frozen calibration half.
+On 47 answerable questions, expected IDs on the first page rose from 16
+with strict search to 40 with semantic search. Every strict success
+was preserved. The held-out results were:
+
+| Arm | Empty of 30 | Expected IDs on first page, of 47 |
+|---|---:|---:|
+| Strict | 30 | 16 |
+| Partial tier | 30 | 22 |
+| Hybrid | 29 | 40 |
+| Both flags | 29 | 40 |
+
+The only nonempty unanswerable result in either model arm was `u036`.
+It had no literal match and was outside the marked regression set.
+All regressions passed. Hybrid reached the evidence on four of six
+long-source questions, compared with zero for strict search. All eight
+personal controls opened and the shared replay was byte-identical.
+Standalone model eligibility and the combined BM25 gate both passed.
+The two reports differed only in timing fields.
+
+On Linux, the wired candidate's 35-item fixture took 9.0 s for the first
+index including the model download, 131–164 ms for a no-op index, and
+171–208 ms for semantic search across ten runs. Peak RSS was 214 MB
+for the first index and 151 MB for semantic search. The 5,000-item
+release workload is measured separately.
+
 ## Phase 18 gate
 
 The frozen questions have SHA-256
