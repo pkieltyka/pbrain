@@ -84,7 +84,7 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 
 ## Measured speed
 
-| Release measurement (5,000 items, 50 MB) | Linux | Apple silicon Mac (untested, deferred) |
+| Release measurement (5,000 items, 50 MB) | Linux (Intel Core Ultra 7 255H) | Apple silicon Mac (untested, deferred) |
 | --- | --- | --- |
 | Lexical search / get, personal view | 135–189 ms / 134 ms | Not yet measured |
 | BGE semantic search, shared view (4,500 visible items) | 302–309 ms | Not yet measured |
@@ -93,4 +93,6 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 | BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
 | EmbeddingGemma 2, full-size measurements | Deferred until the model is cleared for use | Not yet measured |
 
-Search and get figures are warm medians on four CPUs. [Method and peak memory](internal/cli/README.measure.md)
+Search and get figures are warm medians on four CPUs. On four cores of a Ryzen 9 7950X the first index
+took 1 h 18 m, and the semantic search medians were 291–298 ms in the shared view and 321–326 ms in the
+personal view. [Method, both machines and peak memory](internal/cli/README.measure.md)
