@@ -34,10 +34,10 @@ github.com/ncruces/go-strftime v1.1.0 h1:vtPmPWMkb539RGV9WpWT9EwJGvrOCKvMNI4obWL
 github.com/ncruces/go-strftime v1.1.0/go.mod h1:yVaq7iwCN09vHRrKBrrflXT0M9tTMG2KmZ9Fj7xeG/g=
 github.com/pkieltyka/aikit v1.79.1 h1:J8fGlbr5HlGBukmT1U/B4JhdeGWhPw+DJnZEaYamTnk=
 github.com/pkieltyka/aikit v1.79.1/go.mod h1:VoICCiLubSklB6hXh3LvUOA6lSBOPE/IDb2fDTHMeuc=
-github.com/pkieltyka/goinfer v0.6.0 h1:57VqkIoyBkExKurgcx5y2lWvuYvlmli6+193zvlBNDs=
-github.com/pkieltyka/goinfer v0.6.0/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
-github.com/pkieltyka/goinfer/backend/cuda v0.5.0 h1:s3gNDpxT1kG1LYt7GE9D5GWbcX6/dEkA2EX8yx3Ygfw=
-github.com/pkieltyka/goinfer/backend/cuda v0.5.0/go.mod h1:da2wNLt97yG3z0E2yyyq0pr1PLc6eklvtkbOQ1s7+pw=
+github.com/pkieltyka/goinfer v0.6.1 h1:47P7WBMDmV8snWd+opXSt2Dr8Jm6UCpYCdBuU9czuhM=
+github.com/pkieltyka/goinfer v0.6.1/go.mod h1:/+U/HqKR7+4gCgDPF7F6J+lfz3hmfjVkwXlgKa+ZdFs=
+github.com/pkieltyka/goinfer/backend/cuda v0.6.1 h1:iB2wY3XniF7F1w6Md590wh5iNxjn99XaQ6yzf7j/piM=
+github.com/pkieltyka/goinfer/backend/cuda v0.6.1/go.mod h1:OdiOBpBTkpqMuiyPcSircqESFwnbSMndCyVWdAKXG8s=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
