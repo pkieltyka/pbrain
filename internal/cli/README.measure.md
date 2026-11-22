@@ -472,6 +472,47 @@ then use the build and run commands in `host-build-model.log` with an
 empty cache, empty section index directories in a scratch copy of the
 fixture, and the local model pack. The patch is for the scratch build.
 
+### Full-size bge-small sync after releasing completed work (#34)
+
+Compared the #19 baseline (`b67cdff542605477c2312f085af7033590f2b638`)
+with candidate `3b38ee7280c07d61088b18dd38662a45a45e21df`. Both used
+the same profiling patch, verified BGE pack, and 5,000-item, 50,000,000-byte
+corpus on the Ryzen 9 7950X with CPUs 0–3, 124.9 GiB RAM, Linux 7.3.4,
+btrfs and Go 1.27.3. The candidate used an empty vector cache and empty
+indexes. The sorted Markdown content hashes matched the baseline.
+Each run embedded all 43,642 shared and 4,869 personal passages.
+
+| Peak metric | Baseline | Candidate |
+| --- | ---: | ---: |
+| Sampled RSS | 1,297.8 MiB | 997.8 MiB |
+| Maximum RSS from GNU time | 1,296.9 MiB | 996.9 MiB |
+| Go heap arena RSS at the sampled peak | 885.3 MiB | 579.1 MiB |
+| Go heap profile in-use sample total | 400.7 MiB | 234.7 MiB |
+| Shared items indexed at the sampled peak | 4,259 | 4,408 |
+
+Sampled peak RSS fell by **300.0 MiB (23.1%)**. The candidate peaked
+during a checkpoint with both 86.8 MiB serialization buffers live.
+The Go heap arena accounted for the reduction. In the candidate peak
+profile, file buffers were down from 44.5 to about 1 MiB, and passage
+text and vectors had no sampled live allocations. The peak profiles
+reflect different points in the GC cycle. The candidate took
+1 h 24 m 46 s, with one-minute host load averaging about 11 at the
+start and about 4 later in the run.
+
+Both final SQLite databases passed `PRAGMA quick_check` on each run.
+The shared database was byte-identical. The personal files differed
+by 121 bytes, all on the `meta` table's page. The four metadata rows
+matched, and their insertion order can vary because the build ranges
+over a Go map. Ordered comparisons of every column in `item` and
+`passage` matched across both sections, including all 48,511 vector
+blobs.
+
+See the [run provenance](../../tools/phase28/evidence/bge-pax-34/host-build-model.log),
+[load and GPU checks](../../tools/phase28/evidence/bge-pax-34/preflight.jsonl),
+[RSS samples](../../tools/phase28/evidence/bge-pax-34/memory-samples.jsonl),
+[peak Go profile](../../tools/phase28/evidence/bge-pax-34/peak-heap.pb.gz),
+and [database comparisons](../../tools/phase28/evidence/bge-pax-34/database-comparison.jsonl).
+
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both

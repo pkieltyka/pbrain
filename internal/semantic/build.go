@@ -225,11 +225,12 @@ func (b *builder) run() (BuildResult, error) {
 
 	// Step 6: what to do and what is dead.
 	seen := map[string]bool{}
-	var todo []*work
-	bodies := map[*work]struct {
+	type uncutItem struct {
+		work  *work
 		title string
 		body  []byte
-	}{}
+	}
+	var todo []uncutItem
 	for _, it := range b.in.Items {
 		rel, ok := relPath(b.sec.Root, it.Path)
 		if !ok {
@@ -245,13 +246,11 @@ func (b *builder) run() (BuildResult, error) {
 			continue
 		}
 		w := newWork(rel, it.Header.Title, body, check)
-		todo = append(todo, w)
-		bodies[w] = struct {
-			title string
-			body  []byte
-		}{it.Header.Title, body}
+		todo = append(todo, uncutItem{w, it.Header.Title, body})
 	}
-	slices.SortFunc(todo, func(a, c *work) int { return strings.Compare(a.path, c.path) })
+	// The queued body slices now own the scan bytes they still need.
+	b.in = SectionInput{}
+	slices.SortFunc(todo, func(a, c uncutItem) int { return strings.Compare(a.work.path, c.work.path) })
 	var dead []string
 	for p := range x.items {
 		if !seen[p] {
@@ -266,9 +265,9 @@ func (b *builder) run() (BuildResult, error) {
 	// Steps 7 to 10.
 	var pending []*work
 	var queue []queued
-	for _, w := range todo {
-		src := bodies[w]
-		delete(bodies, w)
+	for i, src := range todo {
+		todo[i] = uncutItem{}
+		w := src.work
 		missing, err := b.si.cut(ctx, w, src.title, src.body)
 		if err != nil {
 			return b.res, err
@@ -432,13 +431,15 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 			}
 		}
 	}
-	for _, w := range pending {
+	clear(queue) // only pending needs to keep the embedded work now
+	for i, w := range pending {
 		if err := b.si.store(ctx, w); err != nil {
 			return err
 		}
 		b.changed = true
 		b.res.PassagesReused += w.reused
 		b.res.PassagesEmbedded += len(w.ps) - w.reused
+		pending[i] = nil
 		b.done++
 		if b.now().Sub(b.lastPub) >= publishEvery {
 			if err := b.publish(); err != nil {
