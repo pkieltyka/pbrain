@@ -1,0 +1,665 @@
+[
+  {
+    "arm": "b-control",
+    "device": "cpu",
+    "rule3_ms": [
+      354.297261,
+      336.935838,
+      341.324212,
+      347.322315,
+      349.509001
+    ],
+    "median_rule3_ms": 347.322315,
+    "under_600_ms": 5,
+    "rule3_peak_host_mib": 1100.6953125,
+    "stages": [
+      {
+        "verify": {
+          "ms": 190.696725,
+          "MiB": 537.69921875
+        },
+        "decode CPU runtime": {
+          "ms": 76.467586,
+          "MiB": 1087.96875
+        },
+        "query": {
+          "ms": 75.5429,
+          "MiB": 1100.84765625
+        },
+        "after GC with model live": {
+          "ms": 1.515499,
+          "MiB": 1100.98046875
+        },
+        "close": {
+          "ms": 0.000411,
+          "MiB": 1100.984375
+        }
+      },
+      {
+        "verify": {
+          "ms": 193.127832,
+          "MiB": 537.41015625
+        },
+        "decode CPU runtime": {
+          "ms": 74.218746,
+          "MiB": 1087.90234375
+        },
+        "query": {
+          "ms": 75.228343,
+          "MiB": 1100.8125
+        },
+        "after GC with model live": {
+          "ms": 1.514546,
+          "MiB": 1100.96484375
+        },
+        "close": {
+          "ms": 0.000461,
+          "MiB": 1100.96484375
+        }
+      },
+      {
+        "verify": {
+          "ms": 192.108016,
+          "MiB": 537.32421875
+        },
+        "decode CPU runtime": {
+          "ms": 75.919566,
+          "MiB": 1085.90625
+        },
+        "query": {
+          "ms": 73.671045,
+          "MiB": 1100.7734375
+        },
+        "after GC with model live": {
+          "ms": 1.487505,
+          "MiB": 1100.9453125
+        },
+        "close": {
+          "ms": 0.000481,
+          "MiB": 1100.9453125
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 192.108016,
+      "MiB": 537.41015625
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 75.919566,
+      "MiB": 1087.90234375
+    },
+    "median_query": {
+      "ms": 75.228343,
+      "MiB": 1100.8125
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 1.514546,
+      "MiB": 1100.96484375
+    },
+    "median_close": {
+      "ms": 0.000461,
+      "MiB": 1100.96484375
+    }
+  },
+  {
+    "arm": "b-control",
+    "device": "cuda",
+    "rule3_ms": [
+      1009.378602,
+      1045.717305,
+      971.555147,
+      947.790992,
+      1013.653939
+    ],
+    "median_rule3_ms": 1009.378602,
+    "under_600_ms": 0,
+    "rule3_peak_host_mib": 1804.35546875,
+    "stages": [
+      {
+        "verify": {
+          "ms": 193.292778,
+          "MiB": 544.75
+        },
+        "decode CPU runtime": {
+          "ms": 76.355344,
+          "MiB": 1093.30859375
+        },
+        "direct CUDA attach": {
+          "ms": 501.707652,
+          "MiB": 1781.71484375
+        },
+        "query": {
+          "ms": 16.155184,
+          "MiB": 1782.14453125
+        },
+        "after GC with model live": {
+          "ms": 1.578889,
+          "MiB": 1782.28515625
+        },
+        "close": {
+          "ms": 71.408509,
+          "MiB": 1659.546875
+        }
+      },
+      {
+        "verify": {
+          "ms": 197.071235,
+          "MiB": 544.6484375
+        },
+        "decode CPU runtime": {
+          "ms": 77.565363,
+          "MiB": 1095.140625
+        },
+        "direct CUDA attach": {
+          "ms": 506.752584,
+          "MiB": 1783.49609375
+        },
+        "query": {
+          "ms": 16.307182,
+          "MiB": 1783.7578125
+        },
+        "after GC with model live": {
+          "ms": 2.527751,
+          "MiB": 1783.890625
+        },
+        "close": {
+          "ms": 67.367995,
+          "MiB": 1661.14453125
+        }
+      },
+      {
+        "verify": {
+          "ms": 195.007816,
+          "MiB": 545.08984375
+        },
+        "decode CPU runtime": {
+          "ms": 78.439463,
+          "MiB": 1092.37890625
+        },
+        "direct CUDA attach": {
+          "ms": 501.201391,
+          "MiB": 1781.07421875
+        },
+        "query": {
+          "ms": 16.103967,
+          "MiB": 1781.58203125
+        },
+        "after GC with model live": {
+          "ms": 1.587805,
+          "MiB": 1781.71484375
+        },
+        "close": {
+          "ms": 70.220462,
+          "MiB": 1659.0078125
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 195.007816,
+      "MiB": 544.75
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 77.565363,
+      "MiB": 1093.30859375
+    },
+    "median_direct_CUDA_attach": {
+      "ms": 501.707652,
+      "MiB": 1781.71484375
+    },
+    "median_query": {
+      "ms": 16.155184,
+      "MiB": 1782.14453125
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 1.587805,
+      "MiB": 1782.28515625
+    },
+    "median_close": {
+      "ms": 70.220462,
+      "MiB": 1659.546875
+    },
+    "rule3_peak_device_mib": 1082
+  },
+  {
+    "arm": "c",
+    "device": "cpu",
+    "rule3_ms": [
+      955.473383,
+      909.511788,
+      944.503138,
+      933.813146,
+      920.614174
+    ],
+    "median_rule3_ms": 933.813146,
+    "under_600_ms": 0,
+    "rule3_peak_host_mib": 1400.9453125,
+    "stages": [
+      {
+        "verify": {
+          "ms": 209.097234,
+          "MiB": 306.22265625
+        },
+        "decode CPU runtime": {
+          "ms": 636.535578,
+          "MiB": 1390.46484375
+        },
+        "query": {
+          "ms": 72.49402,
+          "MiB": 1399.41015625
+        },
+        "after GC with model live": {
+          "ms": 1.541288,
+          "MiB": 1399.484375
+        },
+        "close": {
+          "ms": 0.000491,
+          "MiB": 1399.48828125
+        }
+      },
+      {
+        "verify": {
+          "ms": 211.667395,
+          "MiB": 306.23046875
+        },
+        "decode CPU runtime": {
+          "ms": 635.083861,
+          "MiB": 1389.71484375
+        },
+        "query": {
+          "ms": 73.290343,
+          "MiB": 1399.44140625
+        },
+        "after GC with model live": {
+          "ms": 1.703124,
+          "MiB": 1399.51171875
+        },
+        "close": {
+          "ms": 0.000632,
+          "MiB": 1399.51171875
+        }
+      },
+      {
+        "verify": {
+          "ms": 207.596063,
+          "MiB": 306.55078125
+        },
+        "decode CPU runtime": {
+          "ms": 637.876344,
+          "MiB": 1390.20703125
+        },
+        "query": {
+          "ms": 73.592145,
+          "MiB": 1399.4453125
+        },
+        "after GC with model live": {
+          "ms": 1.570974,
+          "MiB": 1399.51171875
+        },
+        "close": {
+          "ms": 0.000441,
+          "MiB": 1399.515625
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 209.097234,
+      "MiB": 306.23046875
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 636.535578,
+      "MiB": 1390.20703125
+    },
+    "median_query": {
+      "ms": 73.290343,
+      "MiB": 1399.44140625
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 1.570974,
+      "MiB": 1399.51171875
+    },
+    "median_close": {
+      "ms": 0.000491,
+      "MiB": 1399.51171875
+    }
+  },
+  {
+    "arm": "c",
+    "device": "cuda",
+    "rule3_ms": [
+      1270.30131,
+      1312.938474,
+      1263.445985,
+      1261.560996,
+      1250.460935
+    ],
+    "median_rule3_ms": 1263.445985,
+    "under_600_ms": 0,
+    "rule3_peak_host_mib": 1589.19921875,
+    "stages": [
+      {
+        "verify": {
+          "ms": 210.032273,
+          "MiB": 313.6328125
+        },
+        "decode CPU runtime": {
+          "ms": 637.675521,
+          "MiB": 1397.70703125
+        },
+        "direct CUDA attach": {
+          "ms": 235.819491,
+          "MiB": 1572.94921875
+        },
+        "query": {
+          "ms": 16.200631,
+          "MiB": 1573.23828125
+        },
+        "after GC with model live": {
+          "ms": 2.319706,
+          "MiB": 1573.265625
+        },
+        "close": {
+          "ms": 66.273075,
+          "MiB": 1447.30078125
+        }
+      },
+      {
+        "verify": {
+          "ms": 217.527719,
+          "MiB": 313.625
+        },
+        "decode CPU runtime": {
+          "ms": 639.894887,
+          "MiB": 1397.48046875
+        },
+        "direct CUDA attach": {
+          "ms": 269.000303,
+          "MiB": 1572.765625
+        },
+        "query": {
+          "ms": 16.14731,
+          "MiB": 1573.00390625
+        },
+        "after GC with model live": {
+          "ms": 2.200229,
+          "MiB": 1573.03125
+        },
+        "close": {
+          "ms": 65.772895,
+          "MiB": 1446.78515625
+        }
+      },
+      {
+        "verify": {
+          "ms": 207.623798,
+          "MiB": 313.6171875
+        },
+        "decode CPU runtime": {
+          "ms": 640.47015,
+          "MiB": 1397.55078125
+        },
+        "direct CUDA attach": {
+          "ms": 265.317788,
+          "MiB": 1572.8046875
+        },
+        "query": {
+          "ms": 16.119286,
+          "MiB": 1572.96875
+        },
+        "after GC with model live": {
+          "ms": 2.179169,
+          "MiB": 1573.00390625
+        },
+        "close": {
+          "ms": 66.379628,
+          "MiB": 1447.0625
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 210.032273,
+      "MiB": 313.625
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 639.894887,
+      "MiB": 1397.55078125
+    },
+    "median_direct_CUDA_attach": {
+      "ms": 265.317788,
+      "MiB": 1572.8046875
+    },
+    "median_query": {
+      "ms": 16.14731,
+      "MiB": 1573.00390625
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 2.200229,
+      "MiB": 1573.03125
+    },
+    "median_close": {
+      "ms": 66.273075,
+      "MiB": 1447.0625
+    },
+    "rule3_peak_device_mib": 964
+  },
+  {
+    "arm": "d",
+    "device": "cpu",
+    "rule3_ms": [
+      1022.845303,
+      1035.256837,
+      1048.590243,
+      1034.726402,
+      1044.539108
+    ],
+    "median_rule3_ms": 1035.256837,
+    "under_600_ms": 0,
+    "rule3_peak_host_mib": 1341.1953125,
+    "stages": [
+      {
+        "verify": {
+          "ms": 169.53382,
+          "MiB": 248.08203125
+        },
+        "decode CPU runtime": {
+          "ms": 796.222125,
+          "MiB": 1333.00390625
+        },
+        "query": {
+          "ms": 73.273019,
+          "MiB": 1341.390625
+        },
+        "after GC with model live": {
+          "ms": 2.164672,
+          "MiB": 1341.45703125
+        },
+        "close": {
+          "ms": 0.000521,
+          "MiB": 1341.4609375
+        }
+      },
+      {
+        "verify": {
+          "ms": 176.538003,
+          "MiB": 247.9296875
+        },
+        "decode CPU runtime": {
+          "ms": 893.599547,
+          "MiB": 1332.89453125
+        },
+        "query": {
+          "ms": 76.222271,
+          "MiB": 1341.37109375
+        },
+        "after GC with model live": {
+          "ms": 1.579209,
+          "MiB": 1341.44140625
+        },
+        "close": {
+          "ms": 0.000511,
+          "MiB": 1341.4453125
+        }
+      },
+      {
+        "verify": {
+          "ms": 169.679037,
+          "MiB": 247.91796875
+        },
+        "decode CPU runtime": {
+          "ms": 792.847889,
+          "MiB": 1332.96875
+        },
+        "query": {
+          "ms": 73.904258,
+          "MiB": 1341.4296875
+        },
+        "after GC with model live": {
+          "ms": 1.585641,
+          "MiB": 1341.5
+        },
+        "close": {
+          "ms": 0.000471,
+          "MiB": 1341.50390625
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 169.679037,
+      "MiB": 247.9296875
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 796.222125,
+      "MiB": 1332.96875
+    },
+    "median_query": {
+      "ms": 73.904258,
+      "MiB": 1341.390625
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 1.585641,
+      "MiB": 1341.45703125
+    },
+    "median_close": {
+      "ms": 0.000511,
+      "MiB": 1341.4609375
+    }
+  },
+  {
+    "arm": "d",
+    "device": "cuda",
+    "rule3_ms": [
+      1439.393673,
+      1369.946129,
+      1425.513215,
+      1399.086082,
+      1494.583677
+    ],
+    "median_rule3_ms": 1425.513215,
+    "under_600_ms": 0,
+    "rule3_peak_host_mib": 1531.703125,
+    "stages": [
+      {
+        "verify": {
+          "ms": 167.207574,
+          "MiB": 255.35546875
+        },
+        "decode CPU runtime": {
+          "ms": 789.867185,
+          "MiB": 1340.88671875
+        },
+        "direct CUDA attach": {
+          "ms": 272.299098,
+          "MiB": 1516.078125
+        },
+        "query": {
+          "ms": 16.203225,
+          "MiB": 1516.25
+        },
+        "after GC with model live": {
+          "ms": 2.052228,
+          "MiB": 1516.28515625
+        },
+        "close": {
+          "ms": 65.201369,
+          "MiB": 1389.94140625
+        }
+      },
+      {
+        "verify": {
+          "ms": 169.425296,
+          "MiB": 255.36328125
+        },
+        "decode CPU runtime": {
+          "ms": 793.578624,
+          "MiB": 1340.91015625
+        },
+        "direct CUDA attach": {
+          "ms": 264.949138,
+          "MiB": 1516.515625
+        },
+        "query": {
+          "ms": 16.011762,
+          "MiB": 1516.8359375
+        },
+        "after GC with model live": {
+          "ms": 2.359932,
+          "MiB": 1516.9140625
+        },
+        "close": {
+          "ms": 66.734041,
+          "MiB": 1390.3515625
+        }
+      },
+      {
+        "verify": {
+          "ms": 166.829636,
+          "MiB": 255.36328125
+        },
+        "decode CPU runtime": {
+          "ms": 796.376299,
+          "MiB": 1340.546875
+        },
+        "direct CUDA attach": {
+          "ms": 264.372292,
+          "MiB": 1516.6484375
+        },
+        "query": {
+          "ms": 16.235607,
+          "MiB": 1516.80859375
+        },
+        "after GC with model live": {
+          "ms": 2.04259,
+          "MiB": 1516.83203125
+        },
+        "close": {
+          "ms": 65.899024,
+          "MiB": 1390.73046875
+        }
+      }
+    ],
+    "median_verify": {
+      "ms": 167.207574,
+      "MiB": 255.36328125
+    },
+    "median_decode_CPU_runtime": {
+      "ms": 793.578624,
+      "MiB": 1340.88671875
+    },
+    "median_direct_CUDA_attach": {
+      "ms": 264.949138,
+      "MiB": 1516.515625
+    },
+    "median_query": {
+      "ms": 16.203225,
+      "MiB": 1516.80859375
+    },
+    "median_after_GC_with_model_live": {
+      "ms": 2.052228,
+      "MiB": 1516.83203125
+    },
+    "median_close": {
+      "ms": 65.899024,
+      "MiB": 1390.3515625
+    },
+    "rule3_peak_device_mib": 1084
+  }
+]

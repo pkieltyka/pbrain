@@ -602,3 +602,48 @@ memory. The current run was 14.2%
 faster by passage rate, with newer batching and lower host load.
 
 [Commands and raw measurements](../../tools/phase28/evidence/sync-pax-43/)
+
+## EmbeddingGemma 2 GGUF on goinfer v0.6.1 (#47)
+
+2026-11-22. The scratch evaluator used the published `LoadGGUFEncoderReaderAt`
+and `Encoder.Tokenizer` APIs with verified files. The control was the pinned
+Google pack in the same evaluator. The root and CUDA modules were both
+v0.6.1. All runs used four physical cores of a Ryzen 9 7950X on pax, with
+primed file caches. CUDA runs selected the RTX PRO 6000.
+
+Decode is the median of three opens from verified bytes. First-query time
+is the median of five fresh processes and includes verification, open,
+one query and close. Peak host RSS is the maximum of those five processes.
+Settled host RSS is the median after the diagnostic query and garbage
+collection, with the model live. Device memory is sampled at 100 ms.
+
+| Pack | Bytes | Decode ms, CPU / CUDA | First query ms, CPU / CUDA | Host peak/settled MiB, CPU | Host peak/settled MiB, CUDA | CUDA peak MiB |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Google | 551,641,057 | 75.9 / 77.6 | 347.3 / 1,009.4 | 1,100.7 / 1,101.0 | 1,804.4 / 1,782.3 | 1,082 |
+| Q8_0 | 309,855,520 | 636.5 / 639.9 | 933.8 / 1,263.4 | 1,400.9 / 1,399.5 | 1,589.2 / 1,573.0 | 964 |
+| UD-Q6_K_XL | 248,812,032 | 796.2 / 793.6 | 1,035.3 / 1,425.5 | 1,341.2 / 1,341.5 | 1,531.7 / 1,516.8 | 1,084 |
+
+The Google pack met the 600 ms CPU rule in all five samples (336.9–354.3 ms).
+Q8_0 (909.5–955.5 ms) and UD-Q6_K_XL (1,022.8–1,048.6 ms) missed it in all
+five. CUDA times measure the adapter directly. Production search uses CPU.
+
+Both GGUFs passed rule 2 against the same pinned file loaded by the
+llama.cpp CPU probe at `8d60873dfb8619f2b5ed31adfbab07cccb40db5c`. The
+adapter and probe used matching prepared IDs for 22 reference texts and
+59 passages. Every one of the 162 comparisons per device and quant met
+cosine 0.999, at 768 dimensions and the normalized 512-prefix.
+
+| Quant | Same-file minimum cosine, CPU / CUDA | Vs Google, 59 passages min / median | Vs Google, 1,223 CUDA passages min / median | Dense top-10 overlap / product Jaccard vs Google |
+| --- | ---: | ---: | ---: | ---: |
+| Q8_0 | 0.999851 / 0.999851 | 0.999839 / 0.999923 | 0.999491 / 0.999869 | 99.61% / 100.00% |
+| UD-Q6_K_XL | 0.999107 / 0.999107 | 0.998660 / 0.999423 | 0.994587 / 0.998899 | 97.66% / 99.24% |
+
+The 59-passage and ranking comparisons round the same on both devices.
+All three models independently fitted 0.72 on the calibration negatives
+and passed both retrieval gates on CPU- and CUDA-built indexes. Each gave
+39/47 first, 42/47 top three and first-page hits, and 30/30 held-out
+abstentions. Product Jaccard covers the 44 nonempty unions of 77 held-out
+queries; 33 pairs had two empty results. The quality and rule-2 gates
+passed, and the CPU first-query gate still prevents admission of either quant.
+
+[Commands and raw measurements](../../tools/phase28/evidence/gguf-47/)
