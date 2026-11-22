@@ -1,0 +1,16 @@
+{"at": "2026-11-22T15:08:41Z", "case": "bge-16-1", "host_busy_pct": 2.7845338322419706, "loadavg": "1.18 3.75 3.28 1/3674 592899", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T15:08:51Z", "case": "bge-16-1", "host_busy_pct": 2.6424159231297186, "loadavg": "1.07 3.64 3.25 1/3662 593040", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T15:30:27Z", "case": "bge-32-1", "host_busy_pct": 1.5474370573737248, "loadavg": "12.38 14.50 12.31 1/3571 645814", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T15:30:37Z", "case": "bge-32-1", "host_busy_pct": 1.4761875039011298, "loadavg": "10.55 14.04 12.19 1/3568 645930", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T15:51:14Z", "case": "bge-32-2", "host_busy_pct": 1.9867756222319257, "loadavg": "26.06 28.68 24.84 1/3602 667970", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T15:51:24Z", "case": "bge-32-2", "host_busy_pct": 1.6501341318859566, "loadavg": "22.06 27.74 24.58 1/3604 668110", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T16:12:12Z", "case": "bge-16-2", "host_busy_pct": 1.3656772262409578, "loadavg": "18.31 28.25 27.98 1/3663 690355", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T16:12:22Z", "case": "bge-16-2", "host_busy_pct": 0.7143971299329278, "loadavg": "15.50 27.32 27.68 2/3626 690480", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T16:33:39Z", "case": "bge-16-3", "host_busy_pct": 0.836063016690064, "loadavg": "11.10 13.95 17.55 2/3588 706929", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T16:33:49Z", "case": "bge-16-3", "host_busy_pct": 0.854807512322955, "loadavg": "9.62 13.54 17.38 1/3634 707098", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T16:55:01Z", "case": "bge-32-3", "host_busy_pct": 0.9642088182981247, "loadavg": "10.87 13.57 15.01 1/3628 724622", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T16:55:11Z", "case": "bge-32-3", "host_busy_pct": 0.789317692571678, "loadavg": "9.20 13.13 14.84 1/3612 724766", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T17:15:34Z", "case": "gemma-cuda", "host_busy_pct": 0.7986273592263298, "loadavg": "26.74 28.26 25.16 1/3592 740048", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T17:15:44Z", "case": "gemma-cuda", "host_busy_pct": 0.8391826548120419, "loadavg": "22.62 27.33 24.89 1/3616 740197", "nvidia_compute": "", "quiet_samples": 2}
+{"at": "2026-11-22T18:17:16Z", "case": "bge-16-repeat-1", "host_busy_pct": 1.0605115408608858, "loadavg": "0.87 1.09 1.57 1/3594 790734", "nvidia_compute": "", "quiet_samples": 1}
+{"at": "2026-11-22T18:17:26Z", "case": "bge-16-repeat-1", "host_busy_pct": 1.2663360469105767, "loadavg": "0.73 1.06 1.55 1/3609 790967", "nvidia_compute": "", "quiet_samples": 2}

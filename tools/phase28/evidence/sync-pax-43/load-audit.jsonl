@@ -1,0 +1,7 @@
+{"case": "bge-16-1", "excluded_for_background_load": true, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 6, "peak_other_logical_cpus": 9.423981777352543}
+{"case": "bge-32-1", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 1.7950748828928738}
+{"case": "bge-32-2", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 1.6183715049374832}
+{"case": "bge-16-2", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 0.5504382378728485}
+{"case": "bge-16-3", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 0.9699732040221631}
+{"case": "bge-32-3", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 0.7429085671205176}
+{"case": "bge-16-repeat-1", "excluded_for_background_load": false, "max_consecutive_intervals_with_four_or_more_other_logical_cpus": 0, "peak_other_logical_cpus": 1.9609378399221524}

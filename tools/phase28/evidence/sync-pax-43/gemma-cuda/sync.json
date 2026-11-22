@@ -1,0 +1,1 @@
+{"model":"embeddinggemma-2","sections":[{"device":"cuda:0","items":4500,"items_removed":0,"passages_embedded":43642,"passages_reused":0,"section":"shared"},{"device":"cuda:0","items":500,"items_removed":0,"passages_embedded":4869,"passages_reused":0,"section":"personal"}]}
