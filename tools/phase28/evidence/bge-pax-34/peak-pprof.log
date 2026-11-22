@@ -1,0 +1,28 @@
+go tool pprof -top -inuse_space -nodecount=20 -nodefraction=0 peak-heap.pb.gz
+File: pbrain-profile
+Build ID: fa5baaa7063d037baa828904dd5bbe2146ad054a
+Type: inuse_space
+Time: 2026-11-22 02:43:03 EST
+Showing nodes accounting for 234.65MB, 100% of 234.65MB total
+Showing top 20 nodes out of 99
+      flat  flat%   sum%        cum   cum%
+  127.29MB 54.25% 54.25%   127.29MB 54.25%  github.com/pkieltyka/pbrain/internal/embed.readOne
+   86.34MB 36.79% 91.04%    86.34MB 36.79%  modernc.org/sqlite.(*conn).Serialize
+   12.78MB  5.45% 96.48%    12.78MB  5.45%  github.com/pkieltyka/aikit/encoder.ensureF32 (inline)
+    1.50MB  0.64% 97.12%     1.50MB  0.64%  runtime.mallocgc
+    1.50MB  0.64% 97.76%     1.50MB  0.64%  internal/bytealg.MakeNoZero
+    1.05MB  0.45% 98.21%     1.05MB  0.45%  github.com/pkieltyka/aikit/embed.(*wpCache).put
+    1.03MB  0.44% 98.65%     1.03MB  0.44%  reflect.mapassign_faststr0
+    1.01MB  0.43% 99.08%     1.01MB  0.43%  io.ReadAll
+    0.64MB  0.27% 99.35%   103.35MB 44.04%  github.com/pkieltyka/pbrain/internal/semantic.(*builder).run
+    0.52MB  0.22% 99.57%     0.52MB  0.22%  github.com/pkieltyka/pbrain/internal/semantic.(*indexDB).putItem
+    0.50MB  0.21% 99.79%     0.50MB  0.21%  regexp.(*bitState).reset
+    0.50MB  0.21%   100%     0.50MB  0.21%  github.com/pkieltyka/aikit/embed.(*Tokenizer).wordPieceCompute
+         0     0%   100%    86.34MB 36.79%  database/sql.(*Conn).Raw
+         0     0%   100%     1.03MB  0.44%  encoding/json.Unmarshal (inline)
+         0     0%   100%     1.03MB  0.44%  encoding/json/v2.Unmarshal
+         0     0%   100%     1.03MB  0.44%  encoding/json/v2.makeMapArshaler.func3
+         0     0%   100%     1.03MB  0.44%  encoding/json/v2.makeStructArshaler.func3
+         0     0%   100%     1.03MB  0.44%  encoding/json/v2.unmarshalDecode
+         0     0%   100%     1.55MB  0.66%  github.com/pkieltyka/aikit/embed.(*Tokenizer).Encode
+         0     0%   100%     1.55MB  0.66%  github.com/pkieltyka/aikit/embed.(*Tokenizer).encodeSegment
