@@ -105,7 +105,7 @@ package embed
 // OpenOptions says what the caller wants the model to run on. The zero value is the CPU.
 type OpenOptions struct {
     // Device is a selector: "" or "cpu"; "auto"; a backend ("cuda"); or one device ("cuda:0", or
-    // the persistent id the listing prints). See "Devices".
+    // "cuda:" and the persistent id the listing prints). See "Devices".
     Device string
     // MemoryBudget, when positive, replaces the VRAM rule: bytes of device memory for one batch's
     // working set. Ignored on the CPU.
@@ -136,7 +136,7 @@ type RunInfo struct {
 // DeviceInfo is one line of the listing.
 type DeviceInfo struct {
     ID, Backend, Name     string // "cuda:0", "cuda", "NVIDIA RTX PRO 6000 …"; ID "cpu" for the CPU
-    Persistent            string // the runtime's lasting id for this device, or ""
+    Persistent            string // its backend, ":" and the runtime's lasting id; "" when there is none
     TotalBytes, FreeBytes int64  // 0 when unknown
     Memory                string // "live", "estimated" or "unknown": how FreeBytes was obtained
     MemoryKind            string // "dedicated", "shared" (the host's, an integrated GPU) or "unknown"
@@ -218,7 +218,7 @@ listing; goinfer is asked to say which of the two survives what (ask 7).
 | `auto` (the default) | the rule below | the next candidate, at last the CPU with `cpu_fallback` |
 | `cpu` | the CPU | — |
 | `cuda`, `vulkan`, `metal` | the best device of that backend, by the same rule | error |
-| `cuda:1`, or a persistent id | that device and no other | error |
+| `cuda:1`, or `cuda:` and a persistent id | that device and no other | error |
 
 Two failures of a named selector, kept apart:
 
@@ -249,9 +249,12 @@ reports half the machine's RAM as its ceiling. On this machine the order is the 
 (97 GB free), the Radeon RX 9060 XT (16 GB, 10.7 GB of it in use), and the integrated Radeon is
 dropped if its 512 MiB is reported live.
 
-A model with no accelerator, which is bge-small today, runs on the CPU under `auto` and `cpu`; a
-named backend or device is `invalid_config` for it, with a message that says the model runs on the
-CPU only.
+A model with no accelerator, which is bge-small today, runs on the CPU whatever the selector says,
+and the selector is not consulted for it: `PBRAIN_DEVICE` is set once for a machine, and a person
+who names a GPU there must still be able to sync a project that uses the default model. For a
+model with a GPU path, what a selector names is checked when the model is opened, which a sync
+does only when it has a passage to embed; a sync with nothing to embed checks the selector's form
+and asks no driver.
 
 **Listing.** A new command, `pbrain devices`. It needs no brain, like `pbrain skill`, opens no model
 and changes nothing. It lists what this binary could attach on this machine, GPUs in the order of
@@ -544,8 +547,8 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    driver exists: the `cuda` build's sync of `embeddinggemma-2` succeeds on the CPU with
    `cpu_fallback`; `--device cuda` and `--device nosuch` are `invalid_config`, since no CUDA device is
    listed there; `--device cpu` prints `cpu_fallback` with the reason that the CPU was asked for; a
-   named device with `bge-small-en-v1.5` is
-   `invalid_config`; the untagged build prints `unsupported`; `pbrain devices` runs
+   named device with `bge-small-en-v1.5` gives the CPU with no notice and no error; a selector that names no
+   device, with nothing to embed, exits 0; the untagged build prints `unsupported`; `pbrain devices` runs
    from an empty directory. With the fake registry: the notice table, and a listed device whose
    attach fails, which is `io`. The automatic order as a pure function: a discrete card with a live
    figure, a shared card reporting a larger ceiling, and one of unknown kind come out in that
