@@ -484,10 +484,8 @@ func spanInside(in SectionInput, it *item.Item, start, stop int) bool {
 }
 
 // Close cancels the background task, waits for it, closes all opened indexes once, and closes an
-// opened embedder. If the embedder's Close fails (for example on a transient accelerator drain
-// error), Close returns that error and retains the embedder handle so a subsequent Close retries it;
-// once the embedder closes cleanly, further Close calls are no-ops. It is safe to call when Attach
-// or Score were never reached.
+// opened embedder. An accelerator close error leaves the embedder available for a retry. Other
+// embedder close errors are ignored. It is safe to call when Attach or Score were never reached.
 func (s *Source) Close() error {
 	s.closeMu.Lock()
 	defer s.closeMu.Unlock()
@@ -510,7 +508,7 @@ func (s *Source) Close() error {
 		}
 	}
 	if s.emb != nil {
-		if err := s.emb.Close(); err != nil {
+		if err := s.emb.Close(); errors.Is(err, embed.ErrAccelerator) {
 			return wrapAccelIO("the model cannot be closed", err)
 		}
 		s.emb = nil
