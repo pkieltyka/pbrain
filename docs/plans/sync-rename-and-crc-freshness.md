@@ -10,6 +10,11 @@ architecture §§8.7, 13, 16 (decisions 28 and 29), 17; `components/cli.md`;
 **A. Rename.** `pbrain index` becomes `pbrain sync`, with `sync --status`. `index` stays for one
 release as a hidden alias that prints a `command_renamed` notice.
 
+> **Superseded in part, 2026-11-21.** The owner removed the alias and the `command_renamed`
+> notice after #24 was built: `pbrain sync` is the only name, and `pbrain index` is an unknown
+> command. Everything this plan says about the alias and the notice is history. The spec is
+> current.
+
 **B. Digests** (the owner's refined decision).
 
 - An index entry covers an item when the CRC-32C and the byte count of its title and body match.
