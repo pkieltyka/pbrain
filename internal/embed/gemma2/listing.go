@@ -74,8 +74,12 @@ func chooseRuntime(ctx context.Context, selector string, weightFloor int64, comp
 	return cpu, ctx.Err()
 }
 
+func listCUDADevices() embed.Listing {
+	return embed.Listing{Devices: cudaDevices()}
+}
+
 func listDevices() embed.Listing {
-	listing := embed.Listing{Devices: cudaDevices()}
+	listing := listCUDADevices()
 	devices, err := vulkanDevices()
 	if err != nil {
 		if !vulkanAbsent(err) {

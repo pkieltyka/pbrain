@@ -208,9 +208,11 @@ func TestGemma2NeedsTheTeamSwitch(t *testing.T) {
 		t.Fatalf("switch %q, tests use %q", allowGemma2, embedtest.AllowGemma2)
 	}
 	t.Setenv(allowGemma2, "")
-	var out, diag bytes.Buffer
-	args := []string{"-model", "embeddinggemma-2", "-model-path", t.TempDir(), "testdata/retrieval"}
-	if exit := run(t.Context(), args, &out, &diag); exit != 2 || out.Len() != 0 || !strings.Contains(diag.String(), "PBRAIN_ALLOW_GEMMA2=1") {
-		t.Fatalf("exit %d, out %q, diag %q", exit, out.String(), diag.String())
+	for _, name := range []string{"embeddinggemma-2", "embeddinggemma-2-q8-0"} {
+		var out, diag bytes.Buffer
+		args := []string{"-model", name, "-model-path", t.TempDir(), "testdata/retrieval"}
+		if exit := run(t.Context(), args, &out, &diag); exit != 2 || out.Len() != 0 || !strings.Contains(diag.String(), "PBRAIN_ALLOW_GEMMA2=1") {
+			t.Fatalf("%s: exit %d, out %q, diag %q", name, exit, out.String(), diag.String())
+		}
 	}
 }

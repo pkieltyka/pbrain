@@ -696,3 +696,37 @@ with four allowed CPUs, the six complete 256-passage windows ran at
 operator decision, with a readable checkpoint. See the separate
 worker settings, window positions, forward breakdown and VRAM samples
 in the [Vulkan capture](../../tools/phase28/evidence/vulkan-49-v062/).
+
+## Q8_0 release qualification on goinfer v0.6.2 (#51)
+
+2026-11-22 on pax at `694b726564c1ad139ece70bcdd60b433d3a18053`, with
+root goinfer and CUDA v0.6.2. Runs used four physical Ryzen 9 7950X
+cores (CPUs 0–3), 124.9 GiB RAM, Linux 7.3.4 and Go 1.27.3. CUDA
+runs used the NVIDIA RTX PRO 6000 Blackwell Max-Q. The tests and smoke
+commands used the pinned 309,855,520-byte Unsloth Q8_0 file and the
+release row `embeddinggemma-2-q8-0`.
+
+| Gate | Result |
+| --- | --- |
+| CPU rule 3, five fresh processes with a primed model file | 586.6 ms median, 561.5–594.0 ms, 5/5 below 600 ms, 1,034.5 MiB peak RSS |
+| CPU minimum cosine against the same-file llama.cpp reference | 0.9998506099 |
+| CUDA minimum cosine against the same-file llama.cpp reference | 0.9998506078 |
+| Direct CPU/CUDA parity, 59 passages at 768 dimensions | 0.999999999998416 minimum cosine |
+| CUDA byte identity | All 59 vectors matched singleton outputs in packed, 17-input split and reversed layouts |
+| Held-out retrieval at the frozen 0.72 cutoff | Both CPU- and CUDA-built indexes gave 39/47 first, 42/47 top three and first page, and 30/30 empty pages on unanswerable queries with and without BM25 |
+
+Rule 3 includes file verification, model load, one query and close. The
+five samples were 586.6, 586.8, 594.0, 561.5 and 576.3 ms. The slowest
+sample was 6.0 ms below the target on this host. Same-file parity used
+matching prepared tokens for 22 reference texts and 59 passages, with all
+162 comparisons per device meeting cosine 0.999 across 768 dimensions
+and the normalized 512-prefix. The standalone retrieval gate found the
+expected note on 42/47 first pages against 16/47 for strict search.
+
+The release CLI indexed and found the same one-note fixture with a local
+offline `model_path`, with `--device auto` selecting `cuda:0`, and after
+a fresh-cache download. The download emitted the 310 MB model notice and
+installed one file with the expected SHA-256. Q8_0 uses CPU for search
+and supports CPU and CUDA for sync.
+
+[Commands and raw gate evidence](../../tools/phase28/evidence/gguf-51/)

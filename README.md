@@ -104,15 +104,20 @@ model in `docs/brain/pbrain.toml` and run `pbrain sync` again.
 model = "embeddinggemma-2"
 ```
 
+Use `model = "embeddinggemma-2-q8-0"` for Unsloth's Q8_0 conversion of
+Google's EmbeddingGemma 2. It syncs on CPU or NVIDIA CUDA and downloads
+a single GGUF file. [Pinned model card and Apache-2.0 license](https://huggingface.co/unsloth/embeddinggemma-2-GGUF/blob/031f0d4b35536f69ab3509d4893c923264fcf253/README.md)
+
 Set `model = "none"` in the same section to turn semantic search off.
 
 | Model | First download | Local model files | Cutoff | Expected item on first page (47 answerable) | Empty page (30 unanswerable) |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | `bge-small-en-v1.5` (default) | 134 MB | 134 MB | 0.65 | 40 | 29 |
 | `embeddinggemma-2` | 1.52 GB | 552 MB | 0.72 | 42 | 30 |
+| `embeddinggemma-2-q8-0` | 310 MB | 310 MB | 0.72 | 42 | 30 |
 
-The download notice rounds up to whole MB (135 MB for bge, 1,522 MB for Gemma).
-Allow about 2.1 GB on disk for Gemma's model files during the first build, while the
+The download notice rounds up to whole MB (135 MB for bge, 1,522 MB for Google's pack,
+310 MB for Unsloth's Q8_0 conversion). Allow about 2.1 GB on disk for Google's model files during the first build, while the
 download and the derived local model coexist. The index needs additional space.
 
 On this fixture, strict search found the expected item on 16 of 47 first pages.

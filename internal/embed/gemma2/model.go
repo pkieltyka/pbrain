@@ -1,4 +1,4 @@
-// Package gemma2 adapts the text tower used when a project selects embeddinggemma-2.
+// Package gemma2 adapts the text tower used by the EmbeddingGemma 2 models.
 package gemma2
 
 import (
@@ -35,16 +35,18 @@ var packFiles = []embed.File{
 	file("tokenizer.bin", "", 9581663, "45a7e7d5a1e84ad83ef469a8f6aecc3dd15f51b7c4866008e2d770142d96b709"),
 	file("config.json", "", 3442, "65ef03947e006ea2a946fa323c88dd880ad6522d628723e81ddce04c2868db82"),
 }
-var fingerprint = func() string {
+var fingerprint = modelFingerprint("embeddinggemma-2", packFiles)
+
+func modelFingerprint(name string, files []embed.File) string {
 	var s strings.Builder
-	s.WriteString("embeddinggemma-2\n")
-	for _, f := range packFiles {
+	s.WriteString(name + "\n")
+	for _, f := range files {
 		s.WriteString(f.Name + "\n" + hex.EncodeToString(f.SHA256[:]) + "\n")
 	}
 	s.WriteString(strconv.Itoa(dimension) + "\n" + preparation)
 	h := sha256.Sum256([]byte(s.String()))
 	return hex.EncodeToString(h[:])
-}()
+}
 
 // Entry returns the release model with its cutoff from the frozen retrieval fixture.
 func Entry() embed.Entry {
