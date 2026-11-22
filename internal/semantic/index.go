@@ -175,8 +175,14 @@ func newIndex(ctx context.Context, fingerprint, model string, dim int) (*indexDB
 			return nil, err
 		}
 	}
-	for k, v := range map[string]string{"format": strconv.Itoa(indexFormat), "fingerprint": fingerprint, "model": model, "dim": strconv.Itoa(dim)} {
-		if _, err := x.conn.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES (?, ?)`, k, v); err != nil {
+	meta := [][2]string{
+		{"dim", strconv.Itoa(dim)},
+		{"fingerprint", fingerprint},
+		{"format", strconv.Itoa(indexFormat)},
+		{"model", model},
+	}
+	for _, row := range meta {
+		if _, err := x.conn.ExecContext(ctx, `INSERT INTO meta (key, value) VALUES (?, ?)`, row[0], row[1]); err != nil {
 			x.Close()
 			return nil, err
 		}

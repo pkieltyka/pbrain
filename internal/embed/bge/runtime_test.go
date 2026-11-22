@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -88,6 +90,33 @@ func TestBgeParity(t *testing.T) {
 			offset += len(batch)
 		}
 		t.Logf("%s: %d references, lowest cosine %.12f", group.name, offset, worst)
+	}
+}
+
+func TestBgeWorkersSameBytes(t *testing.T) {
+	e := realEmbedder(t)
+	previous := runtime.GOMAXPROCS(1)
+	defer runtime.GOMAXPROCS(previous)
+	texts := make([]string, 64)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("Note %d\n\n%s", i, strings.Repeat("A decision about café storage and 中文. ", i%31+1))
+	}
+	baseline, err := e.Embed(t.Context(), embed.Document, texts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sameBits := func(a, b float32) bool { return math.Float32bits(a) == math.Float32bits(b) }
+	for _, workers := range []int{4, 32} {
+		runtime.GOMAXPROCS(workers)
+		got, err := e.Embed(t.Context(), embed.Document, texts)
+		if err != nil || len(got) != len(baseline) {
+			t.Fatalf("%d workers: got %d vectors, error %v", workers, len(got), err)
+		}
+		for i, vector := range got {
+			if !slices.EqualFunc(vector, baseline[i], sameBits) {
+				t.Fatalf("%d workers changed vector bytes for text %d", workers, i)
+			}
+		}
 	}
 }
 

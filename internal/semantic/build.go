@@ -276,12 +276,20 @@ func (b *builder) run() (BuildResult, error) {
 			queue = append(queue, queued{w, i})
 		}
 		pending = append(pending, w)
-		if len(queue) >= batchSize {
-			if err := b.flush(queue, pending); err != nil {
-				return b.res, err
-			}
-			queue, pending = nil, nil
+		if len(queue) < b.embedWindow() {
+			continue
 		}
+		if err := b.openEmbedder(); err != nil {
+			return b.res, err
+		}
+		// Opening the embedder may raise its window above the default.
+		if len(queue) < b.embedWindow() {
+			continue
+		}
+		if err := b.flush(queue, pending); err != nil {
+			return b.res, err
+		}
+		queue, pending = nil, nil
 	}
 	if err := b.flush(queue, pending); err != nil {
 		return b.res, err
@@ -404,19 +412,37 @@ func (s *sectionIndex) store(ctx context.Context, w *work) error {
 	return nil
 }
 
-// flush embeds the queued passages eight at a time, then stores every pending item, in order.
+func (b *builder) embedWindow() int {
+	if w, ok := b.emb.(embed.Windowed); ok {
+		if n := w.Window(); n > 0 {
+			return n
+		}
+	}
+	return batchSize
+}
+
+func (b *builder) openEmbedder() error {
+	if b.emb != nil {
+		return nil
+	}
+	emb, err := b.opt.Registry.Open(b.ctx, b.art)
+	b.art = nil
+	if err != nil {
+		return ctxOr(b.ctx, wrapAccelIO("the model cannot be opened", err))
+	}
+	b.emb = emb
+	return nil
+}
+
+// flush embeds the queued passages in windows, then stores every pending item in order.
 func (b *builder) flush(queue []queued, pending []*work) error {
 	ctx := b.ctx
-	for start := 0; start < len(queue); start += batchSize {
-		batch := queue[start:min(start+batchSize, len(queue))]
-		if b.emb == nil {
-			emb, err := b.opt.Registry.Open(ctx, b.art)
-			b.art = nil
-			if err != nil {
-				return ctxOr(ctx, wrapAccelIO("the model cannot be opened", err))
-			}
-			b.emb = emb
+	if len(queue) > 0 {
+		if err := b.openEmbedder(); err != nil {
+			return err
 		}
+	}
+	for batch := range slices.Chunk(queue, b.embedWindow()) {
 		texts := make([]string, len(batch))
 		for i, q := range batch {
 			texts[i] = q.w.ps[q.i].Text

@@ -39,6 +39,13 @@ type Embedder interface {
 	Close() error
 }
 
+// Windowed is an optional embedder capability declaring the maximum number of
+// texts per Embed call during sync. A positive window stays fixed for the
+// lifetime of the embedder.
+type Windowed interface {
+	Window() int
+}
+
 type File struct {
 	Name   string // file name inside the model folder
 	URL    string // https, pinned in the release
