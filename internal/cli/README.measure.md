@@ -147,6 +147,58 @@ search target.
 [checkpoint samples](../../tools/phase28/evidence/bge-pax-index-samples.jsonl),
 [host details](../../tools/phase28/evidence/bge-pax-host.log).
 
+### Warm BGE search after CRC-32C and bounded catch-up
+
+2026-11-22. Candidate `87fd48ba537583f507e8e025115baa57c4c6d76c` used
+Go 1.27.3, `CGO_ENABLED=0`, `-trimpath`, and `GOMAXPROCS=4` on CPUs 0–3
+of the same Ryzen 9 7950X (124.9 GiB visible RAM, Linux 7.3.4, btrfs).
+`pbrain --personal sync --json` rebuilt the retained format-2 indexes in
+a scratch copy. It reused all 43,642 shared passages and embedded 4,870
+personal passages, including the one-note update. The kit's `warm` step
+restored the 5,000-item, 50 MB fixture for the search measurements.
+
+| Warm semantic search | `cbaaa0e` median (ms) | Candidate median (ms) | Candidate range (ms) |
+| --- | ---: | ---: | ---: |
+| Shared, exact hit | 297.7 | 374.0 | 302.1–588.2 |
+| Shared, paraphrase | 292.2 | 397.9 | 292.2–689.4 |
+| Shared, paraphrase + BM25 | 291.1 | 364.4 | 285.2–559.0 |
+| Personal, exact hit | 325.7 | 401.3 | 331.6–680.0 |
+| Personal, paraphrase | 320.6 | 423.2 | 320.5–717.2 |
+| Personal, paraphrase + BM25 | 321.8 | 379.9 | 326.3–700.6 |
+
+To check the spread, ten paired `search 'where is login state kept'
+--semantic --json` trials alternated the binaries in opposite orders
+on successive trials, using each binary's complete index. The earlier
+binary then measured 340.3 ms shared and 444.1 ms personal, versus
+359.2 and 387.5 ms for the candidate. Median paired changes were −33.2
+and −29.2 ms, with differences of both signs and a spread exceeding
+the median shifts. Even `cbaaa0e` ran slower in the paired repeat than
+in its original run. This full-path comparison leaves the isolated CRC
+gain unresolved.
+
+| Candidate operation | Warm median (ms) | Range (ms) |
+| --- | ---: | ---: |
+| `sync --status --json`, shared | 563.1 | 410.3–730.9 |
+| `--personal sync --status --json` | 535.4 | 481.8–597.2 |
+| Shared search, one new passage, lock free | 863.2 | 663.7–1,042.0 |
+| Shared search, one new passage, lock held | 377.5 | 294.5–611.7 |
+| Shared search, 20 new passages, lock free | 1,242.4 | 1,069.0–1,368.0 |
+| Shared search, 20 new passages, lock held | 344.1 | 290.0–462.4 |
+
+Each case had ten timed fresh processes after a warm-up. Catch-up used
+one or 20 new shared notes, one uncached passage each, and restored the
+same index between pairs. Lock-free catch-up added median paired costs
+of 453.3 and 883.4 ms, including embedding, publication and scoring the
+updated index.
+Every free-lock trial saved the entire gap and returned a new semantic
+hit. The 20-passage case exceeded one second in all ten timed trials.
+Every held-lock search returned `semantic_partial` before the lock was
+released and left the prior index generation in place.
+
+[Kit warm log](../../tools/phase28/evidence/bge-pax-crc-catchup-warm.log),
+[paired samples and correctness checks](../../tools/phase28/evidence/bge-pax-crc-catchup-samples.jsonl),
+[host details](../../tools/phase28/evidence/bge-pax-crc-catchup-host.log).
+
 ## EmbeddingGemma 2, Linux
 
 2026-11-21. Binary built from `4eff5a7` (release wiring `2233197`) with
