@@ -1,0 +1,59 @@
+go tool pprof -top -inuse_space -nodecount=20 peak-heap.pb.gz
+File: pbrain-profile
+Build ID: ea5ad9daa572b5c90867c9690955836c20f1cc2f
+Type: inuse_space
+Time: 2026-11-22 00:49:03 EST
+Showing nodes accounting for 389.88MB, 97.30% of 400.68MB total
+Dropped 49 nodes (cum <= 2MB)
+Showing top 20 nodes out of 63
+      flat  flat%   sum%        cum   cum%
+  127.29MB 31.77% 31.77%   127.29MB 31.77%  github.com/pkieltyka/pbrain/internal/embed.readOne
+   82.69MB 20.64% 52.40%    85.87MB 21.43%  modernc.org/sqlite.(*conn).Serialize
+   61.09MB 15.25% 67.65%    61.09MB 15.25%  github.com/pkieltyka/aikit/encoder.poolOne
+   46.56MB 11.62% 79.27%    46.56MB 11.62%  github.com/pkieltyka/pbrain/internal/semantic.Passages
+   44.49MB 11.10% 90.37%    44.49MB 11.10%  io.ReadAll
+   24.19MB  6.04% 96.41%    24.19MB  6.04%  github.com/pkieltyka/aikit/encoder.ensureF32
+    1.57MB  0.39% 96.80%     2.07MB  0.52%  github.com/pkieltyka/aikit/embed.(*wpCache).put
+    1.50MB  0.37% 97.18%    46.99MB 11.73%  github.com/pkieltyka/pbrain/internal/store.(*Catalog).readOne
+    0.50MB  0.12% 97.30%    47.06MB 11.74%  github.com/pkieltyka/pbrain/internal/semantic.(*sectionIndex).cut
+         0     0% 97.30%    85.87MB 21.43%  database/sql.(*Conn).Raw
+         0     0% 97.30%     2.04MB  0.51%  encoding/json.Unmarshal (inline)
+         0     0% 97.30%     2.04MB  0.51%  encoding/json/v2.Unmarshal
+         0     0% 97.30%     2.04MB  0.51%  encoding/json/v2.makeMapArshaler.func3
+         0     0% 97.30%     2.04MB  0.51%  encoding/json/v2.makeStructArshaler.func3
+         0     0% 97.30%     2.04MB  0.51%  encoding/json/v2.unmarshalDecode
+         0     0% 97.30%     3.07MB  0.77%  github.com/pkieltyka/aikit/embed.(*Tokenizer).Encode
+         0     0% 97.30%     3.07MB  0.77%  github.com/pkieltyka/aikit/embed.(*Tokenizer).encodeSegment
+         0     0% 97.30%     3.07MB  0.77%  github.com/pkieltyka/aikit/embed.(*Tokenizer).wordPiece
+         0     0% 97.30%     2.04MB  0.51%  github.com/pkieltyka/aikit/embed.LoadTokenizerFromFS
+         0     0% 97.30%     2.04MB  0.51%  github.com/pkieltyka/aikit/embed.parseTokenizer
+
+go tool pprof -top -alloc_space -nodecount=20 peak-heap.pb.gz
+File: pbrain-profile
+Build ID: ea5ad9daa572b5c90867c9690955836c20f1cc2f
+Type: alloc_space
+Time: 2026-11-22 00:49:03 EST
+Showing nodes accounting for 41110.39MB, 95.63% of 42987.53MB total
+Dropped 297 nodes (cum <= 214.94MB)
+Showing top 20 nodes out of 51
+      flat  flat%   sum%        cum   cum%
+25642.44MB 59.65% 59.65% 28766.94MB 66.92%  github.com/pkieltyka/aikit/encoder.(*BERT).forward
+11340.61MB 26.38% 86.03% 11951.16MB 27.80%  modernc.org/sqlite.(*conn).Serialize
+ 1396.12MB  3.25% 89.28%  1396.12MB  3.25%  github.com/pkieltyka/aikit/encoder.matmulBTBlockedIntoParallel
+  968.32MB  2.25% 91.53%   968.32MB  2.25%  github.com/pkieltyka/aikit/encoder.ensureF32 (inline)
+  372.03MB  0.87% 92.40%   406.04MB  0.94%  github.com/pkieltyka/pbrain/internal/semantic.Passages
+  309.05MB  0.72% 93.12%  1053.42MB  2.45%  github.com/pkieltyka/aikit/encoder.attentionCore
+  295.51MB  0.69% 93.80%   295.51MB  0.69%  github.com/pkieltyka/aikit/encoder.parallelRows
+  258.62MB   0.6% 94.41%   667.47MB  1.55%  github.com/pkieltyka/aikit/embed.(*Tokenizer).encodeSegment
+  247.10MB  0.57% 94.98%   247.10MB  0.57%  github.com/pkieltyka/aikit/embed.(*Tokenizer).preTokenize-range1
+   94.25MB  0.22% 95.20%   761.73MB  1.77%  github.com/pkieltyka/aikit/embed.(*Tokenizer).Encode
+   85.01MB   0.2% 95.40%   282.51MB  0.66%  github.com/pkieltyka/aikit/encoder.layerNorm (inline)
+   73.14MB  0.17% 95.57%   916.47MB  2.13%  github.com/pkieltyka/pbrain/internal/embed/bge.(*embedder).tokenIDs
+   16.16MB 0.038% 95.61%   596.54MB  1.39%  runtime/pprof.writeHeapInternal
+    3.50MB 0.0081% 95.61%   296.86MB  0.69%  github.com/pkieltyka/pbrain/internal/store.(*Catalog).readOne
+       3MB 0.007% 95.62%   580.37MB  1.35%  runtime/pprof.writeHeapProto
+    2.55MB 0.0059% 95.63% 42538.22MB 98.95%  github.com/pkieltyka/pbrain/internal/semantic.(*builder).run
+       1MB 0.0023% 95.63%   347.61MB  0.81%  runtime/pprof.(*profileBuilder).appendLocsForStack
+       1MB 0.0023% 95.63% 42084.67MB 97.90%  github.com/pkieltyka/pbrain/internal/semantic.(*builder).flush
+    0.50MB 0.0012% 95.63%   447.04MB  1.04%  github.com/pkieltyka/pbrain/internal/semantic.(*sectionIndex).cut
+    0.50MB 0.0012% 95.63%    29745MB 69.19%  github.com/pkieltyka/pbrain/internal/embed/bge.(*embedder).Embed

@@ -375,6 +375,103 @@ publication.
 [catch-up samples](../../tools/phase28/evidence/gemma-pax-22/cpu-cuda-catchup.jsonl),
 [load and GPU preflight](../../tools/phase28/evidence/gemma-pax-22/preflight.jsonl).
 
+### Full-size bge-small sync memory profile (#19)
+
+Profiled the default `bge-small-en-v1.5` at candidate
+`b67cdff542605477c2312f085af7033590f2b638` on the same Ryzen 9 7950X host
+as the earlier BGE rerun. The build used four physical cores (CPUs 0–3),
+124.9 GiB visible RAM, Linux 7.3.4, btrfs and Go 1.27.3. The scratch
+checkout held the original 4,500 shared and 500 personal items (exactly
+50,000,000 bytes), the verified local model pack, empty section indexes
+and an empty external vector cache. `pbrain --personal sync --json`
+embedded 43,642 shared and 4,869 personal passages in one process. The
+instrumented run finished in 1 h 53 m 55 s.
+
+The scratch build samples Linux RSS before SQLite serializes a
+checkpoint, after SQLite fills its own buffer and the driver copies
+it to Go, and after SQLite frees its buffer. It captures a Go heap
+profile and `smaps` at every new sampled RSS maximum. No forced GC or
+GC tuning was used in the full run. The profiles use Go's default
+sampling and reflect the last completed GC's heap accounting.
+`HeapAlloc` at each probe is the current Go allocation count in bytes,
+including allocations that may become garbage before the next GC.
+Linux RSS includes resident idle Go heap pages and native allocator
+mappings, so the profile and RSS have different totals.
+
+The highest sample was **1,297.8 MiB** at shared item 4,259, just after
+the driver freed SQLite's temporary buffer. The adjacent sample with
+both buffers live was also 1,297.8 MiB. The kernel high-water counter
+reported by GNU time was 1,296.9 MiB. At the peak, the Go heap arena
+accounted for 885.3 MiB resident. At that probe, Go reported 790.4 MiB
+allocated and 84.0 MiB idle and unreleased. Other mappings accounted
+for 412.5 MiB. The heap arena is the anonymous mapping whose extent
+matches the Go heap reservation and grows with its committed pages.
+This kernel omits anonymous mapping names.
+
+| Go allocation source at the peak | Sampled in-use MiB |
+| --- | ---: |
+| BGE weight bytes (`embed.readOne`) | 127.3 |
+| Go serialization buffer (`sqlite.(*conn).Serialize`) | 82.7 |
+| Completed passage vectors (`encoder.poolOne`) | 61.1 |
+| Passage text (`semantic.Passages`) | 46.6 |
+| Catalog file buffers (`io.ReadAll` in `Catalog.readOne`) | 44.5 |
+| Encoder float32 workspace (`encoder.ensureF32`) | 24.2 |
+
+The profile reports 400.7 MiB sampled in use at the most recent heap
+accounting. The last GC was about 42 seconds before the peak sample.
+Cumulative sampled allocations at that point were 42.0 GiB, led by
+25.0 GiB in BERT forward passes and 11.1 GiB in Go serialization
+buffers (flat allocation sites). This turnover helps explain the
+distance between live allocations and resident heap.
+
+The checkpoint allocated an 83.9 MiB SQLite buffer and an 83.9 MiB Go
+copy of the database. The adjacent samples show RSS rise by only
+0.3 MiB across those allocations and stay flat after the SQLite buffer
+was freed. A separate anonymous mapping had 83.9 MiB resident across
+the copy and free, and reached 88.5 MiB at the final shared publication
+as the database grew to that size. This is consistent with SQLite's
+allocator reusing resident pages. The rest of the non-Go RSS includes
+the live SQLite database, allocator pools and runtime mappings. SQLite
+memory-status accounting was disabled in the pinned build, so the
+profile cannot assign the remaining bytes to individual native
+allocations.
+
+**Proposed first change.** Release completed work entries once their
+passages have been inserted. The build keeps them reachable through the
+`todo` slice while it processes later items, and the profile attributes
+about 108 MiB to passage text and vectors at the peak. Also release the
+catalog reference after the pending bodies have been selected, so the
+buffers can become collectible as each body's work is consumed. The
+catalog's roughly 45 MiB of file buffers gives less reason to change the
+scan to stream whole files on this fixture. Repeated full serialization
+is a larger source of churn. Reassess the peak after releasing the work
+entries before redesigning checkpoint publication.
+
+**Separate line-counting measurement.** Alternate `item.Measure` with
+the same code-point count loop without newline tracking on the 5,000
+preloaded UTF-8 files. Two warm-up pairs preceded 20 measured pairs on
+one thread pinned within CPUs 0–3. Both variants returned the same
+file and body code-point totals. Median thread CPU time was 29.8 ms
+for full layout and 22.9 ms for code points alone. The median paired
+cost of line counting was **7.0 ms** over the 50 MB (3.9–9.0 ms range).
+The paired elapsed-time median was 7.1 ms. These are counting-loop
+costs with file I/O, parsing and scan parallelism outside the timer.
+
+The CUDA Gemma host peak above remains an RSS measurement. A second
+full CUDA build would be needed for a comparable allocator profile.
+
+Evidence and exact commands are in
+[`tools/phase28/evidence/bge-pax-19`](../../tools/phase28/evidence/bge-pax-19),
+including [the peak heap profile](../../tools/phase28/evidence/bge-pax-19/peak-heap.pb.gz),
+[publication samples](../../tools/phase28/evidence/bge-pax-19/memory-samples.jsonl),
+and [the line-counting pairs](../../tools/phase28/evidence/bge-pax-19/line-cost.jsonl).
+To reconstruct the profiler, archive the candidate into `src/` and
+copy the pinned modernc.org/sqlite v1.62.0 source into `sqlite/` beside it.
+Apply the decompressed `profiling.patch.gz` from their parent directory,
+then use the build and run commands in `host-build-model.log` with an
+empty cache, empty section index directories in a scratch copy of the
+fixture, and the local model pack. The patch is for the scratch build.
+
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
