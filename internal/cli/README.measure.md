@@ -554,3 +554,51 @@ and running
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@"$PBRAIN_RELEASE_TAG"`.
 Run the installed binary's `--version` and record the result with the
 timings.
+
+## Full-size sync with BGE workers and CUDA batching on pax (#43)
+
+2026-11-22. Candidate `004e7e3b16661358b306a4f7701ba412cd62558b`, goinfer
+v0.5.0, Go 1.27.3, `CGO_ENABLED=0`, `-trimpath` and `-ldflags '-s -w'`.
+Ryzen 9 7950X, 16 physical cores and 32 threads, 124.9 GiB visible RAM,
+Linux 7.3.4 and btrfs. The CUDA binary ran on an NVIDIA RTX PRO 6000 Blackwell
+Max-Q with driver 595.112.07 and 97,887 MiB total memory. BGE used the untagged
+binary. Gemma used the `cuda` tag and explicitly selected NVIDIA `cuda:0`.
+
+Each timed run was a complete `pbrain --personal sync --json` of the same
+5,000 items and 50,000,000 Markdown bytes. The model files were primed, and
+each run started with a clean index and a private empty cache. Each embedded
+43,642 shared and 4,869 personal passages, with zero reuses. The process
+maximum RSS is from Linux `wait4`. The NVIDIA monitor sampled every 250 ms.
+Before each run, two successive 10-second samples showed at most 4% total host
+CPU busy and an idle NVIDIA compute queue. The evidence also records load
+averages, which still included the preceding run at some starts.
+
+| Run | CPU affinity / GOMAXPROCS | Samples | Wall time median (range) | Passages/s median (range) | Peak host MiB median (range) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| BGE, 16 workers | 0–15 / 16 | 3 | 21m 01s (20m 58s–21m 17s) | 38.46 (37.98–38.56) | 1,664.6 (1,576.9–1,744.1) |
+| BGE, 32 workers | 0–31 / 32 | 3 | 20m 25s (20m 13s–20m 26s) | 39.60 (39.56–40.00) | 1,814.5 (1,704.5–1,909.6) |
+| Gemma 2, NVIDIA CUDA | 0–3 / 4 | 1 | 1h 1m 02s | 13.25 | 4,317.5 |
+
+The initial 16-core trial reached 37.76 passages/s. Unrelated work used at
+least four logical CPUs for 6 consecutive 10-second intervals during the
+run. It is retained in the raw evidence and replaced in the timing comparison
+by a clean 16-core pass. The shared and personal BGE databases were
+byte-identical across all runs, including that initial trial. The ordered
+rows, vector blobs and SQLite `quick_check` results also matched.
+
+At full size, 32 workers improved median BGE throughput by
+3.0% over 16 workers on this host, with
+9.0% higher median peak RSS. The smaller slice used in the
+worker design showed a larger throughput difference. The worker cap stays at
+32.
+
+The Gemma sync selected a 6,144 MiB batch budget and used at most
+2,136 MiB of sampled device memory, including
+2 MiB at idle. Mean sampled device utilization was
+98.1% and the median was 100%.
+The earlier #22 run on the same host reached 11.60 passages/s
+in 1h 10m, with 4,758 MiB peak host RSS and 1,314 MiB sampled device
+memory. The current run was 14.2%
+faster by passage rate, with newer batching and lower host load.
+
+[Commands and raw measurements](../../tools/phase28/evidence/sync-pax-43/)
