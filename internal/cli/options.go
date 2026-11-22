@@ -109,9 +109,6 @@ var commands = []command{
 }
 
 func commandNamed(name string, features Features) command {
-	if name == "index" {
-		name = "sync"
-	}
 	for _, cmd := range commands {
 		if cmd.name == name {
 			if cmd.name == "search" && features.BM25 {
@@ -124,9 +121,7 @@ func commandNamed(name string, features Features) command {
 }
 
 type invocation struct {
-	cmd        command
-	indexAlias bool
-
+	cmd      command
 	flags    *pflag.FlagSet
 	operands []string
 	json     bool
@@ -246,7 +241,6 @@ func parseOptions(args []string, features Features) (invocation, error) {
 	var in invocation
 	if at >= 0 {
 		in.cmd = commandNamed(args[at], features)
-		in.indexAlias = args[at] == "index"
 	}
 	in.json = jsonRequested(args, in.cmd.options)
 	if !valid {

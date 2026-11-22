@@ -102,12 +102,6 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 		value := helpText(in.cmd)
 		return textOrJSON(in.json, value, helpOutput{Help: value})
 	}
-	if in.indexAlias {
-		emitNotice(env.Stderr, in.json, errs.Notice{
-			Code:    "command_renamed",
-			Message: "pbrain index is now pbrain sync: the old name will be removed in the next release",
-		})
-	}
 	if in.cmd.name == "skill" {
 		return runSkill(in)
 	}
