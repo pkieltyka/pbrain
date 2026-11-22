@@ -75,6 +75,23 @@ func TestCLISemanticCPUClosePreservesResults(t *testing.T) {
 	}
 }
 
+func TestCLISyncCPUClosePreservesResults(t *testing.T) {
+	rb, _ := semanticBrain(t)
+	hook := &cliHookRegistry{Registry: rb.env.Models, closeErr: errors.New("ordinary CPU close failure")}
+	rb.env.Models = hook
+	status, out, errOut := rb.run("sync")
+	if status != 0 || errOut != "" || !strings.Contains(out, "shared: 2 items indexed") {
+		t.Fatalf("sync with CPU close failure: status=%d out=%q err=%q", status, out, errOut)
+	}
+	if calls := hook.closes.Load(); calls != 1 {
+		t.Fatalf("embedder Close calls = %d, want 1", calls)
+	}
+	status, out, errOut = rb.run("sync", "--status")
+	if status != 0 || errOut != "" || !strings.Contains(out, "shared: 2 of 2 items indexed") {
+		t.Fatalf("published index: status=%d out=%q err=%q", status, out, errOut)
+	}
+}
+
 func TestCLISemanticAcceleratorFailLoudAndControls(t *testing.T) {
 	// 1. Missing index control: search --semantic never opens model, returns lexical hit + NoIndex notice.
 	rbNoIdx, _ := semanticBrain(t)
