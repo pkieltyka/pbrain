@@ -37,6 +37,14 @@ jobs:
             echo "build $target"
             GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/pbrain
           done
+      - name: build and vet the opt-in CUDA builds (no GPU needed)
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go build -tags cuda -o /dev/null ./cmd/pbrain
+          go build -tags 'cuda eg2_combined' -o /dev/null ./cmd/pbrain
+          go vet -tags cuda ./...
+          go vet -tags 'cuda eg2_combined' ./...
 
   race:
     name: test (race)
