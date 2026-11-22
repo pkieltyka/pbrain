@@ -294,6 +294,16 @@ func TestSourceLifecycle(t *testing.T) {
 	src.Score(ctx, "beta", items)
 }
 
+func TestScoreCanceledAfterCheapCheck(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	src := Start(ctx, Options{}, "x", nil)
+	defer src.Close()
+	cancel()
+	if _, err := src.Score(ctx, "x", nil); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled Score after NoModel check: %v", err)
+	}
+}
+
 type blockingOpen struct {
 	embed.Registry
 	block   chan struct{}

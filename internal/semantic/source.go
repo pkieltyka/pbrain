@@ -334,11 +334,11 @@ func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) 
 	if text != s.text {
 		panic("semantic: Score with a text other than Start's")
 	}
-	if s.reason != 0 {
-		return search.Scores{Reason: s.reason}, nil
-	}
 	if err := wait(ctx, s.indexes); err != nil {
 		return search.Scores{}, err
+	}
+	if s.reason != 0 {
+		return search.Scores{Reason: s.reason}, nil
 	}
 	type usable struct {
 		in      SectionInput
@@ -427,10 +427,9 @@ func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) 
 func wait(ctx context.Context, done chan struct{}) error {
 	select {
 	case <-done:
-		return nil
 	case <-ctx.Done():
-		return ctx.Err()
 	}
+	return ctx.Err()
 }
 
 // covers reports whether the index holds the item's present text: the same path and the same
