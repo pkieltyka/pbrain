@@ -101,6 +101,8 @@ type Artifact struct {
 type Entry struct {
 	Model Model
 	Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
+	// Devices lists the adapter's usable GPUs without opening a model. Nil means CPU only.
+	Devices func() []DeviceInfo
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)
@@ -112,6 +114,7 @@ type Registry interface {
 	// Open builds the model from a.Files alone. It reads nothing from disk. It takes the bytes over:
 	// a.Files is nil when it returns, with or without an error, and the caller keeps no other reference to them.
 	Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
+	Devices() []DeviceInfo // GPUs in selection order, followed by the CPU
 	// Derive calls the entry's Derive; an error for a model without Source.
 	Derive(m Model, source [][]byte) ([][]byte, error)
 }
@@ -166,6 +169,17 @@ func (r *registry) Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedd
 	}
 	if len(a.Files) != len(e.Model.Files) {
 		return nil, fmt.Errorf("embed: %d files for %q, which has %d", len(a.Files), a.Model.Name, len(e.Model.Files))
+	}
+	switch {
+	case e.Devices == nil, o.Device == "", o.Device == "cpu", o.Device == "auto":
+	default:
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		o.Device, err = namedDevice(e, o.Device)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return e.Open(ctx, a, o)
 }

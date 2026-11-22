@@ -147,7 +147,12 @@ func TestBuildAcceleratorErrors(t *testing.T) {
 
 func TestSearchOpensCPU(t *testing.T) {
 	e := newEnv(t)
-	hook := &accelHookRegistry{Registry: e.reg}
+	probes := 0
+	reg := embed.NewRegistry(embed.Entry{Model: e.m(), Open: e.reg.Open, Devices: func() []embed.DeviceInfo {
+		probes++
+		return []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}
+	}})
+	hook := &accelHookRegistry{Registry: reg}
 	e.reg = hook
 	s := newSection(t, item.Shared)
 	s.put("notes/a.md", "Alpha", "alpha text")
@@ -173,6 +178,9 @@ func TestSearchOpensCPU(t *testing.T) {
 			}
 			if !slices.Equal(hook.options, []embed.OpenOptions{{}}) {
 				t.Fatalf("search opens = %v, want a single open with zero options", hook.options)
+			}
+			if probes != 0 {
+				t.Fatalf("search probed the GPU %d times", probes)
 			}
 			if !slices.Equal(hook.docChunks, wantDocs) {
 				t.Fatalf("document batches = %v, want %v", hook.docChunks, wantDocs)

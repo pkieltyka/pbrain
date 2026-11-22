@@ -166,10 +166,11 @@ type builder struct {
 	progress func(Progress)
 	res      BuildResult
 
-	art *embed.Artifact
-	emb embed.Embedder
-	x   *indexDB
-	si  *sectionIndex // x, shared with a catch-up's code
+	art     *embed.Artifact
+	emb     embed.Embedder
+	runInfo embed.RunInfo
+	x       *indexDB
+	si      *sectionIndex // x, shared with a catch-up's code
 
 	changed  bool
 	lastPub  time.Time
@@ -423,13 +424,28 @@ func (b *builder) openEmbedder() error {
 	if device == "" {
 		device = "auto"
 	}
-	emb, err := b.opt.Registry.Open(b.ctx, b.art, embed.OpenOptions{Device: device})
+	emb, err := b.opt.Registry.Open(b.ctx, b.art, embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory})
 	b.art = nil
 	if err != nil {
+		var config *errs.Error
+		if errors.As(err, &config) && config != nil && config.Code == "invalid_config" {
+			return ctxOr(b.ctx, err)
+		}
 		return ctxOr(b.ctx, wrapAccelIO("the model cannot be opened", err))
 	}
 	b.emb = emb
+	b.reportRuntime()
 	return nil
+}
+
+func (b *builder) reportRuntime() {
+	info := b.emb.Info()
+	if info == b.runInfo {
+		return
+	}
+	b.runInfo = info
+	b.res.Device = info.Device
+	b.progress(Progress{Section: b.sec.Section, Run: &info})
 }
 
 // flush embeds the queued passages in windows, then stores every pending item in order.
@@ -449,6 +465,7 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		if err != nil {
 			return err
 		}
+		b.reportRuntime()
 		for i, q := range batch {
 			if err := b.si.keep(q.w, q.i, vs[i]); err != nil {
 				return err

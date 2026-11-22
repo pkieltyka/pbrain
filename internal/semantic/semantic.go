@@ -34,6 +34,7 @@ type Options struct {
 	Registry  embed.Registry
 	ModelName string  // pbrain.toml semantic.model; "" when off
 	Device    string  // sync selector, empty for auto
+	GPUMemory int64   // batch budget override in bytes
 	ModelDir  sys.Dir // personal.toml model_path, opened by cli; nil when unset
 	Cache     *Cache  // nil when no cache folder is known
 	CacheErr  error   // ErrCacheExposed when the folder failed its test
@@ -55,13 +56,15 @@ type BuildResult struct {
 	Items            int // items the index holds after the run
 	ItemsRemoved     int // items gone from the section whose entries this run dropped
 	PassagesEmbedded int
-	PassagesReused   int // taken from the index's own entries or from the cache
+	PassagesReused   int    // taken from the index's own entries or from the cache
+	Device           string // last device used, empty when nothing was embedded
 }
 
 type Progress struct {
 	Section     item.Section
-	Done, Total int  // items to do
-	Waiting     bool // waiting for the index lock, held by a build or a search's catch-up
+	Done, Total int            // items to do
+	Waiting     bool           // waiting for the index lock, held by a build or a search's catch-up
+	Run         *embed.RunInfo // set at open and when the runtime changes
 }
 
 type SectionStatus struct {

@@ -105,7 +105,11 @@ var commands = []command{
 	{"verify", "ID", "verify a learning or other first-party item", []option{{"by", "ACTOR", "name the verifier", text}}},
 	{"delete", "ID", "preview or delete an item", []option{{"yes", "", "authorize deletion", boolean}}},
 	{"audience", "[set MATCH shared|personal | unset MATCH]", "list or edit audience rules", pages},
-	{"sync", "", "build or update the semantic index, or report its state", []option{{"status", "", "report index state without building", boolean}}},
+	{"sync", "", "build or update the semantic index, or report its state", []option{
+		{"status", "", "report index state without building", boolean},
+		{"device", "SELECTOR", "run embedding on SELECTOR (default PBRAIN_DEVICE or auto)", text},
+	}},
+	{"devices", "", "list devices available for embedding", nil},
 }
 
 func commandNamed(name string, features Features) command {
@@ -368,6 +372,9 @@ func (in *invocation) validate() error {
 	}
 	if in.boolean("shared") && in.boolean("personal") {
 		return usage("--shared cannot be used with --personal")
+	}
+	if in.boolean("status") && in.has("device") {
+		return usage("--device cannot be used with --status")
 	}
 	if in.has("context") {
 		value, err := decimal(in, "context", 1, 3)
