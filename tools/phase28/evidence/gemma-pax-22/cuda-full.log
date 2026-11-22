@@ -1,0 +1,183 @@
+=== RUN   TestMeasureReads
+    measure_test.go:84: linux/amd64, 4 visible CPUs, GOMAXPROCS=4, 10 warm runs per row
+    measure_test.go:85: first sample cache: uncontrolled. Timings include the Git-counting shim
+=== RUN   TestMeasureReads/personal
+    measure_test.go:98: personal: 5000 items, 50000000 item bytes
+    measure_test.go:112: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:112: search common | 162.2 | 138.5 [129.5, 275.6] | 106.6 | 113.0 | 9 | [9, 9]
+    measure_test.go:112: search two words JSON | 172.7 | 194.1 [167.6, 340.3] | 105.7 | 110.7 | 9 | [9, 9]
+    measure_test.go:112: search rare | 404.4 | 216.0 [190.2, 509.5] | 109.1 | 111.2 | 9 | [9, 9]
+    measure_test.go:112: search phrase | 543.6 | 214.1 [186.8, 520.8] | 111.3 | 112.3 | 9 | [9, 9]
+    measure_test.go:112: search prefix | 287.7 | 254.5 [181.5, 510.8] | 110.5 | 111.1 | 9 | [9, 9]
+    measure_test.go:112: search all | 147.9 | 155.4 [130.5, 315.5] | 101.8 | 110.0 | 9 | [9, 9]
+    measure_test.go:112: search window | 145.0 | 151.6 [135.0, 381.3] | 108.4 | 107.6 | 9 | [9, 9]
+    measure_test.go:112: search context | 147.6 | 172.4 [138.1, 538.2] | 107.9 | 112.6 | 9 | [9, 9]
+    measure_test.go:112: search miss | 238.4 | 222.1 [192.3, 504.2] | 106.0 | 106.4 | 9 | [9, 9]
+    measure_test.go:112: get | 150.2 | 155.7 [132.7, 319.9] | 103.4 | 107.1 | 9 | [9, 9]
+    measure_test.go:112: get outline | 137.2 | 133.1 [125.5, 315.3] | 101.5 | 104.9 | 9 | [9, 9]
+    measure_test.go:112: get history | 153.1 | 143.6 [125.3, 435.8] | 99.0 | 106.9 | 9 | [9, 9]
+    measure_test.go:112: list JSON | 148.4 | 154.7 [135.7, 388.8] | 103.7 | 109.9 | 9 | [9, 9]
+    measure_test.go:112: prime JSON | 191.2 | 137.7 [127.6, 478.4] | 99.1 | 109.9 | 9 | [9, 9]
+    measure_test.go:112: search common BM25 | 226.9 | 205.9 [195.7, 444.9] | 102.6 | 109.1 | 9 | [9, 9]
+    measure_test.go:112: search two words JSON BM25 | 405.3 | 206.6 [195.9, 487.3] | 101.7 | 107.1 | 9 | [9, 9]
+    measure_test.go:112: search rare BM25 | 317.9 | 204.6 [188.2, 600.6] | 103.9 | 107.9 | 9 | [9, 9]
+    measure_test.go:112: search phrase BM25 | 192.0 | 199.1 [187.7, 557.2] | 107.9 | 110.1 | 9 | [9, 9]
+    measure_test.go:112: search prefix BM25 | 190.2 | 193.3 [181.0, 490.3] | 100.8 | 107.9 | 9 | [9, 9]
+    measure_test.go:112: search all BM25 | 505.0 | 214.4 [198.4, 346.7] | 108.6 | 108.7 | 9 | [9, 9]
+    measure_test.go:112: search window BM25 | 193.0 | 183.1 [156.0, 344.6] | 102.5 | 109.2 | 9 | [9, 9]
+    measure_test.go:112: search context BM25 | 521.3 | 207.6 [193.2, 507.3] | 110.7 | 109.3 | 9 | [9, 9]
+    measure_test.go:112: search miss BM25 | 193.8 | 201.1 [193.3, 436.2] | 104.0 | 107.3 | 9 | [9, 9]
+    measure_test.go:112: search admitted 5/6 BM25 | 208.1 | 214.3 [193.6, 524.3] | 100.0 | 107.3 | 9 | [9, 9]
+    measure_test.go:114: starting first embeddinggemma-2 index, up to 30h0m0s
+    measure_test.go:114: first index shared: 4500 items, 43642 passages embedded, 0 reused
+    measure_test.go:114: first index personal: 500 items, 4869 passages embedded, 0 reused
+    measure_test.go:114: first index | 4181271.8 ms | 4758.0 MiB peak RSS | 15 Git calls
+    measure_test.go:114: shared model search: 4500 visible items
+    measure_test.go:114: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1779.7 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1299.3 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1561.2 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 1 | 1561.166 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1325.4 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 2 | 1325.364 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1331.3 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 3 | 1331.284 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1597.8 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 4 | 1597.812 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1530.1 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 5 | 1530.064 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1304.4 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 6 | 1304.375 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1786.2 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 7 | 1786.161 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1289.6 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 8 | 1289.582 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1651.4 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 9 | 1651.369 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1375.3 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic with exact hit | 10 | 1375.278 ms
+    measure_test.go:114: search semantic with exact hit | 1779.7 | 1452.7 [1289.6, 1786.2] | 2312.2 | 2317.9 | 9 | [9, 9]
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1469.7 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1383.7 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1498.5 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 1 | 1498.505 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1355.6 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 2 | 1355.650 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1459.7 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 3 | 1459.660 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1312.6 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 4 | 1312.592 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1546.8 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 5 | 1546.800 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1346.4 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 6 | 1346.364 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1743.2 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 7 | 1743.203 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1350.1 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 8 | 1350.053 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1558.4 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 9 | 1558.382 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1392.2 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic paraphrase | 10 | 1392.175 ms
+    measure_test.go:114: search semantic paraphrase | 1469.7 | 1425.9 [1312.6, 1743.2] | 2122.9 | 2295.0 | 9 | [9, 9]
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1538.9 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1754.6 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1282.5 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 1 | 1282.471 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1504.9 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 2 | 1504.932 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1359.8 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 3 | 1359.837 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1547.3 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 4 | 1547.267 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1309.2 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 5 | 1309.182 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1571.5 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 6 | 1571.490 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1468.0 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 7 | 1468.042 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1568.1 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 8 | 1568.061 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1256.1 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 9 | 1256.111 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1762.1 ms
+    measure_test.go:114: phase28 warm sample | 0 personal | search semantic and BM25 | 10 | 1762.116 ms
+    measure_test.go:114: search semantic and BM25 | 1538.9 | 1486.5 [1256.1, 1762.1] | 2293.0 | 2319.0 | 9 | [9, 9]
+    measure_test.go:114: personal model search: 5000 visible items
+    measure_test.go:114: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1676.6 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1474.2 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1591.0 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 1 | 1591.008 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1333.4 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 2 | 1333.373 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1546.4 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 3 | 1546.398 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1583.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 4 | 1583.103 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1340.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 5 | 1340.095 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1794.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 6 | 1794.529 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1521.9 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 7 | 1521.885 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1367.9 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 8 | 1367.867 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1394.8 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 9 | 1394.810 ms
+    measure_test.go:114: search semantic with exact hit exceeded 1 second: 1611.3 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic with exact hit | 10 | 1611.326 ms
+    measure_test.go:114: search semantic with exact hit | 1676.6 | 1534.1 [1333.4, 1794.5] | 2348.6 | 2380.1 | 9 | [9, 9]
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1526.2 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1333.6 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1733.6 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 1 | 1733.575 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1332.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 2 | 1332.460 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1669.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 3 | 1669.506 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1384.6 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 4 | 1384.554 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1658.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 5 | 1658.459 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1338.9 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 6 | 1338.923 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1495.4 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 7 | 1495.396 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1783.6 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 8 | 1783.554 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1297.7 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 9 | 1297.721 ms
+    measure_test.go:114: search semantic paraphrase exceeded 1 second: 1524.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic paraphrase | 10 | 1524.088 ms
+    measure_test.go:114: search semantic paraphrase | 1526.2 | 1509.7 [1297.7, 1783.6] | 2336.4 | 2341.8 | 9 | [9, 9]
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1371.1 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1652.1 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1442.3 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 1 | 1442.305 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1630.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 2 | 1630.125 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1342.7 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 3 | 1342.651 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1661.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 4 | 1661.102 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1561.6 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 5 | 1561.596 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1327.1 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 6 | 1327.141 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1604.4 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 7 | 1604.428 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1483.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 8 | 1483.532 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1537.5 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 9 | 1537.503 ms
+    measure_test.go:114: search semantic and BM25 exceeded 1 second: 1358.3 ms
+    measure_test.go:114: phase28 warm sample | 500 personal | search semantic and BM25 | 10 | 1358.288 ms
+    measure_test.go:114: search semantic and BM25 | 1371.1 | 1510.5 [1327.1, 1661.1] | 2379.3 | 2342.2 | 9 | [9, 9]
+    measure_test.go:114: index after one note shared: 4500 items, 0 passages embedded, 0 reused
+    measure_test.go:114: index after one note personal: 501 items, 1 passages embedded, 0 reused
+    measure_test.go:114: index after one note | 2385.6 ms | 2421.2 MiB peak RSS | 11 Git calls
+--- PASS: TestMeasureReads (4390.27s)
+    --- PASS: TestMeasureReads/personal (4390.26s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/cli	4390.276s

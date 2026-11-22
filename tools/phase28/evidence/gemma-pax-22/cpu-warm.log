@@ -1,0 +1,81 @@
+=== RUN   TestPhase28CPUSearchOnCUDAIndex
+    phase28_cpu_warm_test.go:55: shared model search: 4500 visible items
+    phase28_cpu_warm_test.go:55: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 1 | 941.884 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 2 | 696.388 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 3 | 800.399 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 4 | 723.638 ms
+    phase28_cpu_warm_test.go:55: search semantic with exact hit exceeded 1 second: 1036.4 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 5 | 1036.410 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 6 | 797.573 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 7 | 748.077 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 8 | 897.856 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 9 | 709.662 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic with exact hit | 10 | 735.928 ms
+    phase28_cpu_warm_test.go:55: search semantic with exact hit | 919.1 | 772.8 [696.4, 1036.4] | 1625.6 | 1626.5 | 9 | [9, 9]
+    phase28_cpu_warm_test.go:55: search semantic paraphrase exceeded 1 second: 1083.7 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 1 | 672.437 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 2 | 853.823 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 3 | 801.754 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 4 | 759.237 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 5 | 798.739 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 6 | 892.966 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 7 | 760.574 ms
+    phase28_cpu_warm_test.go:55: search semantic paraphrase exceeded 1 second: 1052.2 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 8 | 1052.240 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 9 | 657.261 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic paraphrase | 10 | 727.967 ms
+    phase28_cpu_warm_test.go:55: search semantic paraphrase | 1083.7 | 779.7 [657.3, 1052.2] | 1447.4 | 1627.4 | 9 | [9, 9]
+    phase28_cpu_warm_test.go:55: search semantic and BM25 exceeded 1 second: 1035.9 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 1 | 809.615 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 2 | 810.079 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 3 | 960.138 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 4 | 795.118 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 5 | 775.583 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 6 | 882.055 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 7 | 736.722 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 8 | 730.513 ms
+    phase28_cpu_warm_test.go:55: search semantic and BM25 exceeded 1 second: 1038.0 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 9 | 1038.020 ms
+    phase28_cpu_warm_test.go:55: phase28 warm sample | 0 personal | search semantic and BM25 | 10 | 749.354 ms
+    phase28_cpu_warm_test.go:55: search semantic and BM25 | 712.4 | 802.4 [730.5, 1038.0] | 1445.5 | 1626.3 | 9 | [9, 9]
+    phase28_cpu_warm_test.go:56: personal model search: 5000 visible items
+    phase28_cpu_warm_test.go:56: case | first ms | warm median ms [min, max] | first peak MiB | max warm peak MiB | Git first | Git warm [min, max]
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 1 | 822.368 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 2 | 751.367 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 3 | 999.144 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 4 | 817.821 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 5 | 738.829 ms
+    phase28_cpu_warm_test.go:56: search semantic with exact hit exceeded 1 second: 1026.3 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 6 | 1026.324 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 7 | 809.728 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 8 | 895.470 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 9 | 829.499 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic with exact hit | 10 | 810.582 ms
+    phase28_cpu_warm_test.go:56: search semantic with exact hit | 800.9 | 820.1 [738.8, 1026.3] | 1604.7 | 1657.2 | 9 | [9, 9]
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 1 | 786.974 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 2 | 812.337 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 3 | 998.721 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 4 | 811.444 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 5 | 867.465 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 6 | 840.939 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 7 | 771.852 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 8 | 767.949 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 9 | 793.537 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic paraphrase | 10 | 774.756 ms
+    phase28_cpu_warm_test.go:56: search semantic paraphrase | 973.1 | 802.5 [767.9, 998.7] | 1487.2 | 1647.9 | 9 | [9, 9]
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 1 | 920.462 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 2 | 816.474 ms
+    phase28_cpu_warm_test.go:56: search semantic and BM25 exceeded 1 second: 1103.1 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 3 | 1103.145 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 4 | 687.440 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 5 | 802.007 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 6 | 927.819 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 7 | 795.546 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 8 | 753.797 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 9 | 756.348 ms
+    phase28_cpu_warm_test.go:56: phase28 warm sample | 500 personal | search semantic and BM25 | 10 | 975.198 ms
+    phase28_cpu_warm_test.go:56: search semantic and BM25 | 747.8 | 809.2 [687.4, 1103.1] | 1617.0 | 1686.8 | 9 | [9, 9]
+--- PASS: TestPhase28CPUSearchOnCUDAIndex (67.78s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/cli	67.784s

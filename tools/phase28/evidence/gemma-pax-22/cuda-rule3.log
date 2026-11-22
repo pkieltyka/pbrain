@@ -1,0 +1,40 @@
+Fresh benchmark process 1
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	1049730721 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.253s
+Fresh benchmark process 2
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 927744833 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.182s
+Fresh benchmark process 3
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	1272309279 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.494s
+Fresh benchmark process 4
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 957342442 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.122s
+Fresh benchmark process 5
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	1101420747 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.317s
