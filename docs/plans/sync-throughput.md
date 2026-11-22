@@ -415,12 +415,25 @@ query and a catch-up keep aikit's threads inside their one forward. aikit's `BER
 this: each forward takes its own scratch from a pool, and with several in flight its kernels stay
 serial. The measurement found every vector equal to the one-forward build's, bit for bit.
 
-`W` is `runtime.GOMAXPROCS(0)`, at most 32. Both ends are measured: 16 workers on 16 cores give 29.69
-passages a second, and 32 on the same cores' two threads each give 33.64, 13% more for 220 MiB
-more. Nothing above 32 is measured, so nothing above it is used. The window is 128 texts on every
-machine, four times the largest `W`: the end of a window, where workers run out of texts one by
-one, is then a small part of it, and what a run stores and counts cannot depend on how many cores
-the machine has. The measurement used 32 texts a call; the ticket measures 128.
+`W` is `runtime.GOMAXPROCS(0)`, at most 32. Nothing above 32 is measured, so nothing above it is used.
+The window is 128 texts on every machine, four times the largest `W`: the end of a window, where
+workers run out of texts one by one, is then a small part of it, and what a run stores and counts
+cannot depend on how many cores the machine has.
+
+Both choices have figures from the built ticket (`74e9f63`; `/var/tmp/pbrain-bge-window.1kUUAX/findings.md`),
+single runs on the slice, passages a second and peak MiB:
+
+| | Window 32 | Window 128 |
+|---|---|---|
+| 4 cores, 4 workers | 11.65 / 390 | 11.97 / 374 |
+| 16 cores, 16 workers | 30.36 / 570 | 37.23 / 536 |
+| 32 threads, 32 workers | 33.17 / 734 | 35.96 / 748 |
+
+The window of 128 is the faster in each pair, by 3%, 23% and 8%, and all six databases are the same
+file. Whether the second thread of each core is worth a worker is **not settled**: at a window of
+32 the 32 workers were 13% ahead of 16 in the first measurement and 9% in this one, and at 128 they
+were 3% behind, for 212 MiB more. The runs started at loads between 2.8 and 14, one pass each. The
+cap stays at 32, and ticket 7 repeats 16 against 32 at full size before it is changed.
 
 Memory: the slice peaked at 354 MiB as built and 783 MiB with 32 workers. At full size the build
 peaks at 998 MiB today (#34), so about 1.4 GB is expected with 32 workers; that figure is an
