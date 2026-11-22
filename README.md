@@ -75,10 +75,12 @@ the first build of the 5,000-item, 50 MB test brain ran at 0.902 passages a seco
 there averaged about 1,000 characters): a projected 15 hours, with a peak of about 2 GB of memory
 observed; that build was not run to the end. That generated text is token-heavy, so ordinary notes
 may go faster. The default built the same index in 1 hour 41 minutes, with a peak of about 1.4 GB
-of memory.
+of memory. That was on four CPUs. `pbrain sync` now runs the default model on every core, up to 32:
+on a 16-core Ryzen 9 7950X the same index took about 20 minutes, with a peak of about 1.9 GB.
 
 With an NVIDIA GPU and the CUDA build described above, `embeddinggemma-2` built that index in
-1 hour 10 minutes on a Ryzen 9 7950X with an RTX PRO 6000, with a peak of about 5 GB of memory.
+1 hour 1 minute on a Ryzen 9 7950X with an RTX PRO 6000, with a peak of about 4.5 GB of memory
+and 2.2 GB on the GPU.
 Search uses the CPU in every build. On that brain, search with `embeddinggemma-2` took about
 0.8 seconds, and `bge-small-en-v1.5` took about 0.3 seconds. To use `embeddinggemma-2`, set the
 model in `docs/brain/pbrain.toml` and run `pbrain sync` again.
@@ -116,8 +118,10 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 | BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
 | EmbeddingGemma 2 first index, CPUs only | Projected 15 h (not run to the end) | Not yet measured |
 
-Search and get figures are warm medians on four CPUs. On four cores of a Ryzen 9 7950X the first index
-took 1 h 18 m, and the semantic search medians were 291–298 ms in the shared view and 321–326 ms in the
-personal view. On that machine with its RTX PRO 6000, EmbeddingGemma 2's first index took 1 h 10 m with
+Search and get figures are warm medians on four CPUs. The BGE first-index figure is also from four
+CPUs, before `pbrain sync` ran the default model on every core. On a Ryzen 9 7950X the first index
+now takes 20 m 25 s on 32 threads and 21 m 1 s on 16 cores; it took 1 h 18 m on four cores before
+that change. The semantic search medians there were 291–298 ms in the shared view and 321–326 ms in the
+personal view. On that machine with its RTX PRO 6000, EmbeddingGemma 2's first index took 1 h 1 m with
 the CUDA build. Its CPU semantic search medians were 773–820 ms on four cores.
 [Method, both machines and peak memory](internal/cli/README.measure.md)
