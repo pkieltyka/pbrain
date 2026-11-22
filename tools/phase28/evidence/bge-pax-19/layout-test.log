@@ -1,0 +1,4 @@
+=== RUN   TestProfileLayoutCost
+--- PASS: TestProfileLayoutCost (1.21s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/item	1.217s
