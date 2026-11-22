@@ -12,10 +12,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
-const (
-	maxTokens     = 2048
-	pairBatchSize = 2
-)
+const maxTokens = 2048
 
 type encoder struct {
 	model     *embeddinggemma2.Encoder
@@ -74,6 +71,13 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	if err != nil {
 		return nil, err
 	}
+	if info.Device != "cpu" && ctx.Err() == nil {
+		var memory embed.DeviceInfo
+		if devices := cudaDevices(); len(devices) > 0 {
+			memory = devices[0]
+		}
+		info.Budget = memoryBudget(memory, opt.MemoryBudget)
+	}
 	bos, _ := tok.TokenID("<bos>")
 	eos, _ := tok.TokenID("<eos>") // NewEncoder requires both.
 	e := &encoder{model: m, tokenizer: tok, bos: bos, eos: eos, info: info}
@@ -130,6 +134,13 @@ func (e *encoder) Dim() int            { return dimension }
 func (e *encoder) Fingerprint() string { return fingerprint }
 func (e *encoder) Info() embed.RunInfo { return e.info }
 
+func (e *encoder) Window() int {
+	if e.model != nil && e.model.Accelerator() != nil {
+		return batchInputs
+	}
+	return 0
+}
+
 func (e *encoder) Close() error {
 	if e.model != nil {
 		if acc := e.model.Accelerator(); acc != nil {
@@ -154,68 +165,39 @@ func (e *encoder) Embed(ctx context.Context, role embed.Role, texts []string) ([
 	if role != embed.Query && role != embed.Document {
 		return nil, errors.New("gemma2: unknown embedding role")
 	}
-	out := make([][]float32, len(texts))
-	if len(texts) == 0 {
-		return out, nil
+	if role == embed.Document && len(texts) > 1 && e.model.Accelerator() != nil {
+		return e.embedDocuments(ctx, texts)
 	}
-	hasAccel := e.model.Accelerator() != nil
-	for i := 0; i < len(texts); {
+	out := make([][]float32, len(texts))
+	for i, text := range texts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if hasAccel && role == embed.Document && len(texts)-i >= pairBatchSize {
-			ids0, err := e.tokenIDs(role, texts[i])
-			if err != nil {
-				return nil, err
-			}
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-			ids1, err := e.tokenIDs(role, texts[i+1])
-			if err != nil {
-				return nil, err
-			}
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-			if total := len(ids0) + len(ids1); total > embeddinggemma2.MaxTokens {
-				return nil, fmt.Errorf("%w: document pair has %d tokens, over %d cap", embed.ErrAccelerator, total, embeddinggemma2.MaxTokens)
-			}
-			vecs, err := e.model.EmbedIDsBatch([][]int{ids0, ids1})
-			if cerr := ctx.Err(); cerr != nil {
-				return nil, cerr
-			}
-			if err != nil {
-				return nil, fmt.Errorf("%w: batch forward: %w", embed.ErrAccelerator, err)
-			}
-			if len(vecs) != pairBatchSize {
-				return nil, fmt.Errorf("%w: batch forward returned %d vectors for %d inputs", embed.ErrAccelerator, len(vecs), pairBatchSize)
-			}
-			out[i], out[i+1] = vecs[0], vecs[1]
-			i += pairBatchSize
-			continue
-		}
-		ids, err := e.tokenIDs(role, texts[i])
+		ids, err := e.tokenIDs(role, text)
 		if err != nil {
 			return nil, err
 		}
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		v, err := e.model.EmbedIDs(ids)
-		if cerr := ctx.Err(); cerr != nil {
-			return nil, cerr
-		}
+		v, err := e.embedIDs(ctx, ids)
 		if err != nil {
-			if hasAccel {
-				return nil, fmt.Errorf("%w: forward: %w", embed.ErrAccelerator, err)
-			}
 			return nil, err
 		}
 		out[i] = v
-		i++
 	}
 	return out, nil
+}
+
+func (e *encoder) embedIDs(ctx context.Context, ids []int) ([]float32, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	v, err := e.model.EmbedIDs(ids)
+	if cerr := ctx.Err(); cerr != nil {
+		return nil, cerr
+	}
+	if err != nil && e.model.Accelerator() != nil {
+		return nil, fmt.Errorf("%w: forward: %w", embed.ErrAccelerator, err)
+	}
+	return v, err
 }
 
 func (e *encoder) ordinary(s string) ([]int, error) {

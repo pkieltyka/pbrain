@@ -171,6 +171,9 @@ type builder struct {
 	runInfo embed.RunInfo
 	x       *indexDB
 	si      *sectionIndex // x, shared with a catch-up's code
+	replace map[string]bool
+	vectors map[[32]byte]vectorRef
+	aliases []vectorAlias
 
 	changed  bool
 	lastPub  time.Time
@@ -254,6 +257,11 @@ func (b *builder) run() (BuildResult, error) {
 	}
 	slices.Sort(dead)
 	b.total = len(todo)
+	b.replace = make(map[string]bool, len(todo))
+	for _, src := range todo {
+		b.replace[src.work.path] = true
+	}
+	b.vectors = make(map[[32]byte]vectorRef)
 	b.lastPub, b.lastProg = b.now(), b.now()
 	b.si = &sectionIndex{opt: b.opt, m: b.m, sec: b.sec.Section, x: x, cache: b.sec.Section == item.Shared && b.opt.Cache != nil}
 
@@ -263,22 +271,20 @@ func (b *builder) run() (BuildResult, error) {
 	for i, src := range todo {
 		todo[i] = uncutItem{}
 		w := src.work
-		missing, err := b.si.cut(ctx, w, src.title, src.body)
+		var err error
+		queue, err = b.cut(w, src.title, src.body, queue)
 		if err != nil {
 			return b.res, err
 		}
-		for _, i := range missing {
-			queue = append(queue, queued{w, i})
-		}
 		pending = append(pending, w)
-		if len(queue) < b.embedWindow() {
-			continue
+		if len(queue) >= b.embedWindow() {
+			if err := b.openEmbedder(); err != nil {
+				return b.res, err
+			}
 		}
-		if err := b.openEmbedder(); err != nil {
-			return b.res, err
-		}
-		// Opening the embedder may raise its window above the default.
-		if len(queue) < b.embedWindow() {
+		// Bound items waiting to be stored even when reuse fills most of their passages.
+		window := b.embedWindow()
+		if len(queue) < window && len(pending) < window {
 			continue
 		}
 		if err := b.flush(queue, pending); err != nil {
@@ -324,10 +330,14 @@ func newWork(path, title string, body []byte, check Check) *work {
 	return &work{path: path, content: ContentDigest(title, body), check: check}
 }
 
-// cut cuts w's item and takes every vector found by digest. It returns the passages still to embed.
-func (s *sectionIndex) cut(ctx context.Context, w *work, title string, body []byte) ([]int, error) {
+func (w *work) cut(title string, body []byte) {
 	w.ps = Passages(title, body)
 	w.vecs = make([][]float32, len(w.ps))
+}
+
+// cut cuts w's item and takes every vector found by digest. It returns the passages still to embed.
+func (s *sectionIndex) cut(ctx context.Context, w *work, title string, body []byte) ([]int, error) {
+	w.cut(title, body)
 	var missing []int
 	for i, p := range w.ps {
 		v, ok, err := s.reuse(ctx, p.Digest)
@@ -353,10 +363,14 @@ func (s *sectionIndex) reuse(ctx context.Context, digest [32]byte) ([]float32, b
 	if ok {
 		return v, true, nil
 	}
+	return s.cachedVector(digest)
+}
+
+func (s *sectionIndex) cachedVector(digest [32]byte) ([]float32, bool, error) {
 	if !s.cache {
 		return nil, false, nil
 	}
-	v, ok, err = s.opt.Cache.readVector(s.m.Fingerprint, digest, s.m.Dim)
+	v, ok, err := s.opt.Cache.readVector(s.m.Fingerprint, digest, s.m.Dim)
 	if err != nil {
 		return nil, false, errCacheGit
 	}
@@ -473,10 +487,16 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		}
 	}
 	clear(queue) // only pending needs to keep the embedded work now
+	for _, alias := range b.aliases {
+		alias.to.w.vecs[alias.to.i] = alias.from.w.vecs[alias.from.i]
+	}
+	clear(b.aliases)
+	b.aliases = b.aliases[:0]
 	for i, w := range pending {
 		if err := b.si.store(ctx, w); err != nil {
 			return err
 		}
+		b.rememberStored(w)
 		b.changed = true
 		b.res.PassagesReused += w.reused
 		b.res.PassagesEmbedded += len(w.ps) - w.reused
