@@ -28,6 +28,9 @@ EmbeddingGemma 2 sync, the CUDA build picks the default CUDA device when it can 
 it runs on the CPU. Use `pbrain sync --device cuda` to require CUDA or `--device cpu` to request
 the CPU. `PBRAIN_DEVICE` sets the choice when the flag is absent. The default bge-small model
 always syncs on the CPU without a notice, regardless of the device selector.
+For CUDA sync, the batch budget is 30% of free GPU memory after loading the model,
+up to 6 GiB. Set `PBRAIN_GPU_MEMORY` in MiB to override it. A passage can run alone
+when it exceeds the batch budget.
 
 ## Quick start
 

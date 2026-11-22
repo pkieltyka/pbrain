@@ -284,6 +284,7 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 		}
 		wantSingle[i] = v
 	}
+	e.info.Budget = int64(len(wantIDs[0])+len(wantIDs[1])) * bytesPerPosition
 	fake.calls, fake.batchCalls, fake.gotIDs, fake.gotBatches = 0, 0, nil, nil
 
 	got8, err := e.Embed(t.Context(), embed.Document, eight)
@@ -330,6 +331,14 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 	if fake.batchCalls != 0 || fake.calls != 2 {
 		t.Fatalf("Query role: batchCalls=%d singleCalls=%d, want 0 and 2", fake.batchCalls, fake.calls)
 	}
+	budget := e.info.Budget
+	e.info.Budget = 0
+	fake.calls, fake.batchCalls = 0, 0
+	if got, err := e.Embed(t.Context(), embed.Document, eight[:2]); err != nil || len(got) != 2 ||
+		fake.calls != 2 || fake.batchCalls != 0 {
+		t.Fatalf("zero-budget documents = %d vectors, %v, single=%d batch=%d", len(got), err, fake.calls, fake.batchCalls)
+	}
+	e.info.Budget = budget
 
 	// 3. ForwardBatch error wraps embed.ErrAccelerator + cause, never retries singletons or CPU, returns nil.
 	batchBoom := errors.New("batch device boom")
@@ -389,6 +398,7 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 	if _, err := encNoBatch.UseAccelerator(nonBatch.name); err != nil {
 		t.Fatalf("UseAccelerator(nonBatch): %v", err)
 	}
+	eNoBatch.info.Budget = budget
 	if got, err := eNoBatch.Embed(t.Context(), embed.Document, []string{"d1", "d2"}); got != nil || !errors.Is(err, embed.ErrAccelerator) || !strings.Contains(err.Error(), "cannot run a batch") {
 		t.Fatalf("non-batch Document pair = (%v, %v), want nil + ErrAccelerator + cannot run a batch", got, err)
 	}
