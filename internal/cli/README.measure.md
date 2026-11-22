@@ -304,6 +304,20 @@ The five fresh processes used a primed pack. They took 1,049.7, 927.7,
 1,272.3, 957.3 and 1,101.4 ms. The median was **1,049.7 ms**, and every
 sample exceeded the 600 ms target. One-minute start load was 26.55–28.51.
 
+The untagged CPU rerun (#33) used master
+`c56bb5d07f6ec72564ea55db0592dfd872f1fd31` with goinfer v0.5.0 and
+Go 1.27.3. On the Ryzen 9 7950X (CPUs 0–3, `GOMAXPROCS=4`, 124.9 GiB
+RAM, Linux 7.3.4, btrfs), `BenchmarkGemmaFirstQuery` with
+`-benchtime=1x -count=5` produced 353.3, 286.2, 284.0, 282.9 and
+287.5 ms, with a **286.2 ms median (282.9–353.3 ms)**. All five
+samples fit inside the earlier Intel CPU range of 253–366 ms and
+met the 600 ms target. The Ryzen CUDA run above measured
+927.7–1,272.3 ms in five fresh processes, with higher host load.
+The CPU rerun ran all five samples in one test process with the pinned
+pack already on disk. The one-minute load average before the benchmark
+was 0.80.
+[CPU benchmark command and raw samples](../../tools/phase28/evidence/gemma-pax-cpu-rule3-v05.log).
+
 The CUDA candidate's `TestMeasureReads/personal` retained the 5,000-item,
 50,000,000-byte fixture and used an empty index and vector cache. The
 first `pbrain --personal sync --json` embedded 43,642 shared and 4,869
