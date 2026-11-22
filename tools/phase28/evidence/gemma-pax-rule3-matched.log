@@ -1,0 +1,166 @@
+2026-11-22T08:35:52+00:00
+candidate=dd2c6c0a6cebac09751c542e1efeaebdd9396f87
+pax
+Linux 7.3.4
+Architecture:                            x86_64
+CPU(s):                                  32
+Model name:                              AMD Ryzen 9 7950X 16-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      16
+CPU CORE L1d:L1i:L2:L3
+  0    0 0:0:0:0
+  1    1 1:1:1:0
+  2    2 2:2:2:0
+  3    3 3:3:3:0
+MemTotal:       130973592 kB
+btrfs
+go version go1.27.3 linux/amd64
+PBRAIN_TEST_GEMMA2_PACK=/var/tmp/pbrain-phase28-gemma-22.5UFzx5/gemma-pack
+taskset -c 0-3 env GOWORK=off GOFLAGS= CGO_ENABLED=0 GOAMD64=v1 GOMAXPROCS=4 go test -c -p 2 -trimpath -o "$w/cpu.test" ./internal/embed/gemma2
+taskset -c 0-3 env GOWORK=off GOFLAGS= CGO_ENABLED=0 GOAMD64=v1 GOMAXPROCS=4 go test -c -p 2 -trimpath -tags cuda -o "$w/cuda.test" ./internal/embed/gemma2
+/var/tmp/pbrain-phase28-gemma-32.fnHghK/cpu.test: go1.27.3
+	dep	github.com/pkieltyka/aikit	v1.79.1	h1:J8fGlbr5HlGBukmT1U/B4JhdeGWhPw+DJnZEaYamTnk=
+	dep	github.com/pkieltyka/goinfer	v0.5.0	h1:s5Dzb49lEgTlhTwq0m+BLJ4ZrqbsmTnDSD7TE0C+SkA=
+	build	CGO_ENABLED=0
+	build	GOOS=linux
+	build	GOAMD64=v1
+/var/tmp/pbrain-phase28-gemma-32.fnHghK/cuda.test: go1.27.3
+	dep	github.com/pkieltyka/aikit	v1.79.1	h1:J8fGlbr5HlGBukmT1U/B4JhdeGWhPw+DJnZEaYamTnk=
+	dep	github.com/pkieltyka/goinfer	v0.5.0	h1:s5Dzb49lEgTlhTwq0m+BLJ4ZrqbsmTnDSD7TE0C+SkA=
+	dep	github.com/pkieltyka/goinfer/backend/cuda	v0.5.0	h1:s3gNDpxT1kG1LYt7GE9D5GWbcX6/dEkA2EX8yx3Ygfw=
+	build	-tags=cuda
+	build	CGO_ENABLED=0
+	build	GOOS=linux
+	build	GOAMD64=v1
+Primed pack before timing: cat "$pack"/* > /dev/null
+taskset -c 0-3 env GOMAXPROCS=4 PBRAIN_ALLOW_GEMMA2=1 PBRAIN_TEST_GEMMA2_PACK="$pack" LD_LIBRARY_PATH=/run/opengl-driver/lib "$w/$mode.test" -test.run ^$ -test.bench ^BenchmarkGemmaFirstQuery$ -test.benchtime=1x -test.count=1
+
+Pair 1 cpu
+2026-11-22T08:35:54+00:00
+loadavg: 1.27 0.64 0.76 1/3547 3755516
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 356608641 ns/op
+PASS
+
+Pair 1 cuda
+2026-11-22T08:35:54+00:00
+loadavg: 1.49 0.69 0.78 1/3547 3755536
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 912902840 ns/op
+PASS
+
+Pair 2 cpu
+2026-11-22T08:35:56+00:00
+loadavg: 1.49 0.69 0.78 1/3550 3755594
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 1 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 353171775 ns/op
+PASS
+
+Pair 2 cuda
+2026-11-22T08:35:56+00:00
+loadavg: 1.49 0.69 0.78 1/3553 3755616
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 878547966 ns/op
+PASS
+
+Pair 3 cpu
+2026-11-22T08:35:57+00:00
+loadavg: 1.49 0.69 0.78 1/3567 3755693
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 352813095 ns/op
+PASS
+
+Pair 3 cuda
+2026-11-22T08:35:58+00:00
+loadavg: 1.49 0.69 0.78 1/3561 3755708
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 806582026 ns/op
+PASS
+
+Pair 4 cpu
+2026-11-22T08:35:59+00:00
+loadavg: 1.49 0.69 0.78 1/3562 3755742
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 357573232 ns/op
+PASS
+
+Pair 4 cuda
+2026-11-22T08:35:59+00:00
+loadavg: 1.77 0.76 0.80 1/3562 3755761
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 840013958 ns/op
+PASS
+
+Pair 5 cpu
+2026-11-22T08:36:00+00:00
+loadavg: 1.77 0.76 0.80 1/3562 3755793
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 347065813 ns/op
+PASS
+
+Pair 5 cuda
+2026-11-22T08:36:01+00:00
+loadavg: 1.77 0.76 0.80 2/3562 3755807
+name, driver_version, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 595.112.07, 2 MiB, 0 %
+pid, process_name, used_gpu_memory [MiB]
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 807796252 ns/op
+PASS
