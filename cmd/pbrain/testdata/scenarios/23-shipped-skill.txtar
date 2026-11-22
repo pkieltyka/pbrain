@@ -3,6 +3,14 @@ pbrain skill
 stdout 'pbrain skill import'
 cp stdout $WORK/core
 exec sh -c 'test "$(wc -w < "$1")" -le 400' sh $WORK/core
+pbrain skill --help
+stdout '^Usage: pbrain skill'
+stdout '^  --json '
+stdout '^  --help '
+stdout '^  --version '
+! stdout '^  --(brain|personal) '
+pbrain --brain missing --personal skill
+cmp stdout $WORK/core
 pbrain skill list
 cmp stdout $WORK/topics
 pbrain skill import

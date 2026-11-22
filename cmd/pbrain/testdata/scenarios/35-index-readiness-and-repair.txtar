@@ -6,10 +6,6 @@ cp stdout $WORK/default-status
 exec sh -c 'printf "semantic.model = \"%s\"\n" "$PBRAIN_DEFAULT_MODEL" > docs/brain/pbrain.toml'
 pbrain sync --status --json
 cmp stdout $WORK/default-status
-! stderr .
-pbrain index --status --json
-cmp stdout $WORK/default-status
-stderr '^\{"notice":\{"code":"command_renamed","message":"pbrain index is now pbrain sync: the old name will be removed in the next release"\}\}$'
 cp $WORK/name-gemma docs/brain/pbrain.toml
 pbrain sync --status --json
 stdout '"model":"embeddinggemma-2"'

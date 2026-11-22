@@ -39,7 +39,6 @@ func TestCLIArgumentMatrix(t *testing.T) {
 		{"audience set", []string{"audience", "set", "github.com/you", "shared", "--personal"}, "audience"},
 		{"audience unset", []string{"audience", "unset", "github.com/you"}, "audience"},
 		{"sync", []string{"sync", "--status"}, "sync"},
-		{"index alias", []string{"--personal", "index", "--status", "--json"}, "sync"},
 		{"literal", []string{"search", "--", "--json"}, "search"},
 		{"leading delimiter", []string{"--", "search", "--json"}, "search"},
 	} {
@@ -69,15 +68,31 @@ func TestCLIArgumentMatrix(t *testing.T) {
 				if !in.has("summary") || in.string("summary") != "" {
 					t.Error("the explicitly empty summary was lost")
 				}
-			case "sync", "index alias":
-				alias := tc.name == "index alias"
-				if !in.boolean("status") || in.indexAlias != alias || in.json != alias || (in.view == brain.PersonalView) != alias {
+			case "sync":
+				if !in.boolean("status") {
 					t.Errorf("bad sync parse: %+v", in)
 				}
 			case "literal", "leading delimiter":
 				if in.json || in.query != "--json" {
 					t.Error("option processing continued after --")
 				}
+			}
+		})
+	}
+	const unknown = "unknown command; run pbrain --help"
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"index"}, "usage: " + unknown + "\n"},
+		{[]string{"index", "--status"}, "usage: " + unknown + "\n"},
+		{[]string{"--json", "index"}, `{"error":{"code":"usage","message":"` + unknown + `"}}` + "\n"},
+		{[]string{"index", "--status", "--json"}, `{"error":{"code":"usage","message":"` + unknown + `"}}` + "\n"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			status, stdout, stderr := invoke(t, Env{Files: noFiles{}}, Features{}, tc.args...)
+			if status != 2 || stdout != "" || stderr != tc.want {
+				t.Fatalf("status %d stdout %q stderr %q, want exit 2 and %q", status, stdout, stderr, tc.want)
 			}
 		})
 	}
@@ -103,7 +118,7 @@ func TestWrongUsageBeforeDiscovery(t *testing.T) {
 		"search query --status fake", "list --limit 201", "list --context 1", "list --color", "list --semantic",
 		"prime --limit 10", "tags --limit 201", "check --offset 999999999999999999999999",
 		"audience set foo shared --limit 1", "audience unset foo --offset 0", "audience set foo anything",
-		"audience wrong", "skill one two", "verify", "delete a b", "sync extra", "index extra", "search --ver query",
+		"audience wrong", "skill one two", "verify", "delete a b", "sync extra", "search --ver query",
 	} {
 		t.Run(tc, func(t *testing.T) {
 			_, err := parseOptions(strings.Fields(tc), Features{})

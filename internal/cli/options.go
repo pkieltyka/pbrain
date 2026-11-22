@@ -44,11 +44,11 @@ var pages = []option{
 	{"max-chars", "N", "maximum code points in the response", text},
 }
 
-var tags = option{"tag", "TAG", "select or assign a tag (repeatable)", repeated}
+var tagFilter = option{"tag", "TAG", "filter by tag (repeatable)", repeated}
 
 var filters = []option{
 	{"kind", "KIND", "include items of a kind (repeatable)", repeated},
-	tags,
+	tagFilter,
 	{"status", "STATUS", "match the recorded status", text},
 	{"since", "WHEN", "include items created at or after WHEN", text},
 	{"until", "WHEN", "include items created through WHEN", text},
@@ -60,7 +60,7 @@ var bm25 = option{"bm25", "", "include results matching part of the query", bool
 
 var writeOptions = []option{
 	{"source", "TEXT", "name the source", text},
-	tags,
+	{"tag", "TAG", "add a tag to the item (repeatable)", repeated},
 	{"replaces", "ID", "record a replaced item (repeatable)", repeated},
 	{"stale-after", "WHEN", "set the review date", text},
 	{"author", "ACTOR", "set the item author", text},
@@ -77,7 +77,7 @@ type command struct {
 }
 
 var commands = []command{
-	{"init", "", "create or complete a brain", []option{{"path", "DIR", "create the brain at DIR", text}}},
+	{"init", "", "create or complete a brain", []option{{"path", "DIR", "create the brain at DIR (default docs/brain when no brain is selected)", text}}},
 	{"skill", "[list|TOPIC]", "print the skill or a topic", nil},
 	{"search", "QUERY…", "find matching items", slices.Concat(filters, pages, []option{
 		colour, {"context", "N", "include 1 to 3 nearby lines on each side", text},
@@ -85,12 +85,12 @@ var commands = []command{
 	})},
 	{"list", "", "list items", slices.Concat(filters, pages)},
 	{"get", "ID", "read an item, its history or its outline", getOptions},
-	{"prime", "", "show current decisions and verified learnings", slices.Concat([]option{tags}, pages[1:])},
+	{"prime", "", "show current decisions and verified learnings", slices.Concat([]option{tagFilter}, pages[1:])},
 	{"tags", "", "list tags", pages},
 	{"check", "", "report findings about the brain", pages},
 	{"add", "", "add a first-party item", slices.Concat([]option{
 		{"title", "TEXT", "set the item title (required)", text},
-		{"kind", "KIND", "set the item kind", text},
+		{"kind", "KIND", "set the item kind (default " + item.Note.String() + ")", text},
 		{"body", "TEXT", "use TEXT as the body", text},
 		{"body-file", "FILE", "read the body from FILE", text},
 		{"decided", "ACTOR", "name the decision maker", text},
@@ -109,9 +109,6 @@ var commands = []command{
 }
 
 func commandNamed(name string, features Features) command {
-	if name == "index" {
-		name = "sync"
-	}
 	for _, cmd := range commands {
 		if cmd.name == name {
 			if cmd.name == "search" && features.BM25 {
@@ -124,9 +121,7 @@ func commandNamed(name string, features Features) command {
 }
 
 type invocation struct {
-	cmd        command
-	indexAlias bool
-
+	cmd      command
 	flags    *pflag.FlagSet
 	operands []string
 	json     bool
@@ -246,7 +241,6 @@ func parseOptions(args []string, features Features) (invocation, error) {
 	var in invocation
 	if at >= 0 {
 		in.cmd = commandNamed(args[at], features)
-		in.indexAlias = args[at] == "index"
 	}
 	in.json = jsonRequested(args, in.cmd.options)
 	if !valid {

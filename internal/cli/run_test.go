@@ -56,7 +56,8 @@ func TestCLINoBrainDispatch(t *testing.T) {
 	status, stdout, stderr := invoke(t, env, Features{}, "--help", "--json")
 	var help helpOutput
 	oneJSON(t, stdout, &help)
-	if status != 0 || stderr != "" || !strings.Contains(help.Help, "Usage:") || !strings.Contains(help.Help, "init") {
+	if status != 0 || stderr != "" || !strings.Contains(help.Help, "Usage:") || !strings.Contains(help.Help, "init") ||
+		!strings.Contains(help.Help, "\n  sync ") || strings.Contains(help.Help, "\n  index ") {
 		t.Errorf("help: %d %+v %q", status, help, stderr)
 	}
 	status, stdout, stderr = invoke(t, env, Features{}, "--version", "--json")
@@ -74,37 +75,38 @@ func TestCLINoBrainDispatch(t *testing.T) {
 	}
 }
 
-func TestSyncAlias(t *testing.T) {
-	const message = "pbrain index is now pbrain sync: the old name will be removed in the next release"
-	env := Env{Files: noFiles{}}
-	status, root, stderr := invoke(t, env, Features{}, "--help")
-	if status != 0 || stderr != "" || !strings.Contains(root, "\n  sync ") || strings.Contains(root, "\n  index ") {
-		t.Fatalf("root help: %d %q %q", status, root, stderr)
-	}
-	status, help, stderr := invoke(t, env, Features{}, "sync", "--help")
-	if status != 0 || stderr != "" || !strings.HasPrefix(help, "Usage: pbrain sync ") || !strings.Contains(help, "--status") {
-		t.Fatalf("sync help: %d %q %q", status, help, stderr)
-	}
-	if status, out, stderr := invoke(t, env, Features{}, "index", "--help"); status != 0 || out != help || stderr != "" {
-		t.Fatalf("alias help: %d %q %q", status, out, stderr)
-	}
-	status, _, stderr = invoke(t, env, Features{}, "sync", "--bogus", "--json")
-	if code, out, diag := invoke(t, env, Features{}, "index", "--bogus", "--json"); status != 2 || code != status || out != "" || diag != stderr {
-		t.Fatalf("alias usage: %d %q %q", code, out, diag)
-	}
+func TestCommandHelpDefaultsAndTags(t *testing.T) {
 	for _, tc := range []struct {
-		args   []string
-		notice string
+		command string
+		options map[string]string
 	}{
-		{[]string{"--status"}, "command_renamed: " + message + "\n"},
-		{[]string{"--status", "--json"}, `{"notice":{"code":"command_renamed","message":"` + message + `"}}` + "\n"},
+		{"search", map[string]string{"--limit": "default 5)", "--max-chars": "default 3000)", "--offset": "default 0)", "--tag": "filter by tag (repeatable)"}},
+		{"list", map[string]string{"--limit": "default 20)", "--max-chars": "default 2000)", "--tag": "filter by tag (repeatable)"}},
+		{"get", map[string]string{"--limit": "default 20 with --history, 50 with --outline", "--max-chars": "default 6000 for the body, 2000 with --history, 2000 with --outline"}},
+		{"prime", map[string]string{"--max-chars": "default 2000)", "--tag": "filter by tag (repeatable)"}},
+		{"tags", map[string]string{"--limit": "default 50)", "--max-chars": "default 2000)"}},
+		{"check", map[string]string{"--limit": "default 50)", "--max-chars": "default 4000)"}},
+		{"audience", map[string]string{"--limit": "default 20)", "--max-chars": "default 2000)"}},
+		{"init", map[string]string{"--path": "default docs/brain"}},
+		{"add", map[string]string{"--kind": "default note)", "--tag": "add a tag to the item (repeatable)"}},
+		{"import", map[string]string{"--tag": "add a tag to the item (repeatable)"}},
 	} {
-		// A valid invocation can fail during discovery. The alias notice comes first.
-		status, stdout, stderr := invoke(t, Env{}, Features{}, append([]string{"sync"}, tc.args...)...)
-		code, out, diag := invoke(t, Env{}, Features{}, append([]string{"index"}, tc.args...)...)
-		if status != 1 || code != status || out != stdout || diag != tc.notice+stderr {
-			t.Errorf("alias %v: %d %q %q", tc.args, code, out, diag)
-		}
+		t.Run(tc.command, func(t *testing.T) {
+			status, stdout, stderr := invoke(t, Env{Files: noFiles{}}, Features{}, tc.command, "--help")
+			if status != 0 || stderr != "" {
+				t.Fatalf("help: %d %q %q", status, stdout, stderr)
+			}
+			options := map[string]string{}
+			for _, line := range strings.Split(stdout, "\n") {
+				flag, text, _ := strings.Cut(strings.TrimSpace(line), " ")
+				options[flag] = strings.TrimSpace(text)
+			}
+			for flag, want := range tc.options {
+				if !strings.Contains(options[flag], want) {
+					t.Errorf("%s help = %q, want %q", flag, options[flag], want)
+				}
+			}
+		})
 	}
 }
 
