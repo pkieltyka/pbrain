@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"runtime"
 	"strings"
+	"sync"
+	"sync/atomic"
 
 	tokenizer "github.com/pkieltyka/aikit/embed"
 	"github.com/pkieltyka/aikit/encoder"
@@ -16,6 +19,8 @@ import (
 const (
 	queryInstruction = "Represent this sentence for searching relevant passages: "
 	contentLimit     = 510 // CLS and SEP take the remaining two positions.
+	embedWindow      = 128
+	maxWorkers       = 32
 )
 
 var (
@@ -87,8 +92,13 @@ func open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
 	return e, nil
 }
 
+type bertModel interface {
+	Embed([]int32) []float32
+	Close() error
+}
+
 type embedder struct {
-	model     *encoder.BERT
+	model     bertModel
 	tokenizer *tokenizer.Tokenizer
 	cls, sep  int32
 }
@@ -108,6 +118,7 @@ func newEmbedder(model *encoder.BERT) (*embedder, error) {
 
 func (e *embedder) Dim() int            { return modelRow.Dim }
 func (e *embedder) Fingerprint() string { return modelRow.Fingerprint }
+func (e *embedder) Window() int         { return embedWindow }
 
 func (e *embedder) Close() error {
 	if e.model == nil {
@@ -129,12 +140,55 @@ func (e *embedder) Embed(ctx context.Context, role embed.Role, texts []string) (
 	if role != embed.Query && role != embed.Document {
 		return nil, errors.New("bge: unknown embedding role")
 	}
+	if workers := min(runtime.GOMAXPROCS(0), maxWorkers, len(texts)); workers > 1 {
+		return embedBatch(ctx, len(texts), workers, func(ctx context.Context, i int) ([]float32, error) {
+			ids := e.tokenIDs(role, texts[i])
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			return e.model.Embed(ids), nil
+		})
+	}
 	vectors := make([][]float32, len(texts))
 	for i, text := range texts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
 		vectors[i] = e.model.Embed(e.tokenIDs(role, text))
+	}
+	return vectors, nil
+}
+
+// embedBatch gives each worker one input and its output slot at a time. The
+// caller can close the model after it returns because all forwards have joined.
+func embedBatch(ctx context.Context, count, workers int, forward func(context.Context, int) ([]float32, error)) ([][]float32, error) {
+	workCtx, cancel := context.WithCancelCause(ctx)
+	defer cancel(nil)
+	vectors := make([][]float32, count)
+	var next atomic.Int64
+	var group sync.WaitGroup
+	for range workers {
+		group.Go(func() {
+			for workCtx.Err() == nil {
+				i := int(next.Add(1) - 1)
+				if i >= count {
+					return
+				}
+				vector, err := forward(workCtx, i)
+				if err != nil {
+					cancel(err)
+					return
+				}
+				vectors[i] = vector
+			}
+		})
+	}
+	group.Wait()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if err := context.Cause(workCtx); err != nil {
+		return nil, err
 	}
 	return vectors, nil
 }
