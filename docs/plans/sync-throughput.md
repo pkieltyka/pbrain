@@ -206,10 +206,11 @@ opens with the zero value.
 it: `cuda:0`, `metal:0`. The AMD path is goinfer's direct Vulkan backend (goinfer #21; operator's
 decision, 2026-11-22: ROCm is not asked for), so an AMD card is written `vulkan:0` in the examples
 below; pbrain fixes no spelling of its own, and the examples follow goinfer if it names it
-otherwise. (Later the same day, on goinfer v0.6.1: its Vulkan backend lists no device, so until
-goinfer #29 an AMD card is named `vulkan` alone, `vulkan:0` is `invalid_config`, and `auto` tries
-it last. The rule is in `specs/projects/pbrain/components/semantic.md`, "Devices", which wins
-over the `vulkan:0` examples below.) The index is the device's
+otherwise. (Later the same day: goinfer's Vulkan backend lists its cards from its pull request #44 on, as
+`vulkan:<index>` with a UUID and a total but no free figure, and `auto` tries a card with no
+free figure after every card with one. The rule is in
+`specs/projects/pbrain/components/semantic.md`, "Devices", which wins over this plan where
+they differ.) The index is the device's
 place in that backend's own listing, which can change with a reboot or a visibility mask such as
 `CUDA_VISIBLE_DEVICES`. Each device also has the persistent id its runtime gives it, printed by the
 listing; goinfer is asked to say which of the two survives what (ask 7).
