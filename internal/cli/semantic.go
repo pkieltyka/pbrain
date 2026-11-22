@@ -182,11 +182,16 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 	if in.boolean("status") {
 		return runIndexStatus(ctx, env, in, b)
 	}
+	runtimeOpt, err := syncRuntimeOptions(env, in)
+	if err != nil {
+		return outcome{err: err}
+	}
 	opt, release, err := semanticOptions(ctx, env, b, true)
 	defer release()
 	if err != nil {
 		return outcome{err: err}
 	}
+	opt.Device, opt.GPUMemory = runtimeOpt.Device, runtimeOpt.MemoryBudget
 	dirs, err := sectionDirs(in, b)
 	if err != nil {
 		return outcome{err: err}
@@ -194,7 +199,15 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 	notify := func(m embed.Model, bytes int64) {
 		emitNotice(env.Stderr, in.json, errs.Notice{Code: "model_download", Message: downloadMessage(m, bytes)})
 	}
+	shown := map[string]bool{}
 	progress := func(p semantic.Progress) {
+		if p.Run != nil {
+			if n, ok := deviceNotice(*p.Run, opt.ModelName); ok && !shown[n.Code] {
+				emitNotice(env.Stderr, in.json, n)
+				shown[n.Code] = true
+			}
+			return
+		}
 		emitNotice(env.Stderr, in.json, errs.Notice{Code: "index_progress", Message: progressMessage(p)})
 	}
 	skipped := map[string]bool{}
@@ -225,8 +238,12 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		lines = append(lines, fmt.Sprintf("%s: %s indexed, %s removed; %s embedded, %d reused", name,
 			counted(res.Items, "item", "items"), counted(res.ItemsRemoved, "item", "items"),
 			counted(res.PassagesEmbedded, "passage", "passages"), res.PassagesReused))
-		rows = append(rows, render.Object{"section": name, "items": res.Items, "items_removed": res.ItemsRemoved,
-			"passages_embedded": res.PassagesEmbedded, "passages_reused": res.PassagesReused})
+		row := render.Object{"section": name, "items": res.Items, "items_removed": res.ItemsRemoved,
+			"passages_embedded": res.PassagesEmbedded, "passages_reused": res.PassagesReused}
+		if res.Device != "" {
+			row["device"] = res.Device
+		}
+		rows = append(rows, row)
 	}
 	if n := len(skipped); n > 0 {
 		msg := fmt.Sprintf("%d %s skipped: run pbrain check", n, plural(n, "file", "files"))

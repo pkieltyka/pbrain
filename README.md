@@ -22,9 +22,12 @@ The macOS binaries are built but not tested, and are unsupported for now.
 For Linux machines with an NVIDIA GPU and the `embeddinggemma-2` model, build the opt-in CUDA
 binary with `CGO_ENABLED=0 go build -tags cuda ./cmd/pbrain`. Default untagged
 builds remain CPU-only and keep `bge-small-en-v1.5` as the default model. The CUDA build loads
-`libcuda.so.1` dynamically at runtime (set `LD_LIBRARY_PATH` if the driver library is outside the
-default loader search path) and fails loudly if the CUDA device cannot be attached or a forward or
-close fails.
+`libcuda.so.1` dynamically at runtime. Set `LD_LIBRARY_PATH` if the driver library is outside the
+default loader search path. Run `pbrain devices` to see the available devices. For an
+EmbeddingGemma 2 sync, the CUDA build picks the default CUDA device when it can and warns when
+it runs on the CPU. Use `pbrain sync --device cuda` to require CUDA or `--device cpu` to request
+the CPU. `PBRAIN_DEVICE` sets the choice when the flag is absent. The default bge-small model
+always syncs on the CPU without a notice, regardless of the device selector.
 
 ## Quick start
 
@@ -70,10 +73,9 @@ of memory.
 
 With an NVIDIA GPU and the CUDA build described above, `embeddinggemma-2` built that index in
 1 hour 10 minutes on a Ryzen 9 7950X with an RTX PRO 6000, with a peak of about 5 GB of memory.
-The GPU helps the build and not a search: a search of that brain took about 1.5 seconds with the
-CUDA build and about 0.8 seconds with the default build, where `bge-small-en-v1.5` takes about
-0.3 seconds. To use `embeddinggemma-2`, set the model in `docs/brain/pbrain.toml` and run
-`pbrain sync` again.
+Search uses the CPU in every build. On that brain, search with `embeddinggemma-2` took about
+0.8 seconds, and `bge-small-en-v1.5` took about 0.3 seconds. To use `embeddinggemma-2`, set the
+model in `docs/brain/pbrain.toml` and run `pbrain sync` again.
 
 ```toml
 [semantic]
@@ -111,5 +113,5 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 Search and get figures are warm medians on four CPUs. On four cores of a Ryzen 9 7950X the first index
 took 1 h 18 m, and the semantic search medians were 291–298 ms in the shared view and 321–326 ms in the
 personal view. On that machine with its RTX PRO 6000, EmbeddingGemma 2's first index took 1 h 10 m with
-the CUDA build; its semantic search medians were 773–820 ms on four CPU cores and 1,426–1,534 ms with
-the CUDA build. [Method, both machines and peak memory](internal/cli/README.measure.md)
+the CUDA build. Its CPU semantic search medians were 773–820 ms on four cores.
+[Method, both machines and peak memory](internal/cli/README.measure.md)

@@ -105,6 +105,9 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 	if in.cmd.name == "skill" {
 		return runSkill(in)
 	}
+	if in.cmd.name == "devices" {
+		return runDevices(env, in)
+	}
 
 	bEnv := brain.Env{Dir: env.Dir, Getenv: env.Getenv, Now: env.Now, Git: env.Git, Files: env.Files}
 	open := brain.OpenOptions{Brain: in.string("brain")}
