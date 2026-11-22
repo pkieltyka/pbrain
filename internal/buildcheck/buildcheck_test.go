@@ -4,9 +4,12 @@ import (
 	"go/build"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"testing"
+
+	"go.yaml.in/yaml/v3"
 )
 
 const module = "github.com/pkieltyka/pbrain"
@@ -187,28 +190,54 @@ func TestPackageImports(t *testing.T) {
 	}
 }
 
-// TestReleaseConfig keeps the GoReleaser configuration in step with architecture section 16: the
-// four targets, CGO_ENABLED=0, no build tags, and the linker flag that sets --version on a variable
-// the cli still declares.
+// TestReleaseConfig checks the CPU and CUDA release build configurations and the version flag.
 func TestReleaseConfig(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(root(t), ".goreleaser.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	cfg := string(data)
-	for _, want := range []string{
-		"- CGO_ENABLED=0", "main: ./cmd/pbrain",
-		"- linux", "- darwin", "- amd64", "- arm64",
-		"-X github.com/pkieltyka/pbrain/internal/cli.version=",
-		"algorithm: sha256",
-	} {
-		if !strings.Contains(cfg, want) {
-			t.Errorf(".goreleaser.yaml lacks %q", want)
+	var cfg struct {
+		ReportSizes bool `yaml:"report_sizes"`
+		Builds      []struct {
+			ID, Main, Binary               string
+			Env, Goos, Goarch, Tags, Flags []string
+			Ldflags                        []string
+		}
+		Checksum struct{ Algorithm string }
+	}
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.ReportSizes || cfg.Checksum.Algorithm != "sha256" {
+		t.Error("GoReleaser must report sizes and generate SHA-256 checksums")
+	}
+	want := map[string]struct{ os, tags []string }{
+		"pbrain-cpu":  {os: []string{"linux", "darwin"}},
+		"pbrain-cuda": {os: []string{"linux"}, tags: []string{"cuda"}},
+	}
+	for _, build := range cfg.Builds {
+		targets, ok := want[build.ID]
+		if !ok {
+			t.Errorf("unexpected release build %q", build.ID)
+			continue
+		}
+		delete(want, build.ID)
+		if !slices.Equal(build.Goos, targets.os) || !slices.Equal(build.Tags, targets.tags) ||
+			!slices.Equal(build.Goarch, []string{"amd64", "arm64"}) {
+			t.Errorf("%s: GOOS %v, GOARCH %v, tags %v", build.ID, build.Goos, build.Goarch, build.Tags)
+		}
+		if build.Main != "./cmd/pbrain" || build.Binary != "pbrain" ||
+			!slices.Equal(build.Env, []string{"CGO_ENABLED=0"}) || !slices.Equal(build.Flags, []string{"-trimpath"}) ||
+			!strings.Contains(strings.Join(build.Ldflags, " "), "-X github.com/pkieltyka/pbrain/internal/cli.version=") {
+			t.Errorf("%s: unexpected build settings %+v", build.ID, build)
 		}
 	}
-	for _, banned := range []string{"tags:", "GOEXPERIMENT", "CGO_ENABLED=1"} {
-		if strings.Contains(cfg, banned) {
-			t.Errorf(".goreleaser.yaml sets %q; the release build has no build tag, experiment or cgo", banned)
+	if len(want) != 0 {
+		t.Errorf("missing release builds: %v", want)
+	}
+	for _, banned := range []string{"GOEXPERIMENT", "CGO_ENABLED=1"} {
+		if strings.Contains(string(data), banned) {
+			t.Errorf(".goreleaser.yaml sets forbidden %q", banned)
 		}
 	}
 	src, err := os.ReadFile(filepath.Join(root(t), "internal", "cli", "run.go"))

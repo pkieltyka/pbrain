@@ -134,15 +134,36 @@ func TestReleaseBinaryOutput(t *testing.T) {
 	var build struct {
 		Sections []struct {
 			Passages int `json:"passages_embedded"`
+			Device   string
 		}
 	}
 	if err := json.Unmarshal([]byte(out), &build); err != nil || len(build.Sections) != 1 || build.Sections[0].Passages <= 8 {
 		t.Fatalf("index: %s", out)
 	}
-	for _, line := range strings.Split(strings.TrimSuffix(diag, "\n"), "\n") {
-		if line != "" && (!json.Valid([]byte(line)) || !strings.Contains(line, `"code":"index_progress"`)) {
+	wantDeviceNotice := ""
+	if modelName == "embeddinggemma-2" {
+		wantDeviceNotice = "embedding_device"
+		if build.Sections[0].Device == "cpu" {
+			wantDeviceNotice = "cpu_fallback"
+		}
+	}
+	for line := range strings.SplitSeq(strings.TrimSuffix(diag, "\n"), "\n") {
+		if line == "" {
+			continue
+		}
+		var diagnostic struct{ Notice struct{ Code string } }
+		if err := json.Unmarshal([]byte(line), &diagnostic); err != nil {
 			t.Fatalf("index stderr: %q", line)
 		}
+		if code := diagnostic.Notice.Code; code != "index_progress" {
+			if wantDeviceNotice == "" || code != wantDeviceNotice {
+				t.Fatalf("unexpected sync notice: %q", line)
+			}
+			wantDeviceNotice = ""
+		}
+	}
+	if wantDeviceNotice != "" {
+		t.Fatalf("missing %s notice: %q", wantDeviceNotice, diag)
 	}
 	clean("", "search", "Redis", "--semantic", "--json")
 	testCalibrationOutput(t, modelName, model)
