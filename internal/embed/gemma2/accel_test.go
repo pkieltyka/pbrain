@@ -360,6 +360,21 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 	}
 	fake.err = nil
 
+	// A lost device is reported with its native cause and no further forwards.
+	lost := &embeddinggemma2.DeviceLostError{Cause: errors.New("test device reset")}
+	fake.err, fake.batchErr = lost, lost
+	for _, texts := range [][]string{{"a"}, {"a", "b", "c"}} {
+		fake.calls, fake.batchCalls = 0, 0
+		if got, err := e.Embed(t.Context(), embed.Document, texts); got != nil ||
+			!errors.Is(err, embed.ErrDeviceLost) || !errors.Is(err, embed.ErrAccelerator) || !errors.Is(err, lost) {
+			t.Fatalf("lost device for %d texts = (%v, %v), want no vectors and the original loss", len(texts), got, err)
+		}
+		if fake.calls+fake.batchCalls != 1 {
+			t.Fatalf("lost device retried: single=%d batch=%d", fake.calls, fake.batchCalls)
+		}
+	}
+	fake.err, fake.batchErr = nil, nil
+
 	// 5. Context cancellation during forward takes precedence over embed.ErrAccelerator.
 	ctx, cancel := context.WithCancel(t.Context())
 	fake.onBatch = cancel

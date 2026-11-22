@@ -22,6 +22,7 @@ type accelHookRegistry struct {
 	closeErr   error
 	onEmbed    func(role embed.Role, texts []string)
 	docChunks  []int
+	info       *embed.RunInfo
 }
 
 type accelHookEmbedder struct {
@@ -60,6 +61,33 @@ func (h *accelHookEmbedder) Close() error {
 		return h.r.closeErr
 	}
 	return h.Embedder.Close()
+}
+
+func (h *accelHookEmbedder) Info() embed.RunInfo {
+	if h.r.info != nil {
+		return *h.r.info
+	}
+	return h.Embedder.Info()
+}
+
+func TestBuildDeviceLost(t *testing.T) {
+	e := newEnv(t)
+	s := newSection(t, item.Shared)
+	s.put("notes/a.md", "Title A", "Body A.")
+	cause := fmt.Errorf("submit: %w", embed.ErrDeviceLost)
+	hook := &accelHookRegistry{
+		Registry: e.reg, docErr: cause,
+		info: &embed.RunInfo{Device: "vulkan:0"},
+	}
+	e.reg = hook
+	_, err := e.build(s)
+	var pe *errs.Error
+	if !errors.As(err, &pe) || pe.Code != "io" || pe.Message != "device vulkan:0 was lost while embedding passages" || !errors.Is(err, cause) {
+		t.Fatalf("lost device build = %v, want io error naming the device and retaining the cause", err)
+	}
+	if len(hook.options) != 1 || !slices.Equal(hook.docChunks, []int{1}) || hook.closeCalls.Load() != 1 {
+		t.Fatalf("lost device: opens=%d, forwards=%v, closes=%d, want one each", len(hook.options), hook.docChunks, hook.closeCalls.Load())
+	}
 }
 
 func TestBuildAcceleratorErrors(t *testing.T) {
@@ -148,9 +176,9 @@ func TestBuildAcceleratorErrors(t *testing.T) {
 func TestSearchOpensCPU(t *testing.T) {
 	e := newEnv(t)
 	probes := 0
-	reg := embed.NewRegistry(embed.Entry{Model: e.m(), Open: e.reg.Open, Devices: func() []embed.DeviceInfo {
+	reg := embed.NewRegistry(embed.Entry{Model: e.m(), Open: e.reg.Open, Devices: func() embed.Listing {
 		probes++
-		return []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}
+		return embed.Listing{Devices: []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}}
 	}})
 	hook := &accelHookRegistry{Registry: reg}
 	e.reg = hook

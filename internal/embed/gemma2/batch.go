@@ -3,16 +3,18 @@ package gemma2
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
 const (
-	batchInputs      = 256
-	bytesPerPosition = 136_000 // measured CUDA batch working set, goinfer v0.5.0
-	gib              = 1 << 30
-	budgetCeiling    = 6 * gib
+	batchInputs            = 256
+	bytesPerPosition       = 136_000    // measured CUDA batch working set, goinfer v0.5.0
+	vulkanBytesPerPosition = 4 * 26_882 // float32 buffers in the Vulkan forward graph
+	gib                    = 1 << 30
+	budgetCeiling          = 6 * gib
 )
 
 func memoryBudget(memory embed.DeviceInfo, override int64) int64 {
@@ -60,7 +62,11 @@ func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float
 	}
 
 	out := make([][]float32, 0, len(ids))
-	positions := int(e.info.Budget / bytesPerPosition)
+	bytes := int64(bytesPerPosition)
+	if strings.HasPrefix(e.info.Device, "vulkan:") {
+		bytes = vulkanBytesPerPosition
+	}
+	positions := int(e.info.Budget / bytes)
 	for len(ids) > 0 {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -78,7 +84,7 @@ func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float
 				return nil, cerr
 			}
 			if err != nil {
-				return nil, fmt.Errorf("%w: batch forward: %w", embed.ErrAccelerator, err)
+				return nil, forwardError("batch forward", err)
 			}
 			if len(vs) != n {
 				return nil, fmt.Errorf("%w: batch forward returned %d vectors for %d inputs", embed.ErrAccelerator, len(vs), n)

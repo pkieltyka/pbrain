@@ -102,7 +102,7 @@ type Entry struct {
 	Model Model
 	Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
 	// Devices lists the adapter's usable GPUs without opening a model. Nil means CPU only.
-	Devices func() []DeviceInfo
+	Devices func() Listing
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)
@@ -216,6 +216,9 @@ var ErrWrongModel = errors.New("not the named model")
 // ErrAccelerator marks an explicit hardware accelerator attach, forward, or close failure so
 // callers fail loud rather than silently degrading to CPU or lexical fallback.
 var ErrAccelerator = errors.New("accelerator failed")
+
+// ErrDeviceLost marks a forward failure that ended the accelerator session.
+var ErrDeviceLost = fmt.Errorf("%w: device lost", ErrAccelerator)
 
 func absent(name string) error { return fmt.Errorf("%w: %s is missing", ErrAbsent, name) }
 func wrong(name string) error {

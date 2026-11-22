@@ -17,22 +17,31 @@ While the repository is private, tagged installs and release downloads require r
 Once a release is tagged, install it with
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@latest` or download the
 Linux or macOS binary for your architecture (amd64 or arm64). [GitHub Releases](https://github.com/pkieltyka/pbrain/releases)
-The standard Linux archives include CUDA support. Use the Linux archives ending in
+The v0.2.0 Linux GPU archives include CUDA support. Use the Linux archives ending in
 `_cpu.tar.gz` for a smaller CPU-only binary. `go install` also gives a CPU-only binary.
 The macOS binaries are CPU-only, untested and unsupported for now.
 
 For CUDA support on Linux with `go install`, use
 `go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`.
 To build with CUDA from source on Linux, run `CGO_ENABLED=0 go build -tags cuda ./cmd/pbrain`.
-The default model is `bge-small-en-v1.5` in every build. The CUDA build loads
+On Linux amd64, goinfer v0.6.2 supports sync of the Google EmbeddingGemma 2
+pack on discrete AMD GPUs through Vulkan. Build with `CGO_ENABLED=0 go build -tags 'cuda vulkan' ./cmd/pbrain`
+to include both GPU backends. The CUDA build loads
 `libcuda.so.1` dynamically at runtime. Set `LD_LIBRARY_PATH` if the driver library is outside the
-default loader search path. Run `pbrain devices` to see the available devices. For an
-EmbeddingGemma 2 sync, the CUDA build picks the default CUDA device when it can and warns when
-it runs on the CPU. Use `pbrain sync --device cuda` to require CUDA or `--device cpu` to request
-the CPU. `PBRAIN_DEVICE` sets the choice when the flag is absent. The default bge-small model
-always syncs on the CPU without a notice, regardless of the device selector.
+default loader search path. Vulkan uses the system Vulkan loader and an AMD driver.
+Run `pbrain devices` to see the available devices. For an EmbeddingGemma 2 sync,
+automatic selection tries a listed CUDA device before Vulkan if both are available.
+Use `pbrain sync --device vulkan` to select AMD, or `--device vulkan:<uuid>` to pin
+one card by the persistent ID from `pbrain devices --json`. Use `--device cuda`
+to require CUDA or `--device cpu` to request the CPU. `PBRAIN_DEVICE` sets the choice
+when the flag is absent. EmbeddingGemma 2 sync warns when it runs on the CPU.
+The default `bge-small-en-v1.5` model always syncs on the CPU without a notice,
+regardless of the device selector.
+
 For CUDA sync, the batch budget is 30% of free GPU memory after loading the model,
-up to 6 GiB. Set `PBRAIN_GPU_MEMORY` in MiB to override it. A passage can run alone
+up to 6 GiB. Vulkan defaults to a 1 GiB batch budget. Set `PBRAIN_GPU_MEMORY` in
+MiB to override either budget. Leave headroom for model weights and other GPU
+users, including the display if it shares the card. A passage can run alone
 when it exceeds the batch budget.
 
 ## Quick start

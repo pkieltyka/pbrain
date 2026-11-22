@@ -90,9 +90,6 @@ func runDevices(env Env, in *invocation) outcome {
 			if d.Persistent != "" {
 				row["persistent"] = d.Persistent
 			}
-			if d.Memory != "" {
-				row["memory"] = d.Memory
-			}
 			if d.MemoryKind != "" {
 				row["memory_kind"] = d.MemoryKind
 			}
@@ -102,6 +99,7 @@ func runDevices(env Env, in *invocation) outcome {
 				memory = fmt.Sprintf("%d MiB", d.TotalBytes/bytesPerMiB)
 			}
 			if d.Memory == "live" || d.Memory == "estimated" {
+				row["memory"] = d.Memory
 				row["free_bytes"] = d.FreeBytes
 				if memory == "" {
 					memory = fmt.Sprintf("%d MiB free", d.FreeBytes/bytesPerMiB)

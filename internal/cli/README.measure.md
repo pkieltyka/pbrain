@@ -647,3 +647,52 @@ queries; 33 pairs had two empty results. The quality and rule-2 gates
 passed, and the CPU first-query gate still prevents admission of either quant.
 
 [Commands and raw measurements](../../tools/phase28/evidence/gguf-47/)
+
+### GGUF first query and same-file parity on goinfer v0.6.2
+
+2026-11-22. The #47 scratch evaluator used the v0.6.2 pins from
+`d5129b3b880ed0f361f07f8876700ebd60ab0ddd`, with the same verified-file
+adapter, model files and query. Five fresh CPU processes per pack used
+primed files and four physical Ryzen 9 7950X cores on pax. The timed
+operation includes verification, loading, one query and model close.
+
+| Pack | CPU median ms, v0.6.1 → v0.6.2 | v0.6.2 range ms | Samples below 600 ms | Peak host RSS MiB | Same-file minimum cosine, CPU / CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Google control | 347.3 → 356.5 | 348.4–378.1 | 5/5 | 1,110.3 | — |
+| Q8_0 | 933.8 → 562.9 | 558.0–603.6 | 4/5 | 1,033.3 | 0.9998506099 / 0.9998506078 |
+| UD-Q6_K_XL | 1,035.3 → 540.6 | 527.8–557.1 | 5/5 | 933.8 | 0.9991069286 / 0.9991069451 |
+
+Q8_0 exceeded 600 ms once on this desktop. UD-Q6_K_XL stayed below
+600 ms in all five samples. Both satisfied rule 2 in all 162 comparisons
+per device and quant against the pinned llama.cpp CPU probe, with the same
+prepared IDs for the 22 reference texts and 59 passages. The probe compared
+768 dimensions and normalized 512-dimensional prefixes. The selectable
+model rows are unchanged.
+
+[Commands and raw v0.6.2 measurements](../../tools/phase28/evidence/gguf-47-v062/)
+
+## Vulkan sync qualification on goinfer v0.6.2 (#49)
+
+2026-11-22 on pax, using the Google EmbeddingGemma 2 pack. The RX 9060 XT
+passed the saved 59-passage reproduction against CPU, with minimum cosine
+0.999999999998413. All 59 Vulkan vectors were byte-identical across
+singleton, default, reversed and 1 MiB layouts. The CUDA/CPU minimum
+cosine was 0.999999999998539.
+
+The first 200 passages of the full-corpus run supplied the matched slice
+of 100,066 positions. Each test used the desktop's default `GOMAXPROCS=32`.
+The timer covers preparation and embedding with the verified model
+already open. Both GPU runs requested a 1 GiB batch workspace.
+
+| Device | Seconds | Passages/s |
+| --- | ---: | ---: |
+| Vulkan · AMD Radeon RX 9060 XT | 49.24 | 4.06 |
+| CUDA · NVIDIA RTX PRO 6000 Blackwell Max-Q | 14.85 | 13.46 |
+| CPU · AMD Ryzen 9 7950X | 114.57 | 1.75 |
+
+Vulkan was 2.33 times as fast as CPU on this slice. On the full corpus
+with four allowed CPUs, the six complete 256-passage windows ran at
+0.928–0.975 passages/s, about 0.95. That run ended at 30 minutes by
+operator decision, with a readable checkpoint. See the separate
+worker settings, window positions, forward breakdown and VRAM samples
+in the [Vulkan capture](../../tools/phase28/evidence/vulkan-49-v062/).

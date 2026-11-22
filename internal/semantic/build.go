@@ -381,7 +381,11 @@ func (s *sectionIndex) cachedVector(digest [32]byte) ([]float32, bool, error) {
 func (s *sectionIndex) embed(ctx context.Context, emb embed.Embedder, texts []string) ([][]float32, error) {
 	vs, err := emb.Embed(ctx, embed.Document, texts)
 	if err != nil {
-		return nil, ctxOr(ctx, wrapAccelIO("the model failed to embed a passage", err))
+		message := "the model failed to embed a passage"
+		if errors.Is(err, embed.ErrDeviceLost) {
+			message = fmt.Sprintf("device %s was lost while embedding passages", emb.Info().Device)
+		}
+		return nil, ctxOr(ctx, wrapAccelIO(message, err))
 	}
 	if len(vs) != len(texts) {
 		return nil, buildIOErr("the model returned the wrong number of vectors")
@@ -445,7 +449,11 @@ func (b *builder) openEmbedder() error {
 		if errors.As(err, &config) && config != nil && config.Code == "invalid_config" {
 			return ctxOr(b.ctx, err)
 		}
-		return ctxOr(b.ctx, wrapAccelIO("the model cannot be opened", err))
+		message := "the model cannot be opened"
+		if errors.Is(err, embed.ErrAccelerator) {
+			message += ": " + err.Error()
+		}
+		return ctxOr(b.ctx, wrapAccelIO(message, err))
 	}
 	b.emb = emb
 	b.reportRuntime()

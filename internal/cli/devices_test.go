@@ -15,20 +15,21 @@ import (
 )
 
 func TestCLIDevices(t *testing.T) {
-	reg := embed.NewRegistry(embed.Entry{Model: embed.Model{Name: "test-device-model"}, Devices: func() []embed.DeviceInfo {
-		return []embed.DeviceInfo{
+	reg := embed.NewRegistry(embed.Entry{Model: embed.Model{Name: "test-device-model"}, Devices: func() embed.Listing {
+		return embed.Listing{Devices: []embed.DeviceInfo{
 			{ID: "metal:0", Backend: "metal", TotalBytes: 8192 * bytesPerMiB, MemoryKind: "shared", Memory: "unknown"},
 			{ID: "cuda:1", Backend: "cuda", FreeBytes: 0, Memory: "live", MemoryKind: "unknown"},
 			{ID: "cuda:0", Backend: "cuda", Name: "Test GPU", Persistent: "cuda:GPU-test", Memory: "live", MemoryKind: "dedicated",
 				TotalBytes: 16384 * bytesPerMiB, FreeBytes: 4096 * bytesPerMiB},
-			{ID: "vulkan:0", Backend: "vulkan", Name: "Unknown memory GPU"},
-		}
+			{ID: "vulkan:0", Persistent: "vulkan:123456789abcdef0123456789abcdef0", Backend: "vulkan",
+				Name: "AMD test GPU", TotalBytes: 16304 * bytesPerMiB, Memory: "unknown", MemoryKind: "dedicated"},
+		}, Failed: map[string]error{"test-backend": fmt.Errorf("cannot list test backend")}}
 	}})
 	dir := t.TempDir()
 	env := Env{Dir: dir, Models: reg}
 	threads := runtime.GOMAXPROCS(0)
 	cpuLine := fmt.Sprintf("cpu  %s\n", counted(threads, "thread", "threads"))
-	want := "cuda:0  Test GPU  16384 MiB, 4096 free\ncuda:1  0 MiB free\nvulkan:0  Unknown memory GPU\nmetal:0  8192 MiB\n" + cpuLine
+	want := "cuda:0  Test GPU  16384 MiB, 4096 free\ncuda:1  0 MiB free\nvulkan:0  AMD test GPU  16304 MiB\nmetal:0  8192 MiB\n" + cpuLine
 	if code, out, stderr := invoke(t, env, Features{}, "--brain", "/no/such/brain", "--personal", "devices"); code != 0 || out != want || stderr != "" {
 		t.Fatalf("devices = (%d, %q, %q), want %q", code, out, stderr, want)
 	}
@@ -46,7 +47,9 @@ func TestCLIDevices(t *testing.T) {
 		first["free_bytes"] != float64(4096*bytesPerMiB) || first["total_bytes"] != float64(16384*bytesPerMiB) ||
 		first["memory"] != "live" || first["memory_kind"] != "dedicated" ||
 		zero["id"] != "cuda:1" || zero["free_bytes"] != float64(0) || zero["total_bytes"] != nil ||
-		unknown["id"] != "vulkan:0" || unknown["free_bytes"] != nil ||
+		unknown["id"] != "vulkan:0" || unknown["persistent"] != "vulkan:123456789abcdef0123456789abcdef0" ||
+		unknown["total_bytes"] != float64(16304*bytesPerMiB) || unknown["memory_kind"] != "dedicated" ||
+		unknown["free_bytes"] != nil || unknown["memory"] != nil ||
 		cpu["id"] != "cpu" || cpu["backend"] != "cpu" || cpu["threads"] != float64(threads) || len(cpu) != 3 {
 		t.Fatalf("JSON devices = %s", out)
 	}
@@ -73,7 +76,7 @@ func (e *deviceEmbedder) Embed(ctx context.Context, role embed.Role, texts []str
 	return e.Embedder.Embed(ctx, role, texts)
 }
 
-func useDeviceModel(rb *readBrain, kit *embedtest.Kit, devices func() []embed.DeviceInfo,
+func useDeviceModel(rb *readBrain, kit *embedtest.Kit, devices func() embed.Listing,
 	open func(context.Context, *embed.Artifact, embed.OpenOptions) (embed.Embedder, error)) {
 	rb.env.Models = embed.NewRegistry(embed.Entry{Model: kit.Models[embedtest.ModelA], Devices: devices, Open: open})
 }
@@ -189,8 +192,8 @@ func TestSyncDeviceOptions(t *testing.T) {
 	t.Run("flag and environment", func(t *testing.T) {
 		rb, kit := semanticBrain(t)
 		var opts []embed.OpenOptions
-		useDeviceModel(rb, kit, func() []embed.DeviceInfo {
-			return []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}
+		useDeviceModel(rb, kit, func() embed.Listing {
+			return embed.Listing{Devices: []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}}
 		}, func(ctx context.Context, a *embed.Artifact, o embed.OpenOptions) (embed.Embedder, error) {
 			opts = append(opts, o)
 			if o.Device == "cuda:0" {
@@ -221,6 +224,17 @@ func TestSyncDeviceOptions(t *testing.T) {
 		code, out, stderr = rb.run("sync", "--device", "nosuch")
 		if code != 0 || stderr != "" || len(opts) != 2 || !strings.Contains(out, "0 passages embedded") {
 			t.Fatalf("no-op with missing device = (%d, %q, %q), options %+v", code, out, stderr, opts)
+		}
+	})
+	t.Run("failed listing reports its cause", func(t *testing.T) {
+		rb, kit := semanticBrain(t)
+		useDeviceModel(rb, kit, func() embed.Listing {
+			return embed.Listing{Failed: map[string]error{"vulkan": fmt.Errorf("vulkan: create instance: VkResult -2")}}
+		}, kit.Registry.Open)
+		code, out, stderr := rb.run("sync", "--device", "vulkan:0")
+		if code != 1 || out != "" || !strings.HasPrefix(stderr, "io: the model cannot be opened") ||
+			!strings.Contains(stderr, "vulkan: create instance: VkResult -2") || kit.Opens.Load() != 0 {
+			t.Fatalf("failed probe = (%d, %q, %q), opens %d", code, out, stderr, kit.Opens.Load())
 		}
 	})
 	for _, label := range []string{"flag", "environment"} {
