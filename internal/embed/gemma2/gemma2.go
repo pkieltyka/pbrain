@@ -170,9 +170,17 @@ func (e *encoder) embedIDs(ctx context.Context, ids []int) ([]float32, error) {
 		return nil, cerr
 	}
 	if err != nil && e.model.Accelerator() != nil {
-		return nil, fmt.Errorf("%w: forward: %w", embed.ErrAccelerator, err)
+		return nil, forwardError("forward", err)
 	}
 	return v, err
+}
+
+func forwardError(stage string, err error) error {
+	category := embed.ErrAccelerator
+	if errors.Is(err, embeddinggemma2.ErrDeviceLost) {
+		category = embed.ErrDeviceLost
+	}
+	return fmt.Errorf("%w: %s: %w", category, stage, err)
 }
 
 func (e *encoder) ordinary(s string) ([]int, error) {

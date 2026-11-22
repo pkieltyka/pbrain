@@ -84,7 +84,7 @@ func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float
 				return nil, cerr
 			}
 			if err != nil {
-				return nil, fmt.Errorf("%w: batch forward: %w", embed.ErrAccelerator, err)
+				return nil, forwardError("batch forward", err)
 			}
 			if len(vs) != n {
 				return nil, fmt.Errorf("%w: batch forward returned %d vectors for %d inputs", embed.ErrAccelerator, len(vs), n)

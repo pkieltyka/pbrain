@@ -217,6 +217,9 @@ var ErrWrongModel = errors.New("not the named model")
 // callers fail loud rather than silently degrading to CPU or lexical fallback.
 var ErrAccelerator = errors.New("accelerator failed")
 
+// ErrDeviceLost marks a forward failure that ended the accelerator session.
+var ErrDeviceLost = fmt.Errorf("%w: device lost", ErrAccelerator)
+
 func absent(name string) error { return fmt.Errorf("%w: %s is missing", ErrAbsent, name) }
 func wrong(name string) error {
 	return fmt.Errorf("%w: %s is not the pinned file", ErrWrongModel, name)
