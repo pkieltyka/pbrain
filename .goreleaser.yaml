@@ -1,5 +1,7 @@
 # GoReleaser configuration for pbrain's release binaries (architecture section 16, decision 10):
-# Linux CUDA and CPU-only archives, plus untagged macOS, on amd64 and arm64. All are built with
+# Linux GPU and CPU-only archives, plus untagged macOS, on amd64 and arm64. The Linux amd64 GPU
+# archive links CUDA and Vulkan; the Linux arm64 one links CUDA alone, because goinfer's Vulkan
+# backend supports Linux amd64 only. All are built with
 # CGO_ENABLED=0 and SHA-256 checksums. The macOS binaries are untested and unsupported (architecture
 # section 17). .github/workflows/release.yml runs it when a v* tag is pushed. Local check:
 #   goreleaser check && goreleaser release --snapshot --clean --skip=publish --parallelism 1
@@ -30,7 +32,9 @@ builds:
     ldflags:
       - -s -w -X github.com/pkieltyka/pbrain/internal/cli.version={{ if .IsSnapshot }}{{ .Version }}{{ else }}{{ .Tag }}{{ end }}
     mod_timestamp: "{{ .CommitTimestamp }}"
-  - id: pbrain-cuda
+  # Linux amd64: both GPU backends, the tag set issue #49 qualified (go version -m shows
+  # -tags=cuda,vulkan).
+  - id: pbrain-cuda-vulkan
     main: ./cmd/pbrain
     binary: pbrain
     env:
@@ -39,6 +43,27 @@ builds:
       - linux
     goarch:
       - amd64
+    tags:
+      - cuda
+      - vulkan
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w -X github.com/pkieltyka/pbrain/internal/cli.version={{ if .IsSnapshot }}{{ .Version }}{{ else }}{{ .Tag }}{{ end }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    hooks:
+      post:
+        - cmd: bash .github/scripts/smoke-cuda-release.sh "{{ .Path }}" "{{ .Target }}"
+          output: true
+  # Linux arm64: CUDA alone. The vulkan tag would link nothing there.
+  - id: pbrain-cuda
+    main: ./cmd/pbrain
+    binary: pbrain
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
       - arm64
     tags:
       - cuda
@@ -62,8 +87,9 @@ archives:
     files:
       - LICENSE
       - README.md
-  - id: pbrain-cuda
+  - id: pbrain-gpu
     ids:
+      - pbrain-cuda-vulkan
       - pbrain-cuda
     formats:
       - tar.gz

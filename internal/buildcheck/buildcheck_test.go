@@ -211,9 +211,12 @@ func TestReleaseConfig(t *testing.T) {
 	if !cfg.ReportSizes || cfg.Checksum.Algorithm != "sha256" {
 		t.Error("GoReleaser must report sizes and generate SHA-256 checksums")
 	}
-	want := map[string]struct{ os, tags []string }{
-		"pbrain-cpu":  {os: []string{"linux", "darwin"}},
-		"pbrain-cuda": {os: []string{"linux"}, tags: []string{"cuda"}},
+	both := []string{"amd64", "arm64"}
+	want := map[string]struct{ os, arch, tags []string }{
+		"pbrain-cpu": {os: []string{"linux", "darwin"}, arch: both},
+		// goinfer's Vulkan backend supports Linux amd64 only, so arm64 keeps CUDA alone.
+		"pbrain-cuda-vulkan": {os: []string{"linux"}, arch: []string{"amd64"}, tags: []string{"cuda", "vulkan"}},
+		"pbrain-cuda":        {os: []string{"linux"}, arch: []string{"arm64"}, tags: []string{"cuda"}},
 	}
 	for _, build := range cfg.Builds {
 		targets, ok := want[build.ID]
@@ -223,7 +226,7 @@ func TestReleaseConfig(t *testing.T) {
 		}
 		delete(want, build.ID)
 		if !slices.Equal(build.Goos, targets.os) || !slices.Equal(build.Tags, targets.tags) ||
-			!slices.Equal(build.Goarch, []string{"amd64", "arm64"}) {
+			!slices.Equal(build.Goarch, targets.arch) {
 			t.Errorf("%s: GOOS %v, GOARCH %v, tags %v", build.ID, build.Goos, build.Goarch, build.Tags)
 		}
 		if build.Main != "./cmd/pbrain" || build.Binary != "pbrain" ||

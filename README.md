@@ -17,12 +17,17 @@ While the repository is private, tagged installs and release downloads require r
 Once a release is tagged, install it with
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@latest` or download the
 Linux or macOS binary for your architecture (amd64 or arm64). [GitHub Releases](https://github.com/pkieltyka/pbrain/releases)
-The v0.2.0 Linux GPU archives include CUDA support. Use the Linux archives ending in
+The standard Linux archives include GPU support. After v0.2.0, the amd64 archive has CUDA for
+NVIDIA GPUs and Vulkan for discrete AMD GPUs, and the arm64 archive has CUDA alone, because the
+Vulkan backend supports Linux amd64 only. The v0.2.0 GPU archives have CUDA alone. A GPU binary
+starts without either driver: with no NVIDIA driver and no Vulkan loader, `pbrain devices` lists
+the CPU and sync runs on the CPU. Use the Linux archives ending in
 `_cpu.tar.gz` for a smaller CPU-only binary. `go install` also gives a CPU-only binary.
 The macOS binaries are CPU-only, untested and unsupported for now.
 
 For CUDA support on Linux with `go install`, use
-`go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`.
+`go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`. On Linux amd64, in
+releases after v0.2.0, `-tags cuda,vulkan` builds what the standard archive holds.
 To build with CUDA from source on Linux, run `CGO_ENABLED=0 go build -tags cuda ./cmd/pbrain`.
 On Linux amd64, goinfer v0.6.2 supports sync of the Google EmbeddingGemma 2
 pack on discrete AMD GPUs through Vulkan. Build with `CGO_ENABLED=0 go build -tags 'cuda vulkan' ./cmd/pbrain`
