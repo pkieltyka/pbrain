@@ -39,7 +39,7 @@ jobs:
             echo "build $target"
             GOOS="${target%/*}" GOARCH="${target#*/}" go build -o /dev/null ./cmd/pbrain
           done
-      - name: build and vet the opt-in CUDA builds (no GPU needed)
+      - name: build and vet the GPU builds (no GPU needed)
         env:
           CGO_ENABLED: "0"
         run: |
@@ -49,6 +49,13 @@ jobs:
           go vet -tags 'cuda eg2_combined' ./...
           GOOS=linux GOARCH=arm64 go build -tags cuda -o /dev/null ./cmd/pbrain
           GOOS=linux GOARCH=arm64 go vet -tags cuda ./...
+          go build -tags vulkan -o /dev/null ./cmd/pbrain
+          go build -tags 'cuda vulkan' -o /dev/null ./cmd/pbrain
+          go vet -tags vulkan ./...
+          go vet -tags 'cuda vulkan' ./...
+          # goinfer's Vulkan backend is Linux amd64 only: on arm64 the tag builds and links nothing of it.
+          GOOS=linux GOARCH=arm64 go build -tags 'cuda vulkan' -o /dev/null ./cmd/pbrain
+          GOOS=linux GOARCH=arm64 go vet -tags 'cuda vulkan' ./...
       - name: verify CUDA fallback without a GPU
         env:
           CGO_ENABLED: "0"
@@ -56,11 +63,22 @@ jobs:
         run: |
           go test -tags cuda -run '^TestCUDAFallbackWithoutDevice$' ./internal/embed/gemma2
           go test -tags cuda -run '^TestSyncDeviceNotices$' ./internal/cli
+      - name: verify the Vulkan and dual-tag builds without a GPU
+        env:
+          CGO_ENABLED: "0"
+          CUDA_VISIBLE_DEVICES: ""
+        run: |
+          # Fake devices and source checks only; the tests that need a card or the model skip.
+          go test -tags vulkan ./internal/embed/... ./internal/cli
+          go test -tags 'cuda vulkan' ./internal/embed/... ./internal/cli
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: "~> v2"
           args: release --snapshot --clean --skip=publish
+        env:
+          # The GPU builds' smoke script: device listing only, with and without a Vulkan loader.
+          PBRAIN_VERIFY_RELEASE_CUDA: devices
       - name: verify release archives and checksums
         run: bash .github/scripts/verify-release-archives.sh dist
 
