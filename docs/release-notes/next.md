@@ -31,3 +31,10 @@ Vulkan loader (`libvulkan.so.1`), `pbrain devices` lists the CPU, and an
 
 A GPU driver may print lines of its own on standard error. Programs that read
 `--json` notices from standard error should skip any line that is not a JSON object.
+
+## Smaller EmbeddingGemma 2 download
+
+Set `semantic.model = "embeddinggemma-2-q8-0"` to use Unsloth's Q8_0 conversion of
+Google's EmbeddingGemma 2. Sync downloads a single 310 MB GGUF file and runs on
+CPU or CUDA. Search runs on CPU. `bge-small-en-v1.5` remains the default.
+[Pinned Unsloth model card and Apache-2.0 license](https://huggingface.co/unsloth/embeddinggemma-2-GGUF/blob/031f0d4b35536f69ab3509d4893c923264fcf253/README.md)

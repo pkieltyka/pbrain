@@ -1,0 +1,232 @@
+{
+  "commit": "694b726564c1ad139ece70bcdd60b433d3a18053",
+  "cpu_cuda": {
+    "minimum_cosines": {
+      "512": 0.9999999999984827,
+      "768": 0.999999999998416
+    },
+    "passages": 59
+  },
+  "cpu_first_query": {
+    "median_ms": 586.593416,
+    "peak_rss_mib": 1034.5,
+    "range_ms": [
+      561.504166,
+      594.026621
+    ],
+    "samples_ms": [
+      586.593416,
+      586.830517,
+      594.026621,
+      561.504166,
+      576.342111
+    ],
+    "under_600": 5,
+    "worst_margin_ms": 5.973379000000023
+  },
+  "cuda_layouts": {
+    "layouts_matching_singletons": 3,
+    "passages": 59
+  },
+  "provision": {
+    "auto": {
+      "semantic_hits": [
+        "session-storage"
+      ],
+      "status": {
+        "model": "embeddinggemma-2-q8-0",
+        "model_present": true,
+        "sections": [
+          {
+            "indexed": 1,
+            "items": 1,
+            "section": "shared"
+          }
+        ]
+      },
+      "sync": {
+        "model": "embeddinggemma-2-q8-0",
+        "sections": [
+          {
+            "device": "cuda:0",
+            "items": 1,
+            "items_removed": 0,
+            "passages_embedded": 1,
+            "passages_reused": 0,
+            "section": "shared"
+          }
+        ]
+      }
+    },
+    "download": {
+      "semantic_hits": [
+        "session-storage"
+      ],
+      "status": {
+        "model": "embeddinggemma-2-q8-0",
+        "model_present": true,
+        "sections": [
+          {
+            "indexed": 1,
+            "items": 1,
+            "section": "shared"
+          }
+        ]
+      },
+      "sync": {
+        "model": "embeddinggemma-2-q8-0",
+        "sections": [
+          {
+            "device": "cpu",
+            "items": 1,
+            "items_removed": 0,
+            "passages_embedded": 1,
+            "passages_reused": 0,
+            "section": "shared"
+          }
+        ]
+      }
+    },
+    "offline": {
+      "semantic_hits": [
+        "session-storage"
+      ],
+      "status": {
+        "model": "embeddinggemma-2-q8-0",
+        "model_present": true,
+        "sections": [
+          {
+            "indexed": 1,
+            "items": 1,
+            "section": "shared"
+          }
+        ]
+      },
+      "sync": {
+        "model": "embeddinggemma-2-q8-0",
+        "sections": [
+          {
+            "device": "cpu",
+            "items": 1,
+            "items_removed": 0,
+            "passages_embedded": 1,
+            "passages_reused": 0,
+            "section": "shared"
+          }
+        ]
+      }
+    }
+  },
+  "retrieval": [
+    {
+      "counts": {
+        "first": 39,
+        "top_three": 42
+      },
+      "device": "cpu",
+      "exit": 0,
+      "gate": {
+        "bm25_with_model": true,
+        "combined_abstention_gate": {
+          "empty": 30,
+          "pass": true,
+          "unanswerable": 30
+        },
+        "cutoff": 0.72,
+        "name": "embeddinggemma-2-q8-0",
+        "semantic_gate": {
+          "abstention": {
+            "empty": 30,
+            "pass": true,
+            "unanswerable": 30
+          },
+          "gain": {
+            "arm_found": 42,
+            "pass": true,
+            "strict_found": 16
+          },
+          "pass": true
+        }
+      }
+    },
+    {
+      "counts": {
+        "first": 39,
+        "top_three": 42
+      },
+      "device": "cuda",
+      "exit": 0,
+      "gate": {
+        "bm25_with_model": true,
+        "combined_abstention_gate": {
+          "empty": 30,
+          "pass": true,
+          "unanswerable": 30
+        },
+        "cutoff": 0.72,
+        "name": "embeddinggemma-2-q8-0",
+        "semantic_gate": {
+          "abstention": {
+            "empty": 30,
+            "pass": true,
+            "unanswerable": 30
+          },
+          "gain": {
+            "arm_found": 42,
+            "pass": true,
+            "strict_found": 16
+          },
+          "pass": true
+        }
+      }
+    }
+  ],
+  "same_file": [
+    {
+      "arm": "c",
+      "below_0_999": 0,
+      "device": "cpu",
+      "min_by_shape_and_dimension": {
+        "reference/": {
+          "512": 0.999859865111092,
+          "768": 0.9998516351081531
+        },
+        "small/": {
+          "512": 0.9998577758356857,
+          "768": 0.9998506099314861
+        }
+      },
+      "pairs": 162,
+      "pass": true,
+      "texts": 81,
+      "worst": {
+        "cosine": 0.9998506099314861,
+        "dimensions": 768,
+        "id": "small/decisions/standing-rule.md/0/86a1767ad32279cee47303e0cfe1e9234e9d8036601358b1a09b485c0e04d01e"
+      }
+    },
+    {
+      "arm": "c",
+      "below_0_999": 0,
+      "device": "cuda",
+      "min_by_shape_and_dimension": {
+        "reference/": {
+          "512": 0.9998598601440182,
+          "768": 0.9998516299586003
+        },
+        "small/": {
+          "512": 0.999857771965832,
+          "768": 0.9998506077667619
+        }
+      },
+      "pairs": 162,
+      "pass": true,
+      "texts": 81,
+      "worst": {
+        "cosine": 0.9998506077667619,
+        "dimensions": 768,
+        "id": "small/decisions/standing-rule.md/0/86a1767ad32279cee47303e0cfe1e9234e9d8036601358b1a09b485c0e04d01e"
+      }
+    }
+  ]
+}
