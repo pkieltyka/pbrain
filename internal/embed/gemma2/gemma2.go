@@ -19,6 +19,7 @@ type encoder struct {
 	tokenizer *tokenizer.Tokenizer
 	bos, eos  int
 	info      embed.RunInfo
+	fp        string
 }
 
 func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
@@ -60,17 +61,27 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	if err != nil {
 		return nil, err
 	}
+	return newRuntime(ctx, m, conf.Prompts, opt, fingerprint, true)
+}
+
+func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[string]string, opt embed.OpenOptions, fp string, allowVulkan bool) (embed.Embedder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	model, tok := m.Model(), m.Tokenizer()
+	cfg := model.Config()
+	compiled, list := cudaCompiled, listCUDADevices
+	if allowVulkan {
+		compiled, list = cudaCompiled || vulkanCompiled, listDevices
+	}
 	// The three float32 feed-forward matrices per layer are a lower bound on CUDA's upload.
 	weightFloor := 3 * 4 * int64(cfg.Layers) * int64(cfg.Hidden) * int64(cfg.Intermediate)
-	info, err := chooseRuntime(ctx, opt.Device, weightFloor, cudaCompiled || vulkanCompiled, listDevices, func(device embed.DeviceInfo) error {
+	info, err := chooseRuntime(ctx, opt.Device, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
 		if device.Backend != "vulkan" {
 			return attachAccelerator(m)
 		}
 		// Do not replace the CPU encoder until the returned UUID is verified.
-		candidate, err := embeddinggemma2.NewEncoder(model, tok, conf.Prompts)
+		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
 			return err
 		}
@@ -97,7 +108,7 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	}
 	bos, _ := tok.TokenID("<bos>")
 	eos, _ := tok.TokenID("<eos>") // NewEncoder requires both.
-	e := &encoder{model: m, tokenizer: tok, bos: bos, eos: eos, info: info}
+	e := &encoder{model: m, tokenizer: tok, bos: bos, eos: eos, info: info, fp: fp}
 	if err := ctx.Err(); err != nil {
 		_ = e.Close()
 		return nil, err
@@ -106,7 +117,7 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 }
 
 func (e *encoder) Dim() int            { return dimension }
-func (e *encoder) Fingerprint() string { return fingerprint }
+func (e *encoder) Fingerprint() string { return e.fp }
 func (e *encoder) Info() embed.RunInfo { return e.info }
 
 func (e *encoder) Window() int {

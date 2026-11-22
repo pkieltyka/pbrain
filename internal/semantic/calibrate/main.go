@@ -32,7 +32,8 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out, diag io.Writer) int {
-	return runWithRegistry(ctx, args, out, diag, embed.NewRegistry(bge.Entry(), gemma2.Entry()))
+	models := embed.NewRegistry(append([]embed.Entry{bge.Entry(), gemma2.Entry()}, gemma2.GGUFEntries()...)...)
+	return runWithRegistry(ctx, args, out, diag, models)
 }
 
 func runWithRegistry(ctx context.Context, args []string, out, diag io.Writer, models embed.Registry) int {
@@ -64,7 +65,7 @@ func runWithRegistry(ctx context.Context, args []string, out, diag io.Writer, mo
 		flags.Usage()
 		return 2
 	}
-	if *model == gemma2.Entry().Model.Name && os.Getenv(allowGemma2) != "1" {
+	if row, ok := models.Lookup(*model); ok && row.Runtime == "goinfer" && os.Getenv(allowGemma2) != "1" {
 		fmt.Fprintf(diag, "calibrate: EmbeddingGemma 2 workloads are off for the team: %s=1 turns them on (owner only)\n", allowGemma2)
 		return 2
 	}

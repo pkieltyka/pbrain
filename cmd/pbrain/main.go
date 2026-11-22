@@ -22,7 +22,9 @@ import (
 
 func main() { os.Exit(run()) }
 
-func releaseModels() embed.Registry { return embed.NewRegistry(bge.Entry(), gemma2.Entry()) }
+func releaseModels() embed.Registry {
+	return embed.NewRegistry(append([]embed.Entry{bge.Entry(), gemma2.Entry()}, gemma2.GGUFEntries()...)...)
+}
 
 func run() int { return runWith(cli.Run) }
 

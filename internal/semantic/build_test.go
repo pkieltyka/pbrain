@@ -481,26 +481,63 @@ func TestBuildInterrupted(t *testing.T) {
 
 func TestBuildFingerprintChange(t *testing.T) {
 	e := newEnv(t)
-	s := newSection(t, item.Personal)
-	basic(s)
-	e.mustBuild(s)
-	old := s.manifestDB()
-	e.model = embedtest.ModelB
-	r := e.mustBuild(s)
-	if r.PassagesEmbedded != 3 || r.PassagesReused != 0 || r.Items != 3 {
-		t.Fatalf("another model: %+v", r)
+	shared := newSection(t, item.Shared)
+	personal := newSection(t, item.Personal)
+	basic(shared)
+	personal.put("notes/private.md", "Personal", "private alpha\n")
+	private := Passages("Personal", []byte("private alpha\n"))[0].Digest
+
+	// Install the two models so stale-index tests cannot be answered by ModelAbsent.
+	for _, name := range []string{embedtest.ModelA, embedtest.ModelB} {
+		e.model = name
+		if _, err := ensureModel(t.Context(), e.opts(), e.m(), e.dl, func(embed.Model, int64) {}); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if _, err := os.Stat(filepath.Join(s.index(), old)); !errors.Is(err, fs.ErrNotExist) {
-		t.Fatal("the old database is still there")
+	e.model = embedtest.ModelA
+	e.mustBuild(shared)
+	e.mustBuild(personal)
+
+	for _, step := range []struct {
+		name              string
+		newShared, reused int
+	}{
+		{embedtest.ModelB, 3, 0},
+		{embedtest.ModelA, 0, 3},
+		{embedtest.ModelB, 0, 3},
+	} {
+		previous := e.m()
+		e.model = step.name
+		oldShared, oldPersonal := shared.manifestDB(), personal.manifestDB()
+		res, err := e.search(t.Context(), e.opts(), "alpha", shared, personal)
+		if err != nil || res.Ready || res.Reason != search.NoIndex || shared.manifestDB() != oldShared || personal.manifestDB() != oldPersonal {
+			t.Fatalf("search after switching %s to %s = (%+v, %v)", previous.Name, e.model, res, err)
+		}
+		if r := e.mustBuild(shared); r.Items != 3 || r.PassagesEmbedded != step.newShared || r.PassagesReused != step.reused {
+			t.Fatalf("%s shared rebuild: %+v", e.model, r)
+		}
+		if r := e.mustBuild(personal); r.Items != 1 || r.PassagesEmbedded != 1 || r.PassagesReused != 0 {
+			t.Fatalf("%s personal rebuild: %+v", e.model, r)
+		}
+		for sec, old := range map[*section]string{shared: oldShared, personal: oldPersonal} {
+			if _, err := os.Stat(filepath.Join(sec.index(), old)); !errors.Is(err, fs.ErrNotExist) {
+				t.Fatalf("%s kept the previous model's database: %v", sec.kind, err)
+			}
+			if _, state := sec.open(previous); state != IndexStale {
+				t.Fatalf("%s previous model's view: %v", sec.kind, state)
+			}
+			x, state := sec.open(e.m())
+			if state != IndexOK {
+				t.Fatalf("%s selected model's view: %v", sec.kind, state)
+			}
+			x.Close()
+		}
 	}
-	if _, state := s.open(e.kit.Models[embedtest.ModelA]); state != IndexStale {
-		t.Fatalf("the old model's view: %v", state)
+	for _, model := range []embed.Model{e.kit.Models[embedtest.ModelA], e.kit.Models[embedtest.ModelB]} {
+		if _, ok, err := e.cache.readVector(model.Fingerprint, private, model.Dim); ok || err != nil {
+			t.Fatalf("%s cache after personal rebuild: found=%v, %v", model.Name, ok, err)
+		}
 	}
-	x, state := s.open(e.m())
-	if state != IndexOK {
-		t.Fatal(state)
-	}
-	x.Close()
 }
 
 func TestBuildRepairsDamage(t *testing.T) {
