@@ -647,3 +647,26 @@ queries; 33 pairs had two empty results. The quality and rule-2 gates
 passed, and the CPU first-query gate still prevents admission of either quant.
 
 [Commands and raw measurements](../../tools/phase28/evidence/gguf-47/)
+
+### GGUF first query and same-file parity on goinfer v0.6.2
+
+2026-11-22. The #47 scratch evaluator used the v0.6.2 pins from
+`d5129b3b880ed0f361f07f8876700ebd60ab0ddd`, with the same verified-file
+adapter, model files and query. Five fresh CPU processes per pack used
+primed files and four physical Ryzen 9 7950X cores on pax. The timed
+operation includes verification, loading, one query and model close.
+
+| Pack | CPU median ms, v0.6.1 → v0.6.2 | v0.6.2 range ms | Samples below 600 ms | Peak host RSS MiB | Same-file minimum cosine, CPU / CUDA |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Google control | 347.3 → 356.5 | 348.4–378.1 | 5/5 | 1,110.3 | — |
+| Q8_0 | 933.8 → 562.9 | 558.0–603.6 | 4/5 | 1,033.3 | 0.9998506099 / 0.9998506078 |
+| UD-Q6_K_XL | 1,035.3 → 540.6 | 527.8–557.1 | 5/5 | 933.8 | 0.9991069286 / 0.9991069451 |
+
+Q8_0 exceeded 600 ms once on this desktop. UD-Q6_K_XL stayed below
+600 ms in all five samples. Both satisfied rule 2 in all 162 comparisons
+per device and quant against the pinned llama.cpp CPU probe, with the same
+prepared IDs for the 22 reference texts and 59 passages. The probe compared
+768 dimensions and normalized 512-dimensional prefixes. The selectable
+model rows are unchanged.
+
+[Commands and raw v0.6.2 measurements](../../tools/phase28/evidence/gguf-47-v062/)
