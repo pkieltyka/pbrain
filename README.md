@@ -19,6 +19,14 @@ Once a release is tagged, install it with
 Linux or macOS binary for your architecture (amd64 or arm64). [GitHub Releases](https://github.com/pkieltyka/pbrain/releases)
 The macOS binaries are built but not tested, and are unsupported for now.
 
+For Linux machines with an NVIDIA GPU and the `embeddinggemma-2` model, build the opt-in CUDA
+binary with `CGO_ENABLED=0 go build -tags cuda ./cmd/pbrain` (add `eg2_combined` when building
+against a `goinfer` revision that provides the opt-in combined CUDA selector). Default untagged
+builds remain CPU-only and keep `bge-small-en-v1.5` as the default model. The CUDA build loads
+`libcuda.so.1` dynamically at runtime (set `LD_LIBRARY_PATH` if the driver library is outside the
+default loader search path) and fails loudly if the CUDA device cannot be attached or a forward or
+close fails.
+
 ## Quick start
 
 From the root of your project, create a brain in `docs/brain` and record a decision.

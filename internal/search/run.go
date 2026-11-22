@@ -3,6 +3,7 @@ package search
 import (
 	"cmp"
 	"context"
+	"errors"
 	"math"
 	"runtime"
 	"slices"
@@ -311,6 +312,10 @@ func semanticHits(ctx context.Context, c Corpus, records []match, exact []ranked
 	cutoff := float64(scores.Cutoff)
 	switch {
 	case err != nil:
+		var pe *errs.Error
+		if errors.As(err, &pe) && pe != nil {
+			return nil, state, err
+		}
 		state.Reason = ModelFailed
 		return nil, state, nil
 	case !scores.Ready:

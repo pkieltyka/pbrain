@@ -25,15 +25,17 @@ type Source struct {
 	m      embed.Model
 	dirs   []SectionDir
 
-	cancel  context.CancelFunc
-	model   chan struct{} // closed when the model task ends
-	indexes chan struct{} // closed when every index is read
-	query   []float32     // the query vector, when the model task succeeded
-	emb     embed.Embedder
-	opened  []openedIndex // one per section of dirs, in order
-	secs    []SectionInput
+	cancel   context.CancelFunc
+	model    chan struct{} // closed when the model task ends
+	indexes  chan struct{} // closed when every index is read
+	query    []float32     // the query vector, when the model task succeeded
+	modelErr error         // explicit accelerator error from runModel, read only after <-s.model
+	emb      embed.Embedder
+	opened   []openedIndex // one per section of dirs, in order
+	secs     []SectionInput
 
 	closeOnce sync.Once
+	closeErr  error
 }
 
 type openedIndex struct {
@@ -119,11 +121,20 @@ func (s *Source) runModel(ctx context.Context, dir sys.Dir) {
 	}
 	emb, err := s.opt.Registry.Open(ctx, a)
 	if err != nil {
+		if ctx.Err() == nil && errors.Is(err, embed.ErrAccelerator) {
+			s.modelErr = wrapAccelIO("the model cannot be opened", err)
+		}
 		return
 	}
 	s.emb = emb
 	vs, err := emb.Embed(ctx, embed.Query, []string{s.text})
-	if err != nil || len(vs) != 1 || !validVector(vs[0], s.m.Dim) {
+	if err != nil {
+		if ctx.Err() == nil && errors.Is(err, embed.ErrAccelerator) {
+			s.modelErr = wrapAccelIO("the model failed to embed a query", err)
+		}
+		return
+	}
+	if len(vs) != 1 || !validVector(vs[0], s.m.Dim) {
 		return
 	}
 	s.query = vs[0]
@@ -241,6 +252,9 @@ func (s *Source) CatchUp(ctx context.Context) error {
 	if err := wait(ctx, s.model); err != nil {
 		return err
 	}
+	if s.modelErr != nil {
+		return s.modelErr
+	}
 	if s.query == nil {
 		return nil
 	}
@@ -297,6 +311,9 @@ items:
 				return false, ctx.Err()
 			}
 			if eerr != nil {
+				if errors.Is(eerr, embed.ErrAccelerator) {
+					return false, eerr
+				}
 				break items
 			}
 			if kerr := part.si.keep(w, i, vs[0]); kerr != nil {
@@ -372,6 +389,9 @@ func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) 
 	}
 	if err := wait(ctx, s.model); err != nil {
 		return search.Scores{}, err
+	}
+	if s.modelErr != nil {
+		return search.Scores{}, s.modelErr
 	}
 	if s.query == nil {
 		return search.Scores{Reason: search.ModelFailed}, nil
@@ -473,7 +493,9 @@ func (s *Source) Close() error {
 		<-s.model
 		<-s.indexes
 		if s.emb != nil {
-			s.emb.Close()
+			if err := s.emb.Close(); err != nil {
+				s.closeErr = wrapAccelIO("the model cannot be closed", err)
+			}
 		}
 		for _, o := range s.opened {
 			if o.x != nil {
@@ -484,7 +506,7 @@ func (s *Source) Close() error {
 			}
 		}
 	})
-	return nil
+	return s.closeErr
 }
 
 // Status loads no model and writes nothing. It returns only file-system errors (io).

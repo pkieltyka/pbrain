@@ -261,7 +261,7 @@ func (r *reader) pathOf(it *item.Item) (string, json.RawMessage, bool) {
 	return render.ExactPath(r.b.DisplayPath(it.Section, it.Path))
 }
 
-func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, features Features) outcome {
+func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, features Features) (out outcome) {
 	r := &reader{env: env, in: in, b: b, now: in.now}
 	// With --semantic the source starts before the scan, and is closed on every path after it.
 	var src *semantic.Source
@@ -274,7 +274,11 @@ func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, fea
 			return outcome{err: err}
 		}
 		src = semantic.Start(ctx, opt, in.query, dirs)
-		defer src.Close()
+		defer func() {
+			if cerr := src.Close(); cerr != nil && out.err == nil {
+				out = outcome{err: cerr}
+			}
+		}()
 	}
 	if err := r.scan(ctx, store.KeepAll); err != nil {
 		return outcome{err: err}

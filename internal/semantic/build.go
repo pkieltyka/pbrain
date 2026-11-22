@@ -30,6 +30,12 @@ var waitNotice = 2 * time.Second
 
 func configErr(msg string) error  { return &errs.Error{Code: "invalid_config", Message: msg, Exit: 1} }
 func buildIOErr(msg string) error { return &errs.Error{Code: "io", Message: msg, Exit: 1} }
+func wrapAccelIO(msg string, err error) error {
+	if errors.Is(err, embed.ErrAccelerator) {
+		return errors.Join(buildIOErr(msg), err)
+	}
+	return buildIOErr(msg)
+}
 func fetchFailedErr() error {
 	return &errs.Error{Code: "fetch_failed", Message: "the model downloaded is not the pinned one", Exit: 1}
 }
@@ -49,8 +55,8 @@ func ctxOr(ctx context.Context, err error) error {
 // fetch_failed from the download; io for the file system, the lock and a failed embedding.
 // A cancelled context ends it with the context's error.
 func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl embed.Downloader,
-	notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error) {
-	res := BuildResult{Section: sec.Section}
+	notify func(embed.Model, int64), progress func(Progress)) (res BuildResult, retErr error) {
+	res = BuildResult{Section: sec.Section}
 	if opt.ModelName == "" {
 		return res, &errs.Error{Code: "no_model", Message: "semantic search is off: pbrain.toml sets model = \"none\"", Exit: 1}
 	}
@@ -107,7 +113,11 @@ func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl e
 			return res, err
 		}
 	}
-	defer b.close()
+	defer func() {
+		if cerr := b.close(); cerr != nil && retErr == nil {
+			retErr = wrapAccelIO("the model cannot be closed", cerr)
+		}
+	}()
 	return b.run()
 }
 
@@ -172,14 +182,16 @@ type builder struct {
 	total    int
 }
 
-func (b *builder) close() {
+func (b *builder) close() error {
+	var err error
 	if b.emb != nil {
-		b.emb.Close()
+		err = b.emb.Close()
 	}
 	if b.x != nil {
 		b.x.Close()
 	}
 	b.art = nil
+	return err
 }
 
 // work is one item to do and the vectors of its passages as they are found.
@@ -353,7 +365,7 @@ func (s *sectionIndex) reuse(ctx context.Context, digest [32]byte) ([]float32, b
 func (s *sectionIndex) embed(ctx context.Context, emb embed.Embedder, texts []string) ([][]float32, error) {
 	vs, err := emb.Embed(ctx, embed.Document, texts)
 	if err != nil {
-		return nil, ctxOr(ctx, buildIOErr("the model failed to embed a passage"))
+		return nil, ctxOr(ctx, wrapAccelIO("the model failed to embed a passage", err))
 	}
 	if len(vs) != len(texts) {
 		return nil, buildIOErr("the model returned the wrong number of vectors")
@@ -402,7 +414,7 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 			emb, err := b.opt.Registry.Open(ctx, b.art)
 			b.art = nil
 			if err != nil {
-				return ctxOr(ctx, buildIOErr("the model cannot be opened"))
+				return ctxOr(ctx, wrapAccelIO("the model cannot be opened", err))
 			}
 			b.emb = emb
 		}

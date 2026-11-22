@@ -165,6 +165,10 @@ func FolderName(m Model) string {
 var ErrAbsent = errors.New("model files absent")
 var ErrWrongModel = errors.New("not the named model")
 
+// ErrAccelerator marks an explicit hardware accelerator attach, forward, or close failure so
+// callers fail loud rather than silently degrading to CPU or lexical fallback.
+var ErrAccelerator = errors.New("accelerator failed")
+
 func absent(name string) error { return fmt.Errorf("%w: %s is missing", ErrAbsent, name) }
 func wrong(name string) error {
 	return fmt.Errorf("%w: %s is not the pinned file", ErrWrongModel, name)

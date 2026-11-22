@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/graph"
 	"github.com/pkieltyka/pbrain/internal/item"
 )
@@ -144,6 +145,12 @@ func TestSemanticNotReadyAndPartial(t *testing.T) {
 		if res.Total != 1 || res.Sem != (SemanticState{Asked: true, Reason: ModelFailed}) {
 			t.Errorf("%s: total %d, %+v", name, res.Total, res.Sem)
 		}
+	}
+	// A typed domain error from Score (e.g. explicit accelerator failure) propagates instead of degrading.
+	fatalErr := &errs.Error{Code: "io", Message: "the model cannot be opened", Exit: 1}
+	fatalSrc := &fakeSemantic{err: fatalErr}
+	if _, err := Run(context.Background(), f, graph.Build(f.items), Request{Clauses: clauses(t, "redis"), Text: "redis", Limit: 5, Now: now, Semantic: fatalSrc}); !errors.Is(err, fatalErr) {
+		t.Fatalf("a fatal Score error: %v, want %v", err, fatalErr)
 	}
 	// A cancelled context returns its error, also with nothing on the page.
 	ctx, cancel := context.WithCancel(context.Background())
