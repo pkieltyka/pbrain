@@ -565,7 +565,7 @@ shared: 5000 items indexed, 1 item removed; 12 passages embedded, 3 reused
 
 JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000, "items_removed": 1, "passages_embedded": 12, "passages_reused": 3, "device": "cuda:0"}]}`, numbers printed also when zero, and `device` left out when `BuildResult.Device` is empty. The text line does not name the device; the notice does.
 
-**`pbrain devices`.** One line per `DeviceInfo`, GPUs first in the order of the automatic choice, then the CPU: the id, the name, and `<total> MiB, <free> free`, each number left out when unknown; the CPU's line is `cpu` and `<n> threads`, the number Go is allowed. Nothing is marked as chosen: what a sync uses depends on the project's model, which this command does not read.
+**`pbrain devices`.** One line per `DeviceInfo`, GPUs first in the order of the automatic choice, then the CPU: the id, the name when there is one, and the memory: `<total> MiB, <free> free` with both figures, `<free> MiB free` with the free one alone, `<total> MiB` with the total alone, and nothing with neither; the parts are separated by two spaces or more, in columns. The CPU's line is `cpu` and `<n> threads`, the number Go is allowed. With goinfer v0.5.0 a CUDA device has no name, no total and no persistent id to report, a `memory` of `live` and a `memory_kind` of `unknown`, so its line is `cuda:0  97249 MiB free`. Nothing is marked as chosen: what a sync uses depends on the project's model, which this command does not read.
 
 ```
 cuda:0  NVIDIA RTX PRO 6000 Blackwell Max-Q  97887 MiB, 97249 free
@@ -589,7 +589,7 @@ JSON: `{"devices": [{"id": "cuda:0", "backend": "cuda", "name": "…", "persiste
 | `semantic_partial` | `Ready` and `Missing > 0` | `<Missing> items are not in the index: run <x>` (`1 item is` for one) |
 | `model_download` | from `notify`, before the first request | `downloading model <name>, <n> MB, from <host>`, with the size in units of 1,000,000 bytes rounded up and the distinct hosts of the files' addresses, comma-separated |
 | `index_progress` | from `progress`, every 10 seconds | `<section>: <Done> of <Total> items` (`1 item` for a total of one), or `<section>: waiting for another pbrain command` when `Waiting` |
-| `embedding_device` | the first `Progress.Run` of a `pbrain sync` whose `Device` is a GPU | `<Device> (<Name>), <n> MiB a batch`, the parentheses left out when `Name` is empty and `<n>` being `Budget` in MiB, rounded down |
+| `embedding_device` | the first `Progress.Run` of a `pbrain sync` whose `Device` is a GPU | `<Device> (<Name>), <n> MiB a batch`: the parentheses are left out when `Name` is empty, and the comma and what follows it when `Budget` is 0; `<n>` is `Budget` in MiB, rounded down |
 | `cpu_fallback` | the first `Progress.Run` of a `pbrain sync` whose `Fallback` is set | `embedding on the CPU, which is slow: ` and, for `asked`, `the CPU was asked for`; `unsupported`, `this pbrain has no GPU support for <model>`; `absent`, `no usable GPU was found`; `failed`, `the GPU could not be used`; `memory`, `the GPU has too little free memory` |
 
 Neither of the last two is printed by a search, by a sync that embeds nothing, or for a model with no GPU path, whose `Fallback` is always empty (owner's decision, 2026-11-22: the CPU is that model's normal path). A sync that begins on a GPU and gives it up prints both, in that order.
@@ -676,7 +676,7 @@ A named selector fails in one of two ways. It names nothing the listing shows, b
 4. backend: `cuda`, then the AMD backend, then `metal` (operator's decision, 2026-11-22);
 5. lowest index.
 
-With none left the CPU runs, and `Fallback` says why: `unsupported` when no backend is compiled in, `absent` when none lists a device, `failed` when the last one tried could not be attached, `memory` when that failure was the device running out of memory at the upload. With goinfer v0.5.0 an adapter can attach only CUDA's default device, lists it as `cuda:0` when the driver answers a memory query, and cannot tell `memory` from `failed`; the rest comes with the listing goinfer is asked for (`pkieltyka/goinfer` issues #23 to #30).
+With none left the CPU runs, and `Fallback` says why: `unsupported` when no backend is compiled in, `absent` when none lists a device, `failed` when the last one tried could not be attached, `memory` when that failure was the device running out of memory at the upload. With goinfer v0.5.0 an adapter can attach only CUDA's default device, lists it as `cuda:0` when the driver answers a memory query, and cannot tell `memory` from `failed`. Listing a device asks the driver, so it is done only for a selector that needs it: `Open` with `""` or `cpu` lists nothing and touches no driver, which is every search; the rest comes with the listing goinfer is asked for (`pkieltyka/goinfer` issues #23 to #30).
 
 **The memory budget** is what a batch of several texts may take on the device, decided once, after the weights are uploaded, from that device's free memory:
 

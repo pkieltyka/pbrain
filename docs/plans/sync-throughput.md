@@ -543,7 +543,8 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    `device` in JSON; `pbrain devices` listing the default CUDA device and the CPU. In CI, where no
    driver exists: the `cuda` build's sync of `embeddinggemma-2` succeeds on the CPU with
    `cpu_fallback`; `--device cuda` and `--device nosuch` are `invalid_config`, since no CUDA device is
-   listed there; `--device cpu` prints no notice; a named device with `bge-small-en-v1.5` is
+   listed there; `--device cpu` prints `cpu_fallback` with the reason that the CPU was asked for; a
+   named device with `bge-small-en-v1.5` is
    `invalid_config`; the untagged build prints `unsupported`; `pbrain devices` runs
    from an empty directory. With the fake registry: the notice table, and a listed device whose
    attach fails, which is `io`. The automatic order as a pure function: a discrete card with a live
