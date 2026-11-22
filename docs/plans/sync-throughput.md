@@ -9,13 +9,16 @@ search never uses the GPU. This plan also absorbs what was left of #29 (the CUDA
 Read against master `18f50a6`, goinfer v0.5.0 with its CUDA module, and aikit v1.79.1. Measurements
 are @lead-dev's of 2026-11-22 (`/var/tmp/pbrain-sync-throughput.yqF3OJ/findings.md`; they go into
 `internal/cli/README.measure.md` with ticket 7): 128 items of the phase 28 brain, 1,223 passages,
-CPUs 0 to 3, RTX PRO 6000.
+CPUs 0 to 3, RTX PRO 6000; and for the CPU `/var/tmp/pbrain-bge-cores.xgwVO4/findings.md`, the same
+slice on 4 cores, 16 cores and 32 threads of the Ryzen 9 7950X.
 
 ## What was measured, and what it means for this plan
 
 | Run | Passages a second | Notes |
 |---|---:|---|
 | bge-small, sync, 4 cores | 10.50 | 354% of 400% CPU; 99.74% of CPU samples inside aikit's encoder |
+| bge-small as built, 4 cores / 16 cores / 32 threads | 9.72 / 13.52 / 14.23 | one forward at a time; 336 / 377 / 354 MiB at the peak |
+| bge-small, one forward a worker, 4 / 16 / 32 workers | 11.54 / 29.69 / 33.64 | 388 / 563 / 783 MiB; every stored row and vector equal to the build as built |
 | EmbeddingGemma 2, CUDA, sync as built (pairs) | 11.61 | GPU busy 96% (median of 1,051 samples); device peak 1,340 MiB |
 | the same passages, one a call | 10.11 | 5,386 tokens a second; 31 to 873 tokens a passage, 533 on average |
 | two a call | 11.33 | 6,033 tokens a second |
@@ -42,11 +45,13 @@ CPUs 0 to 3, RTX PRO 6000.
 4. **A CUDA vector does not depend on its batch.** Every vector was bit for bit the same at batch
    sizes 1, 2 and 8, and at 1 to 128 on the short control, and across repeats. goinfer's own tests
    assert the same (`backend/cuda/embeddinggemma2_test.go:297`, `:554`).
-5. **bge-small on the CPU is all model.** Tokenizing, storing and publishing took 0.25 s of 413 s
-   of CPU. aikit already spreads one forward over the cores, at 88% efficiency on four. So an
-   overlap of stages buys bge-small nothing, and workers can gain at most 13% on four cores. The
-   open figure is how one forward scales to 16 cores and to 32 threads, where pbrain already runs
-   today when it is not pinned: the "4" in every published figure is the measurement's `taskset`.
+5. **bge-small on the CPU is all model, and one forward does not scale.** Tokenizing, storing and
+   publishing took 0.25 s of 413 s of CPU, so an overlap of stages buys bge-small nothing. pbrain
+   has no limit of four cores: the "4" in every published figure is the measurement's `taskset`.
+   But aikit's spread of one forward over the cores stops paying early: from 4 cores to 16 the
+   build as it is gains 39%, and from 16 cores to 32 threads 5%, using 5.5 and 8.9 cores' worth of
+   CPU. One forward a worker gains 19% on 4 cores, 2.12 times on 16 and 2.35 times on 32 threads,
+   with the same bytes in every stored row. Each worker costs about 14 MiB at the peak.
 
 ## Decision
 
@@ -63,9 +68,9 @@ CPUs 0 to 3, RTX PRO 6000.
    most 6 GiB, with the batch halved on an allocation failure. A person can set the amount, under
    the same 6 GiB. The budget limits how many passages share a call; one passage alone always
    runs.
-5. **The CPU path is measured before it is changed.** One forward spread over the cores against
-   several forwards side by side, at 4 cores, 16 cores and 32 threads. Workers go in only if they
-   win by more than 10% with the same vector bytes.
+5. **bge-small embeds on a pool of workers, one forward each.** The gate this plan set, more than
+   10% at 16 cores with the same bytes, is passed at 2.12 times. A query, and any single text,
+   keeps today's one forward spread over the cores.
 6. **Overlapping the stages is designed here and not scheduled.** By the measurements it is worth
    under 2% today and at most about 7% with short notes on a fast device. It is the riskiest change
    to the build, so it waits for a measurement that shows the device waiting.
@@ -402,12 +407,24 @@ if what they take collides, an allocation fails and the back-off recovers.
 
 ## The CPU
 
-Not changed until measured (ticket 4). The candidate, if the measurement supports it: `bge.Embed`
-with more than one text starts `min(W, len(texts))` goroutines that take texts in turn, tokenize and
-call `model.Embed`, with `W` from `runtime.GOMAXPROCS(0)` under a cap the measurement gives; one text
-runs as today, so a query keeps aikit's threads inside its one forward. aikit's `BERT` is safe for
-this: each forward takes its own scratch, and with several in flight its kernels stay serial. It
-documents the split as bit-identical to the serial path, which the measurement checks.
+`bge.Embed` with more than one text starts `min(W, len(texts))` goroutines. Each takes the next
+index from a shared counter, tokenizes that text and calls `model.Embed`, and writes the vector to
+its own slot, so the result is in input order whatever finishes first. The context is checked
+before each text; the first error ends the call with no vectors. One text runs as today, so a
+query and a catch-up keep aikit's threads inside their one forward. aikit's `BERT` is made for
+this: each forward takes its own scratch from a pool, and with several in flight its kernels stay
+serial. The measurement found every vector equal to the one-forward build's, bit for bit.
+
+`W` is `runtime.GOMAXPROCS(0)`, at most 32. Both ends are measured: 16 workers on 16 cores give 29.69
+passages a second, and 32 on the same cores' two threads each give 33.64, 13% more for 220 MiB
+more. Nothing above 32 is measured, so nothing above it is used. The window is 128 texts on every
+machine, four times the largest `W`: the end of a window, where workers run out of texts one by
+one, is then a small part of it, and what a run stores and counts cannot depend on how many cores
+the machine has. The measurement used 32 texts a call; the ticket measures 128.
+
+Memory: the slice peaked at 354 MiB as built and 783 MiB with 32 workers. At full size the build
+peaks at 998 MiB today (#34), so about 1.4 GB is expected with 32 workers; that figure is an
+estimate until ticket 7 measures it.
 
 EmbeddingGemma 2 on the CPU stays one forward at a time: goinfer's CPU forward spreads over every
 core by itself and has no gate for concurrent forwards, so workers would oversubscribe.
@@ -425,8 +442,9 @@ honoured through the Go runtime.
   window, a back-off or a resumed run, because a CUDA vector does not depend on its batch
   (measured; tested in goinfer; ask 6 makes it a stated guarantee for every backend). pbrain gates
   it with its own test on the real model.
-- **Vectors, the CPU.** bge-small runs one forward a text today, so there is nothing to vary. If
-  workers go in, the same bytes at any worker count is their acceptance test.
+- **Vectors, the CPU.** bge-small runs one forward a text at any worker count, and aikit's kernels
+  give the same bits spread or serial: measured at 1, 4, 16 and 32 workers, 1,223 of 1,223 vectors
+  equal. It is the workers' acceptance test.
 - **Across devices.** Not the same bytes, and not claimed: within rule 2, one fingerprint, a mixed
   index allowed (above). Three comparisons, and only these, may show different vector bytes: a
   run on one device against a run on another; a run that fell back to the CPU part of the way
@@ -483,7 +501,7 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
 
 - `internal/embed/embed.go`: `OpenOptions`, `Fallback`, `RunInfo`, `DeviceInfo`, `Embedder.Info`,
   `Entry.Devices`, `Registry.Devices`, the new `Open` signatures.
-- `internal/embed/bge/bge.go`: `Info`; the new `open` signature.
+- `internal/embed/bge/bge.go`: the workers, `Info`; the new `open` signature.
 - `internal/embed/gemma2/gemma2.go`: selection in `open`, the packer, the budget, `Info`.
   `accel_cpu.go`, `accel_cuda.go`: `devices()`, `attach(id)`, `freeMemory()`, `bytesPerPosition`,
   `batchCap`; `requireAccelerator` goes.
@@ -530,10 +548,18 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    the same cache, so that no other checkout can add an entry in between. With the GPU
    (`PBRAIN_ALLOW_GEMMA2=1`): the 59 fixture passages alone and batched, equal bytes; passages a
    second and device memory on the 128-item slice and on a slice of short notes.
-4. **The CPU measurement**, in scratch, no product change: bge-small on the slice at 4 cores, 16
-   cores and 32 threads, as built and with prepared-id workers at each; passages a second, peak
-   memory, vector bytes compared. Then the workers, only if they win by more than 10% at 16 cores:
-   `TestBgeWorkersSameBytes` on the real model where present, order, cancel and close with the fake.
+4. **bge-small workers.** The measurement is done (above). `TestBgeWorkersSameBytes`, on the real
+   model where it is present, as `TestBgeParity` is: 64 texts at 1, 4 and 32 workers give equal
+   bytes. With the fake model: input order kept under random delays, a cancelled context, an error
+   from one text, a closed model, and one text taking the single path. Measured again on the
+   slice: passages a second and peak memory at 4 cores, 16 cores and 32 threads, with windows of
+   32 and 128. It goes first (operator's decision, 2026-11-22), before tickets 1 to 3, so it
+   brings the two small things it needs and touches neither the gemma adapter nor device
+   selection: an optional interface, `embed.Windowed { Window() int }`, which the build asks by
+   type assertion and uses in place of its batch of 8, and which ticket 1 folds into
+   `Info().Window`; and the fixed order of the `meta` rows, so that two databases can be compared
+   as files. `TestBuildWorkersSameDatabase`: the same section built at 1, 4 and 32 workers gives
+   the same database bytes and the same counts.
 5. **goinfer.** When a release has the asks: move the pin (read first, as every pin). Enumeration
    and explicit devices (ask 7): every device listed, `cuda:1`, `vulkan:0` and persistent ids as
    selectors, the automatic order above as a pure function, table-tested with this machine's three
@@ -549,7 +575,8 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    (interfaces, Build's steps, both adapters, tests); `components/cli.md`; the semantic skill topic
    and the README. #29 closes with it.
 
-Tickets 1 to 4 need nothing from goinfer. 2 needs 1; 3 needs 2; 4 stands alone.
+Tickets 1 to 4 need nothing from goinfer. 2 needs 1; 3 needs 2. Ticket 4 is built first: it is
+the largest measured gain in this plan for the default model and waits on no decision.
 
 ## What goinfer has to give (issues on `pkieltyka/goinfer`, drafted by @architect-2, agreed)
 
@@ -592,9 +619,8 @@ For the owner, through @operator:
   ticket after ticket 2.
 - **`eg2_combined`**, open since #29: supported, or an experiment to leave out of the spec?
 
-For @lead-dev, with ticket 4 and ticket 3:
+For @lead-dev, with ticket 3:
 
-- bge-small at 16 cores and 32 threads, one forward against workers (above).
 - A slice of short notes for the GPU figures: the fixture has none.
 
 ## Risks
