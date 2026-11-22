@@ -267,6 +267,8 @@ func Status(ctx context.Context, opt Options, secs []SectionInput) (StatusResult
 
 A model's fingerprint is computed when the table is built, never at run time: SHA-256 over the model's name, each file's name and digest in table order, `Dim`, and the adapter's preparation version, a constant the adapter bumps when it changes a prompt, the pooling, the normalisation or the token limit. `Registry.Open` must return an embedder with the same `Fingerprint()` and `Dim()`, and `Build` and the source treat a difference as a runtime failure. The index fingerprint adds `ChunkerVersion`. A change of either starts a new index; a change of the chunker alone still finds every unchanged text in the cache, because the cache is keyed by the model fingerprint.
 
+The fingerprint does not name what runs the model. A build with the `cuda` tag gives `embeddinggemma-2` the same fingerprint as the untagged build, so the two share an index and the vector cache, and one index can hold vectors made by both. That is safe because the two agree far inside rule 2. Over the 59 passages of the fixture, the CPU vector and the CUDA vector of one passage have a cosine of at least 0.99999999999854, with a median of 0.99999999999955 (issue #22), where rule 2 asks 0.999 of an adapter against its reference. A backend whose vectors fell outside 0.999 of the CPU's would take a fingerprint of its own.
+
 ### Passages
 
 `Passages` works on `outline.Parse(body)`.
