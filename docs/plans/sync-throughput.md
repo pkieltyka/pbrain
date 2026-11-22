@@ -633,7 +633,9 @@ All five recommendations were accepted.
 3. **Overlap of the stages** is deferred: #42 stays conditional on a measurement that shows the
    device idle more than 3% of the time.
 4. **Release binaries get the `cuda` tag** once the CPU fallback is safe, after #38, as a ticket of
-   its own. Until then a release user of `embeddinggemma-2` reads "this pbrain has no GPU support".
+   its own. Done in #44: the Linux archives are built with the tag, a `_cpu` archive is published
+   beside each, and macOS and a plain `go install` stay without it (`go install -tags cuda` builds
+   the GPU variant). Stripped, Linux amd64 is 44.2 MiB with the tag and 15.0 MiB without.
 5. **`eg2_combined` is an experiment.** It is kept out of the spec and of the user's documentation.
    CI keeps building and vetting it so that it does not rot; it is not a supported build.
 
