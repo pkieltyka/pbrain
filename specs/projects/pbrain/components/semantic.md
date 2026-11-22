@@ -35,6 +35,8 @@ type Embedder interface {
     Embed(ctx context.Context, role Role, texts []string) ([][]float32, error)
     Dim() int
     Fingerprint() string
+    // Close releases the model. An error says only that the release failed: the vectors already
+    // returned stand, and the callers in semantic drop it ("The source" and "Build").
     Close() error
 }
 
@@ -214,8 +216,9 @@ func (s *Source) CatchUp(ctx context.Context) error
 // It returns only the context's error.
 func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) (search.Scores, error)
 
-// Close cancels the background task, waits for it and closes an opened embedder exactly once.
-// It is safe to call when Attach or Score were never reached.
+// Close cancels the background task, waits for it, closes each opened index and closes an
+// opened embedder once. An error from the embedder's Close is dropped: with a model that runs
+// on CPUs, Close returns nil. It is safe to call when Attach or Score were never reached.
 func (s *Source) Close() error
 
 type BuildResult struct {
@@ -377,7 +380,7 @@ For one section, `Build`:
 8. Embeds queued passages eight at a time, as `Document`. Before the first batch it opens the `Artifact` of step 4 with `Registry.Open`; with no batch, the runtime is never opened and the `Artifact` is dropped. A vector from the model that is not of the right length, not finite or not of unit length within 0.001 fails the run with `io`; a vector from the cache or from the database that fails the same test is treated as absent and embedded again. For the shared section each new vector is written to the cache at once.
 9. When all passages of an item have vectors, replaces the item in one transaction: delete the row of that path, which removes its passages, then insert the item, with its digest and its check, and its passages.
 10. Publishes whenever 20 seconds have passed since the last publication, at an item boundary, and at the end if anything changed. Before the last publication the dead rows are deleted in one transaction. A publication in between may still hold them; they cover no item and are never scored. What an interruption can lose is therefore at most 20 seconds of work plus the item in progress, however long that item is; for the shared section its vectors are already in the cache. A run that changed nothing publishes nothing.
-11. Reports `Progress` every 10 seconds, releases the lock and returns the counts.
+11. Reports `Progress` every 10 seconds, closes the runtime if it opened one, releases the lock and returns the counts. An error from the embedder's `Close` is dropped, as in the source: the last publication is done by then, the index on disk is whole, and the run returns its counts with no error (spec 9.4). A build with the `cuda` tag has a failure of its own here, which is not specified yet (issue #29).
 
 An interrupted run leaves a usable index holding every published item; the next run finds the rest to do. An item whose body cannot be read as scanned (`store.ErrChanged`) is skipped and stays to do. Publication rewrites the whole database, about 160 ms at 35,000 passages of 384 dimensions by a scratch measurement, which is why it is paced by time and not by count.
 
@@ -415,6 +418,8 @@ If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifa
 4. Returns `Ready`, `Missing`, the model's `Cutoff` and the hits.
 
 `Score` returns an error only when the context ends. `Start`, `Attach`, `Score` and `Close` never write and never take a lock, and the source never downloads. `CatchUp` is the one method that writes.
+
+**Closing the model fails nothing.** `Close` comes after the search has its scores. If the embedder's `Close` returns an error, the source drops it and releases the embedder all the same: the scores stand, `Close` returns nil, and the command prints the results and exits as it would have (spec 7.1). There is nothing a caller could do with such an error, and a cleanup that fails must not take back an answer that was right. A build with the `cuda` tag has a failure of its own here, which is not specified yet (issue #29). That is why `Close` returns an error at all.
 
 ### Catch-up in a search
 
@@ -748,6 +753,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestCatchUpNeverCreates` | No index, an index of another fingerprint, an unreadable index, format 2, a missing model, an exposed cache and `model = "none"`: after an add, a search writes no file, creates no folder and takes no lock, and its notice is the one of scenario 35. With `model_path` and no cache folder: the item is caught up and no cache folder appears. In a section folder that cannot be written: the search succeeds with `semantic_partial`. A cache folder whose `vectors` folder holds `.git`: nothing is written there and the item stays uncovered. Scenarios 35 and 42. |
 | `TestCatchUpFailures` | Each leaves the search successful and the previous index in force: an embedder that fails, one that returns a vector of the wrong length, a publication whose rename fails, a cancelled context (the context's error, nothing published). After a failed publication the item is still scored in that search. Scenario 42. |
 | `TestSourceLifecycle` | `Start` returns before the model is open and the scan can run meanwhile; `Close` without `Attach`, after a failed scan and after `Score` each cancels the task and closes the embedder once and only if it was opened; a cancelled context ends `Score` with the context's error. |
+| `TestCLISemanticCPUClosePreservesResults`, `TestCLISyncCPUClosePreservesResults` (package `cli`) | An embedder whose `Close` returns an ordinary error, called once in each case. `search --semantic` prints the same output as with a healthy embedder, its semantic result included, writes nothing to standard error and exits 0. `sync` prints its counts and exits 0, and `sync --status` then finds every item indexed. Spec 7.1 and 9.4. |
 | `TestSourceBadQueryVector` | A runtime that returns a query vector of the wrong dimension, with a value that is not a number, or not of unit length: not ready with `ModelFailed`, no hit, lexical results kept. Scenario 35. |
 | `TestSourceNotReady` | Each row of the check table gives its reason and opens no model; no file is written and no request made in any of them. Scenario 35. |
 | `TestSourceScores` | The best passage per item, its span, ties to the earlier passage; only eligible covered items are scored; the query is embedded once; results are identical across runs. Scenarios 33 and 34. |
