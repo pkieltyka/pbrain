@@ -3,15 +3,17 @@
 package gemma2
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
 func TestGemmaBatchSameBytes(t *testing.T) {
 	folder := fixtureDir(t, "PBRAIN_TEST_GEMMA2_PACK")
-	if len(cudaDevices()) == 0 {
+	if len(listCUDADevices().Devices) == 0 {
 		t.Skip("no usable CUDA device")
 	}
 	texts := batchFixture(t)
@@ -68,11 +70,126 @@ func TestGemmaBatchSameBytes(t *testing.T) {
 	if emb.Info().Budget != override {
 		t.Fatalf("override budget = %d, want %d", emb.Info().Budget, override)
 	}
-	for _, text := range texts {
-		ids, err := emb.(*encoder).tokenIDs(embed.Document, text)
-		if err != nil || len(ids) <= override/bytesPerPosition {
-			t.Fatalf("singleton fixture: %d prepared tokens, %v", len(ids), err)
-		}
-	}
 	compare("1 MiB budget", emb)
+}
+
+// splitCUDA owns one real device and injects one certified failure before
+// dispatch. All successful calls still execute on that same device.
+type splitCUDA struct {
+	embeddinggemma2.Accelerator
+	batch interface {
+		ForwardBatch([][]int) ([][]float32, error)
+	}
+	memory   embeddinggemma2.BatchMemoryEstimator
+	failNext bool
+	shapes   []int
+}
+
+func (a *splitCUDA) BatchMemory(lengths []int) (embeddinggemma2.BatchMemoryEstimate, error) {
+	return a.memory.BatchMemory(lengths)
+}
+
+func (a *splitCUDA) Forward(ids []int, keepLayers bool) ([]float32, [][]float32, error) {
+	a.shapes = append(a.shapes, len(ids))
+	return a.Accelerator.Forward(ids, keepLayers)
+}
+
+func (a *splitCUDA) ForwardBatch(ids [][]int) ([][]float32, error) {
+	positions := 0
+	for _, input := range ids {
+		positions += len(input)
+	}
+	a.shapes = append(a.shapes, positions)
+	if a.failNext {
+		a.failNext = false
+		return nil, fmt.Errorf("test forward before dispatch: %w", embeddinggemma2.ErrBatchOutOfMemory)
+	}
+	return a.batch.ForwardBatch(ids)
+}
+
+func TestGemmaCUDAForcedSplitSameBytes(t *testing.T) {
+	for _, test := range []struct {
+		entry embed.Entry
+		pack  string
+	}{
+		{Entry(), "PBRAIN_TEST_GEMMA2_PACK"},
+		{GGUFEntries()[0], q8Fixture},
+	} {
+		t.Run(test.entry.Model.Name, func(t *testing.T) {
+			folder := fixtureDir(t, test.pack)
+			if len(listCUDADevices().Devices) == 0 {
+				t.Skip("no usable CUDA device")
+			}
+			reg := embed.NewRegistry(test.entry)
+			emb, err := reg.Open(t.Context(), verified(t, folder, test.entry.Model), embed.OpenOptions{Device: "cuda:0"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = emb.Close() })
+			e := emb.(*encoder)
+			raw := e.model.Accelerator()
+			wrapper := &splitCUDA{
+				Accelerator: raw,
+				batch: raw.(interface {
+					ForwardBatch([][]int) ([][]float32, error)
+				}),
+				memory: raw.(embeddinggemma2.BatchMemoryEstimator),
+			}
+			embeddinggemma2.RegisterAccelerator(t.Name(), func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+				return wrapper, nil
+			})
+			if _, err := e.model.UseAccelerator(t.Name()); err != nil {
+				t.Fatal(err)
+			}
+			texts := batchFixture(t)
+			embedTexts := func(texts []string) [][]float32 {
+				t.Helper()
+				out, err := e.Embed(t.Context(), embed.Document, texts)
+				if err != nil || len(out) != len(texts) {
+					t.Fatalf("embedded %d of %d: %v", len(out), len(texts), err)
+				}
+				return out
+			}
+			single := make([][]float32, len(texts))
+			for i := range texts {
+				single[i] = embedTexts(texts[i : i+1])[0]
+			}
+			check := func(label string) {
+				t.Helper()
+				got := embedTexts(texts)
+				for i := range got {
+					if !sameVectorBits(got[i], single[i]) {
+						t.Fatalf("%s changed passage %d", label, i)
+					}
+				}
+				t.Logf("%s: %d bit-identical vectors, forward attempts by aggregate positions %v", label, len(got), wrapper.shapes)
+			}
+			wrapper.shapes = nil
+			check("wide")
+			if len(wrapper.shapes) != 1 || wrapper.shapes[0] <= embeddinggemma2.MaxTokens {
+				t.Fatalf("wanted a real forward above 8192 aggregate positions, got %v", wrapper.shapes)
+			}
+			total := wrapper.shapes[0]
+			wrapper.shapes = nil
+			wrapper.failNext = true
+			check("forced split")
+			if wrapper.failNext || len(wrapper.shapes) < 3 || wrapper.shapes[0] != total ||
+				e.retryLimit == nil || *e.retryLimit != total/2 || e.model.Accelerator() != wrapper {
+				t.Fatalf("did not split on the same encoder: %v", wrapper.shapes)
+			}
+			positions := 0
+			for _, size := range wrapper.shapes[1:] {
+				if size >= total {
+					t.Fatalf("retried unchanged positions: %v", wrapper.shapes)
+				}
+				positions += size
+			}
+			if positions != total {
+				t.Fatalf("retry forwarded %d positions, want %d", positions, total)
+			}
+			if err := e.Close(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }

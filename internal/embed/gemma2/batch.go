@@ -2,6 +2,7 @@ package gemma2
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -37,20 +38,54 @@ func memoryBudget(memory embed.DeviceInfo, override int64) int64 {
 	}
 }
 
-// batchSize takes a prefix of the remaining prepared texts. The first text is
-// always admitted, even if its tokens alone exceed the working-set budget.
-func batchSize(ids [][]int, positions int) int {
-	positions = min(positions, embeddinggemma2.MaxTokens)
-	tokens, n := len(ids[0]), 1
-	for n < min(batchInputs, len(ids)) && tokens+len(ids[n]) <= positions {
-		tokens += len(ids[n])
-		n++
+// batchSize admits increasing prefixes on the currently attached encoder.
+// A valid singleton runs even if its workspace exceeds the budget.
+func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimit *int,
+	estimate func([]int) (embeddinggemma2.BatchMemoryEstimate, error)) (int, error) {
+	vulkan := strings.HasPrefix(info.Device, "vulkan:")
+	positions := 0
+	for i, length := range lengths[:min(batchInputs, len(lengths))] {
+		if err := ctx.Err(); err != nil {
+			return 0, err
+		}
+		if length <= 0 || length > maxTokens {
+			return 0, fmt.Errorf("invalid prepared length %d at input %d", length, i)
+		}
+		positions += length
+		if i > 0 && (vulkan && positions > embeddinggemma2.MaxTokens || retryLimit != nil && positions > *retryLimit) {
+			return i, nil
+		}
+		memory, err := estimate(lengths[:i+1])
+		if cerr := ctx.Err(); cerr != nil {
+			return 0, cerr
+		}
+		if i > 0 && errors.Is(err, embeddinggemma2.ErrUnsupportedBatchShape) {
+			return i, nil
+		}
+		if err != nil {
+			return 0, err
+		}
+		bytes := int64(positions) * bytesPerPosition
+		if vulkan {
+			bytes = int64(positions) * vulkanBytesPerPosition
+		}
+		switch memory.Quality {
+		case embeddinggemma2.BatchMemoryUpperBound, embeddinggemma2.BatchMemoryApproximate:
+			bytes = memory.AdditionalPeakBytes
+		case embeddinggemma2.BatchMemoryUnknown:
+		default:
+			return 0, fmt.Errorf("unrecognized batch memory estimate quality %d", memory.Quality)
+		}
+		if i > 0 && bytes > info.Budget {
+			return i, nil
+		}
 	}
-	return n
+	return min(batchInputs, len(lengths)), nil
 }
 
 func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float32, error) {
 	ids := make([][]int, len(texts))
+	lengths := make([]int, len(texts))
 	for i, text := range texts {
 		if err := ctx.Err(); err != nil {
 			return nil, err
@@ -59,39 +94,74 @@ func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float
 		if ids[i], err = e.tokenIDs(embed.Document, text); err != nil {
 			return nil, err
 		}
+		lengths[i] = len(ids[i])
 	}
 
-	out := make([][]float32, 0, len(ids))
-	bytes := int64(bytesPerPosition)
-	if strings.HasPrefix(e.info.Device, "vulkan:") {
-		bytes = vulkanBytesPerPosition
+	out := make([][]float32, len(ids))
+	if err := e.embedPrepared(ctx, ids, lengths, out); err != nil {
+		return nil, err
 	}
-	positions := int(e.info.Budget / bytes)
+	return out, nil
+}
+
+func (e *encoder) embedPrepared(ctx context.Context, ids [][]int, lengths []int, out [][]float32) error {
 	for len(ids) > 0 {
 		if err := ctx.Err(); err != nil {
-			return nil, err
+			return err
 		}
-		n := batchSize(ids, positions)
+		n := 1
+		if e.model.Accelerator() != nil {
+			var err error
+			n, err = batchSize(ctx, lengths, e.info, e.retryLimit, e.model.BatchMemory)
+			if err != nil {
+				if cerr := ctx.Err(); cerr != nil {
+					return cerr
+				}
+				return forwardError("batch memory", err)
+			}
+		}
 		if n == 1 {
 			v, err := e.embedIDs(ctx, ids[0])
 			if err != nil {
-				return nil, err
+				return err
 			}
-			out = append(out, v)
-		} else {
-			vs, err := e.model.EmbedIDsBatch(ids[:n])
-			if cerr := ctx.Err(); cerr != nil {
-				return nil, cerr
-			}
-			if err != nil {
-				return nil, forwardError("batch forward", err)
-			}
-			if len(vs) != n {
-				return nil, fmt.Errorf("%w: batch forward returned %d vectors for %d inputs", embed.ErrAccelerator, len(vs), n)
-			}
-			out = append(out, vs...)
+			out[0] = v
+		} else if err := e.embedBatch(ctx, ids[:n], lengths[:n], out[:n]); err != nil {
+			return err
 		}
-		ids = ids[n:]
+		ids, lengths, out = ids[n:], lengths[n:], out[n:]
 	}
-	return out, nil
+	return nil
+}
+
+func (e *encoder) embedBatch(ctx context.Context, ids [][]int, lengths []int, out [][]float32) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	vectors, err := e.model.EmbedIDsBatch(ids)
+	if cerr := ctx.Err(); cerr != nil {
+		return cerr
+	}
+	if retryableForward(err) {
+		// Scope the retry to the failed range. Later siblings get a fresh
+		// estimate and retain any smaller limit learned by earlier children.
+		positions := 0
+		for _, length := range lengths {
+			positions += length
+		}
+		limit := positions / 2
+		if e.retryLimit != nil {
+			limit = min(limit, *e.retryLimit)
+		}
+		e.retryLimit = &limit
+		return e.embedPrepared(ctx, ids, lengths, out)
+	}
+	if err != nil {
+		return forwardError("batch forward", err)
+	}
+	if len(vectors) != len(ids) {
+		return fmt.Errorf("%w: batch forward returned %d vectors for %d inputs", embed.ErrAccelerator, len(vectors), len(ids))
+	}
+	copy(out, vectors)
+	return nil
 }

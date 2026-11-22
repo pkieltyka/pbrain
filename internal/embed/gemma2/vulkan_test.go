@@ -100,7 +100,7 @@ func TestGemmaVulkan(t *testing.T) {
 		}
 		t.Logf("selector %s attached %s, reports %s, %d MiB a batch", selected, actual.ID, info.Device, info.Budget>>20)
 	}
-	gpu := open(card.ID, 0)
+	gpu := open(card.ID, gib)
 	checkAttached(gpu, card.ID, gib)
 	single := make([][]float32, len(texts))
 	worst, passage := 1.0, -1

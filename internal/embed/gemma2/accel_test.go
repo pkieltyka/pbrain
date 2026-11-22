@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math"
 	"slices"
-	"strings"
 	"testing"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
@@ -26,6 +25,12 @@ type fakeSingleAccel struct {
 	calls     int
 	gotIDs    [][]int
 	closed    int
+}
+
+func sameVectorBits(a, b []float32) bool {
+	return slices.EqualFunc(a, b, func(a, b float32) bool {
+		return math.Float32bits(a) == math.Float32bits(b)
+	})
 }
 
 func (f *fakeSingleAccel) Name() string { return f.name }
@@ -404,7 +409,7 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 		t.Fatalf("third Close = %v (count=%d), want nil and count 2", err, fake.closed)
 	}
 
-	// 7. Non-batch accelerator attached fails loud on Document pair with zero Forward calls.
+	// A backend that rejects multi-input shapes still admits its singletons.
 	eNoBatch, encNoBatch := tinyEncoderForTest(t)
 	nonBatch := &fakeSingleAccel{name: "fake-prod-nobatch", dim: encNoBatch.HiddenDim()}
 	embeddinggemma2.RegisterAccelerator(nonBatch.name, func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
@@ -414,11 +419,11 @@ func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 		t.Fatalf("UseAccelerator(nonBatch): %v", err)
 	}
 	eNoBatch.info.Budget = budget
-	if got, err := eNoBatch.Embed(t.Context(), embed.Document, []string{"d1", "d2"}); got != nil || !errors.Is(err, embed.ErrAccelerator) || !strings.Contains(err.Error(), "cannot run a batch") {
-		t.Fatalf("non-batch Document pair = (%v, %v), want nil + ErrAccelerator + cannot run a batch", got, err)
+	if got, err := eNoBatch.Embed(t.Context(), embed.Document, []string{"d1", "d2"}); len(got) != 2 || err != nil {
+		t.Fatalf("non-batch Document pair = (%v, %v), want two vectors from singleton forwards", got, err)
 	}
-	if nonBatch.calls != 0 {
-		t.Fatalf("non-batch accelerator called Forward %d times, want 0", nonBatch.calls)
+	if nonBatch.calls != 2 {
+		t.Fatalf("non-batch accelerator called Forward %d times, want 2", nonBatch.calls)
 	}
 	if err := eNoBatch.Close(); err != nil {
 		t.Fatalf("nonBatch Close: %v", err)
