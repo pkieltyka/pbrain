@@ -20,11 +20,3 @@ func attachAccelerator(m *embeddinggemma2.Encoder) error {
 	}
 	return nil
 }
-
-func requireAccelerator(m *embeddinggemma2.Encoder) error {
-	acc := m.Accelerator()
-	if acc == nil || acc.Name() != "cuda" {
-		return fmt.Errorf("%w: %s missing during forward", embed.ErrAccelerator, cudaSelector)
-	}
-	return nil
-}

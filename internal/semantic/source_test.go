@@ -219,8 +219,8 @@ type badQueryEmb struct {
 	v []float32
 }
 
-func (b badQuery) Open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
-	e, err := b.Registry.Open(ctx, a)
+func (b badQuery) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
+	e, err := b.Registry.Open(ctx, a, opt)
 	return badQueryEmb{e, b.v}, err
 }
 
@@ -300,10 +300,10 @@ type blockingOpen struct {
 	entered *atomic.Bool
 }
 
-func (b blockingOpen) Open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
+func (b blockingOpen) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
 	b.entered.Store(true)
 	<-b.block
-	return b.Registry.Open(ctx, a)
+	return b.Registry.Open(ctx, a, opt)
 }
 
 // TestCoverage: an entry covers an item only with the same path and content check, and a search

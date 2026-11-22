@@ -33,6 +33,7 @@ type Options struct {
 	Files     sys.Files
 	Registry  embed.Registry
 	ModelName string  // pbrain.toml semantic.model; "" when off
+	Device    string  // sync selector, empty for auto
 	ModelDir  sys.Dir // personal.toml model_path, opened by cli; nil when unset
 	Cache     *Cache  // nil when no cache folder is known
 	CacheErr  error   // ErrCacheExposed when the folder failed its test

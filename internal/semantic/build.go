@@ -55,8 +55,8 @@ func ctxOr(ctx context.Context, err error) error {
 // fetch_failed from the download; io for the file system, the lock and a failed embedding.
 // A cancelled context ends it with the context's error.
 func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl embed.Downloader,
-	notify func(embed.Model, int64), progress func(Progress)) (res BuildResult, retErr error) {
-	res = BuildResult{Section: sec.Section}
+	notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error) {
+	res := BuildResult{Section: sec.Section}
 	if opt.ModelName == "" {
 		return res, &errs.Error{Code: "no_model", Message: "semantic search is off: pbrain.toml sets model = \"none\"", Exit: 1}
 	}
@@ -113,11 +113,7 @@ func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl e
 			return res, err
 		}
 	}
-	defer func() {
-		if cerr := b.close(); retErr == nil && errors.Is(cerr, embed.ErrAccelerator) {
-			retErr = wrapAccelIO("the model cannot be closed", cerr)
-		}
-	}()
+	defer b.close()
 	return b.run()
 }
 
@@ -182,16 +178,14 @@ type builder struct {
 	total    int
 }
 
-func (b *builder) close() error {
-	var err error
+func (b *builder) close() {
 	if b.emb != nil {
-		err = b.emb.Close()
+		_ = b.emb.Close()
 	}
 	if b.x != nil {
 		b.x.Close()
 	}
 	b.art = nil
-	return err
 }
 
 // work is one item to do and the vectors of its passages as they are found.
@@ -425,7 +419,11 @@ func (b *builder) openEmbedder() error {
 	if b.emb != nil {
 		return nil
 	}
-	emb, err := b.opt.Registry.Open(b.ctx, b.art)
+	device := b.opt.Device
+	if device == "" {
+		device = "auto"
+	}
+	emb, err := b.opt.Registry.Open(b.ctx, b.art, embed.OpenOptions{Device: device})
 	b.art = nil
 	if err != nil {
 		return ctxOr(b.ctx, wrapAccelIO("the model cannot be opened", err))

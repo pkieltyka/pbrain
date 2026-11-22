@@ -399,8 +399,8 @@ type failingEmb struct {
 	r *failing
 }
 
-func (f *failing) Open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
-	e, err := f.Registry.Open(ctx, a)
+func (f *failing) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
+	e, err := f.Registry.Open(ctx, a, opt)
 	if err != nil {
 		return nil, err
 	}

@@ -25,14 +25,13 @@ type Source struct {
 	m      embed.Model
 	dirs   []SectionDir
 
-	cancel   context.CancelFunc
-	model    chan struct{} // closed when the model task ends
-	indexes  chan struct{} // closed when every index is read
-	query    []float32     // the query vector, when the model task succeeded
-	modelErr error         // explicit accelerator error from runModel, read only after <-s.model
-	emb      embed.Embedder
-	opened   []openedIndex // one per section of dirs, in order
-	secs     []SectionInput
+	cancel  context.CancelFunc
+	model   chan struct{} // closed when the model task ends
+	indexes chan struct{} // closed when every index is read
+	query   []float32     // the query vector, when the model task succeeded
+	emb     embed.Embedder
+	opened  []openedIndex // one per section of dirs, in order
+	secs    []SectionInput
 
 	closeMu sync.Mutex
 	closed  bool
@@ -112,29 +111,20 @@ func (s *Source) check() (sys.Dir, search.NotReady) {
 	return nil, search.NoIndex
 }
 
-// runModel verifies the model's files, opens them and embeds the query.
+// runModel verifies the model's files, opens the CPU runtime and embeds the query.
 func (s *Source) runModel(ctx context.Context, dir sys.Dir) {
 	defer close(s.model)
 	a, err := embed.Verify(s.opt.Files, dir, s.m)
 	if err != nil || ctx.Err() != nil {
 		return
 	}
-	emb, err := s.opt.Registry.Open(ctx, a)
+	emb, err := s.opt.Registry.Open(ctx, a, embed.OpenOptions{})
 	if err != nil {
-		if ctx.Err() == nil && errors.Is(err, embed.ErrAccelerator) {
-			s.modelErr = wrapAccelIO("the model cannot be opened", err)
-		}
 		return
 	}
 	s.emb = emb
 	vs, err := emb.Embed(ctx, embed.Query, []string{s.text})
-	if err != nil {
-		if ctx.Err() == nil && errors.Is(err, embed.ErrAccelerator) {
-			s.modelErr = wrapAccelIO("the model failed to embed a query", err)
-		}
-		return
-	}
-	if len(vs) != 1 || !validVector(vs[0], s.m.Dim) {
+	if err != nil || len(vs) != 1 || !validVector(vs[0], s.m.Dim) {
 		return
 	}
 	s.query = vs[0]
@@ -252,9 +242,6 @@ func (s *Source) CatchUp(ctx context.Context) error {
 	if err := wait(ctx, s.model); err != nil {
 		return err
 	}
-	if s.modelErr != nil {
-		return s.modelErr
-	}
 	if s.query == nil {
 		return nil
 	}
@@ -311,9 +298,6 @@ items:
 				return false, ctx.Err()
 			}
 			if eerr != nil {
-				if errors.Is(eerr, embed.ErrAccelerator) {
-					return false, eerr
-				}
 				break items
 			}
 			if kerr := part.si.keep(w, i, vs[0]); kerr != nil {
@@ -389,9 +373,6 @@ func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) 
 	}
 	if err := wait(ctx, s.model); err != nil {
 		return search.Scores{}, err
-	}
-	if s.modelErr != nil {
-		return search.Scores{}, s.modelErr
 	}
 	if s.query == nil {
 		return search.Scores{Reason: search.ModelFailed}, nil
@@ -484,36 +465,33 @@ func spanInside(in SectionInput, it *item.Item, start, stop int) bool {
 }
 
 // Close cancels the background task, waits for it, closes all opened indexes once, and closes an
-// opened embedder. An accelerator close error leaves the embedder available for a retry. Other
-// embedder close errors are ignored. It is safe to call when Attach or Score were never reached.
-func (s *Source) Close() error {
+// opened embedder. It is safe to call when Attach or Score were never reached.
+func (s *Source) Close() {
 	s.closeMu.Lock()
 	defer s.closeMu.Unlock()
-	if !s.closed {
-		s.closed = true
-		if s.cancel != nil {
-			s.cancel()
+	if s.closed {
+		return
+	}
+	s.closed = true
+	if s.cancel != nil {
+		s.cancel()
+	}
+	<-s.model
+	<-s.indexes
+	for i := range s.opened {
+		if s.opened[i].x != nil {
+			s.opened[i].x.Close()
+			s.opened[i].x = nil
 		}
-		<-s.model
-		<-s.indexes
-		for i := range s.opened {
-			if s.opened[i].x != nil {
-				s.opened[i].x.Close()
-				s.opened[i].x = nil
-			}
-			if s.opened[i].dir != nil {
-				s.opened[i].dir.Close()
-				s.opened[i].dir = nil
-			}
+		if s.opened[i].dir != nil {
+			s.opened[i].dir.Close()
+			s.opened[i].dir = nil
 		}
 	}
 	if s.emb != nil {
-		if err := s.emb.Close(); errors.Is(err, embed.ErrAccelerator) {
-			return wrapAccelIO("the model cannot be closed", err)
-		}
+		_ = s.emb.Close()
 		s.emb = nil
 	}
-	return nil
 }
 
 // Status loads no model and writes nothing. It returns only file-system errors (io).

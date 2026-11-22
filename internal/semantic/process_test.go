@@ -81,8 +81,8 @@ type hookEmbedder struct {
 	before func([]string)
 }
 
-func (h hookEmbed) Open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
-	e, err := h.Registry.Open(ctx, a)
+func (h hookEmbed) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
+	e, err := h.Registry.Open(ctx, a, opt)
 	if err != nil {
 		return nil, err
 	}

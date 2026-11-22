@@ -138,19 +138,14 @@ func TestSemanticNotReadyAndPartial(t *testing.T) {
 	}
 	for name, src := range map[string]*fakeSemantic{
 		"an error":            {err: errors.New("runtime"), scores: Scores{Ready: true, Cutoff: 0.5}},
+		"a typed error":       {err: &errs.Error{Code: "io", Message: "the model cannot be opened", Exit: 1}},
 		"a NaN cut-off":       {scores: Scores{Ready: true, Cutoff: float32(math.NaN()), Hits: []SemanticHit{{Item: other, Score: 1, End: 1}}}},
 		"an infinite cut-off": {scores: Scores{Ready: true, Cutoff: float32(math.Inf(-1)), Hits: []SemanticHit{{Item: other, Score: 1, End: 1}}}},
 	} {
 		res := f.search(t, "redis", withSemantic(src))
-		if res.Total != 1 || res.Sem != (SemanticState{Asked: true, Reason: ModelFailed}) {
+		if !reflect.DeepEqual(res.Hits, lexOnly.Hits) || res.Sem != (SemanticState{Asked: true, Reason: ModelFailed}) {
 			t.Errorf("%s: total %d, %+v", name, res.Total, res.Sem)
 		}
-	}
-	// A typed domain error from Score (e.g. explicit accelerator failure) propagates instead of degrading.
-	fatalErr := &errs.Error{Code: "io", Message: "the model cannot be opened", Exit: 1}
-	fatalSrc := &fakeSemantic{err: fatalErr}
-	if _, err := Run(context.Background(), f, graph.Build(f.items), Request{Clauses: clauses(t, "redis"), Text: "redis", Limit: 5, Now: now, Semantic: fatalSrc}); !errors.Is(err, fatalErr) {
-		t.Fatalf("a fatal Score error: %v, want %v", err, fatalErr)
 	}
 	// A cancelled context returns its error, also with nothing on the page.
 	ctx, cancel := context.WithCancel(context.Background())

@@ -167,7 +167,7 @@ func TestBgeOpensAfterModelFilesAreRemoved(t *testing.T) {
 	if err := os.RemoveAll(dst); err != nil {
 		t.Fatal(err)
 	}
-	e, err := embed.NewRegistry(entry).Open(t.Context(), a)
+	e, err := embed.NewRegistry(entry).Open(t.Context(), a, embed.OpenOptions{})
 	if err != nil || a.Files != nil {
 		t.Fatalf("Open after removing files: %v", err)
 	}
@@ -209,7 +209,7 @@ func BenchmarkBgeFirstQuery(b *testing.B) {
 	registry := embed.NewRegistry(entry)
 	for b.Loop() {
 		a := verifiedModel(b, path, entry.Model)
-		e, err := registry.Open(b.Context(), a)
+		e, err := registry.Open(b.Context(), a, embed.OpenOptions{})
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -233,7 +233,7 @@ func realEmbedder(t *testing.T) *embedder {
 	t.Helper()
 	entry := Entry()
 	a := verifiedModel(t, modelFolder(t), entry.Model)
-	e, err := embed.NewRegistry(entry).Open(t.Context(), a)
+	e, err := embed.NewRegistry(entry).Open(t.Context(), a, embed.OpenOptions{})
 	if err != nil || a.Files != nil {
 		t.Fatalf("Open model: %v", err)
 	}

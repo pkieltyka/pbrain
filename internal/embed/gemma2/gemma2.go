@@ -23,7 +23,7 @@ type encoder struct {
 	bos, eos  int
 }
 
-func open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
+func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
 	files := a.Files
 	a.Files = nil
 	if err := ctx.Err(); err != nil {
@@ -65,8 +65,10 @@ func open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := attachAccelerator(m); err != nil {
-		return nil, err
+	if opt.Device == "auto" {
+		if err := attachAccelerator(m); err != nil {
+			return nil, err
+		}
 	}
 	bos, _ := tok.TokenID("<bos>")
 	eos, _ := tok.TokenID("<eos>") // NewEncoder requires both.
@@ -75,6 +77,13 @@ func open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
 
 func (e *encoder) Dim() int            { return dimension }
 func (e *encoder) Fingerprint() string { return fingerprint }
+func (e *encoder) Info() embed.RunInfo {
+	if e.model != nil && e.model.Accelerator() != nil {
+		return embed.RunInfo{Device: "cuda:0"}
+	}
+	return embed.RunInfo{Device: "cpu"}
+}
+
 func (e *encoder) Close() error {
 	if e.model != nil {
 		if acc := e.model.Accelerator(); acc != nil {
@@ -98,9 +107,6 @@ func (e *encoder) Embed(ctx context.Context, role embed.Role, texts []string) ([
 	}
 	if role != embed.Query && role != embed.Document {
 		return nil, errors.New("gemma2: unknown embedding role")
-	}
-	if err := requireAccelerator(e.model); err != nil {
-		return nil, err
 	}
 	out := make([][]float32, len(texts))
 	if len(texts) == 0 {

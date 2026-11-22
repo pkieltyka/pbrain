@@ -29,7 +29,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 		{{1}, {2}, {3}, {4}, {}},
 	} {
 		a := &embed.Artifact{Model: entry.Model, Files: files}
-		if got, err := registry.Open(t.Context(), a); got != nil || err == nil || a.Files != nil {
+		if got, err := registry.Open(t.Context(), a, embed.OpenOptions{}); got != nil || err == nil || a.Files != nil {
 			t.Fatalf("Open invalid artifact = %v, %v; files = %v", got, err, a.Files)
 		}
 	}
@@ -77,7 +77,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 				read(t, fsys)
 				return &encoder.BERT{}, nil
 			}
-			if got, err := registry.Open(t.Context(), a); got != nil || err == nil ||
+			if got, err := registry.Open(t.Context(), a, embed.OpenOptions{}); got != nil || err == nil ||
 				!strings.Contains(err.Error(), "each model file exactly once") || a.Files != nil {
 				t.Fatalf("Open = %v, %v; files = %v", got, err, a.Files)
 			}
@@ -88,7 +88,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	a := &embed.Artifact{Model: entry.Model, Files: [][]byte{{1}, {2}, {3}, {4}, {5}}}
-	if got, err := registry.Open(ctx, a); got != nil || !errors.Is(err, context.Canceled) || a.Files != nil {
+	if got, err := registry.Open(ctx, a, embed.OpenOptions{}); got != nil || !errors.Is(err, context.Canceled) || a.Files != nil {
 		t.Fatalf("cancelled Open = %v, %v; files = %v", got, err, a.Files)
 	}
 }
