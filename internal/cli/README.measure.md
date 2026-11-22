@@ -318,6 +318,23 @@ pack already on disk. The one-minute load average before the benchmark
 was 0.80.
 [CPU benchmark command and raw samples](../../tools/phase28/evidence/gemma-pax-cpu-rule3-v05.log).
 
+The matched fresh-process rerun (#32) built the untagged CPU and
+`-tags cuda` benchmarks from `dd2c6c0a6cebac09751c542e1efeaebdd9396f87`,
+both with goinfer v0.5.0. Five back-to-back CPU/CUDA pairs alternated
+one `BenchmarkGemmaFirstQuery` iteration per process on CPUs 0–3.
+The same pinned pack was read into the filesystem cache before timing.
+The one-minute load average before each sample ranged from 1.27 to
+1.77, and `nvidia-smi` showed no GPU compute processes before any sample.
+
+| Build | Median | Range |
+| --- | ---: | ---: |
+| Untagged CPU | 353.2 ms | 347.1–357.6 ms |
+| CUDA | 840.0 ms | 806.6–912.9 ms |
+
+CUDA added a median 482.4 ms within pairs. Every CPU sample was below
+600 ms, and every CUDA sample exceeded it.
+[Matched commands, preflights and samples](../../tools/phase28/evidence/gemma-pax-rule3-matched.log).
+
 The CUDA candidate's `TestMeasureReads/personal` retained the 5,000-item,
 50,000,000-byte fixture and used an empty index and vector cache. The
 first `pbrain --personal sync --json` embedded 43,642 shared and 4,869
