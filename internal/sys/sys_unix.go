@@ -457,36 +457,18 @@ func (l *lock) Close() error {
 // 25 ms, until ctx ends; it has no timeout of its own. Closing the holder releases the lock, as does
 // the end of the process. The lock file stays in place.
 func (native) Lock(ctx context.Context, x Dir, name string) (io.Closer, error) {
-	d, err := asDir(x)
+	d, fd, err := openLockFile(x, name)
 	if err != nil {
 		return nil, err
 	}
-	if err := validName(name); err != nil {
-		return nil, err
-	}
-	var fd int
-	if err := retry(func() error {
-		var err error
-		fd, err = unix.Openat(d.fd, name, unix.O_RDWR|unix.O_CREAT|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK, 0o600)
-		return err
-	}); err != nil {
-		return nil, pathErr("lock", d.child(name), err)
-	}
-	if err := ownerOnly(fd); err != nil {
-		unix.Close(fd)
-		return nil, &fs.PathError{Op: "lock", Path: d.child(name), Err: err}
-	}
 	for {
-		err := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
-		if err == nil {
-			return &lock{fd: fd}, nil
-		}
-		if errors.Is(err, unix.EINTR) {
-			continue
-		}
-		if !errors.Is(err, unix.EWOULDBLOCK) {
+		held, err := tryFlock(fd)
+		if err != nil {
 			unix.Close(fd)
 			return nil, pathErr("lock", d.child(name), err)
+		}
+		if held == nil {
+			return &lock{fd: fd}, nil
 		}
 		t := time.NewTimer(lockRetry)
 		select {
@@ -495,6 +477,67 @@ func (native) Lock(ctx context.Context, x Dir, name string) (io.Closer, error) {
 			unix.Close(fd)
 			return nil, fmt.Errorf("sys: waiting for %s: %w", d.child(name), ctx.Err())
 		case <-t.C:
+		}
+	}
+}
+
+// TryLock opens the lock as Lock does and makes one attempt. It returns ErrLocked at once when
+// another descriptor holds the lock, and never waits.
+func (native) TryLock(x Dir, name string) (io.Closer, error) {
+	d, fd, err := openLockFile(x, name)
+	if err != nil {
+		return nil, err
+	}
+	held, err := tryFlock(fd)
+	if err != nil {
+		unix.Close(fd)
+		return nil, pathErr("lock", d.child(name), err)
+	}
+	if held != nil {
+		unix.Close(fd)
+		return nil, held
+	}
+	return &lock{fd: fd}, nil
+}
+
+// openLockFile opens the named owner-only lock file of x, creating it, without following a link.
+func openLockFile(x Dir, name string) (*dir, int, error) {
+	d, err := asDir(x)
+	if err != nil {
+		return nil, -1, err
+	}
+	if err := validName(name); err != nil {
+		return nil, -1, err
+	}
+	var fd int
+	if err := retry(func() error {
+		var err error
+		fd, err = unix.Openat(d.fd, name, unix.O_RDWR|unix.O_CREAT|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK, 0o600)
+		return err
+	}); err != nil {
+		return nil, -1, pathErr("lock", d.child(name), err)
+	}
+	if err := ownerOnly(fd); err != nil {
+		unix.Close(fd)
+		return nil, -1, &fs.PathError{Op: "lock", Path: d.child(name), Err: err}
+	}
+	return d, fd, nil
+}
+
+// tryFlock makes one attempt at an exclusive lock of fd, retrying only an interrupted call. It
+// returns ErrLocked as held when another descriptor holds the lock, and any other failure as err.
+func tryFlock(fd int) (held, err error) {
+	for {
+		err := unix.Flock(fd, unix.LOCK_EX|unix.LOCK_NB)
+		switch {
+		case err == nil:
+			return nil, nil
+		case errors.Is(err, unix.EINTR):
+			continue
+		case errors.Is(err, unix.EWOULDBLOCK):
+			return ErrLocked, nil
+		default:
+			return nil, err
 		}
 	}
 }

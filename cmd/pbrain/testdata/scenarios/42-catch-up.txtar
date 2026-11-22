@@ -1,0 +1,172 @@
+# Functional spec §15, scenario 42.
+pbrain init
+testmodel test-model
+pbrain-test sync
+stdout '2 items indexed'
+
+# After one add the next search finds the item by meaning with no notice, and sync embeds nothing.
+pbrain-test add --title 'Fresh note' --body 'beta addition' --json
+jsonenv ADDED id
+pbrain-test search 'beta sense' --semantic --json
+ids results $ADDED
+stdout '"semantic":true'
+! stderr .
+pbrain-test sync
+stdout '0 passages embedded, 0 reused'
+
+# After a hand edit of an indexed item the search returns it only for its new text.
+cp $WORK/updated docs/brain/related.md
+pbrain-test search 'alpha query' --semantic --json
+ids results exact
+! stderr .
+pbrain-test search 'gamma sense' --semantic --json
+ids results related
+! stderr .
+
+# A personal item is caught up into the personal index; the cache gains no vector of it.
+mkdir docs/brain/personal
+cp $WORK/private docs/brain/personal/mine.md
+pbrain-test --personal sync
+stdout 'personal: 1 item indexed'
+countfiles $PBRAIN_CACHE/vectors 4
+cp $WORK/private2 docs/brain/personal/yours.md
+pbrain-test --personal search 'delta sense' --semantic --json
+ids results yours
+! stderr .
+countfiles $PBRAIN_CACHE/vectors 4
+pbrain-test --personal sync --status
+stdout 'shared: 3 of 3 items indexed'
+stdout 'personal: 2 of 2 items indexed'
+
+# After 21 short notes are added the search embeds nothing, writes nothing and counts them.
+exec sh -c 'for i in $(seq 1 21); do { echo ---; echo kind: note; echo title: Filler $i; echo author: human:test; echo created: 2026-11-21T10:00:00Z; echo ---; echo; echo filler text $i; } > docs/brain/filler-$i.md; done'
+cp docs/brain/.pbrain/index/manifest $WORK/manifest-before
+pbrain-test search 'beta sense' --semantic --json
+ids results $ADDED
+stderr '"code":"semantic_partial"'
+stderr '21 items are not in the index'
+cmp docs/brain/.pbrain/index/manifest $WORK/manifest-before
+countfiles $PBRAIN_CACHE/vectors 4
+exec sh -c 'rm docs/brain/filler-*.md'
+
+# With the index lock held by another process the search does not wait and writes nothing.
+pbrain-test add --title 'Locked note' --body 'gamma locked' --json
+jsonenv LOCKED id
+holdlock docs/brain/.pbrain/index
+pbrain-test search 'gamma sense' --semantic --json
+ids results related
+stderr '1 item is not in the index'
+cmp docs/brain/.pbrain/index/manifest $WORK/manifest-before
+releaselock docs/brain/.pbrain/index
+pbrain-test search 'gamma sense' --semantic --json
+stdout '"id":"'$LOCKED'"'
+! stderr .
+
+# A search without --semantic after an add loads no model and writes nothing.
+pbrain-test add --title 'Plain note' --body 'delta plain' --json
+cp docs/brain/.pbrain/index/manifest $WORK/manifest-plain
+pbrain-test search plain --json
+stdout '"title":"Plain note"'
+! stderr .
+cmp docs/brain/.pbrain/index/manifest $WORK/manifest-plain
+pbrain-test sync
+stdout '1 passage embedded'
+
+# With a model slowed so that the 2 seconds end after the first of three added notes, that note
+# is saved and found, and the notice counts two.
+pbrain-test add --title 'Slow a' --body 'delta first' --json
+jsonenv SLOWA id
+pbrain-test add --title 'Slow b' --body 'delta second' --json
+pbrain-test add --title 'Slow c' --body 'delta third' --json
+env PBRAIN_TEST_EMBED_DELAY=2100ms
+pbrain-test search 'delta sense' --semantic --json
+stdout '"id":"'$SLOWA'"'
+stderr '2 items are not in the index'
+env PBRAIN_TEST_EMBED_DELAY=
+pbrain-test sync
+stdout '2 passages embedded'
+
+# In a brain whose files cannot be written, the search answers as if the lock were held.
+pbrain-test add --title 'Readonly note' --body 'gamma readonly' --json
+[!root] exec chmod -R a-w docs/brain/.pbrain
+[!root] pbrain-test search 'gamma sense' --semantic --json
+[!root] stderr '1 item is not in the index'
+[!root] exec chmod -R u+w docs/brain/.pbrain
+pbrain-test sync
+
+# With no index, an index for another model, an unreadable index and the model missing, a search
+# after an add writes nothing and answers as in scenario 35.
+pbrain-test add --title 'Another add' --body 'beta another' --json
+cp docs/brain/.pbrain/index/manifest $WORK/manifest-last
+cp $WORK/name-b docs/brain/pbrain.toml
+pbrain-test search 'beta sense' --semantic --json
+stderr '"code":"semantic_not_ready"'
+cmp docs/brain/.pbrain/index/manifest $WORK/manifest-last
+cp $WORK/name-a docs/brain/pbrain.toml
+cp $WORK/broken docs/brain/.pbrain/index/manifest
+pbrain-test search 'beta sense' --semantic --json
+stderr '"code":"semantic_not_ready"'
+cmp docs/brain/.pbrain/index/manifest $WORK/broken
+rm -r docs/brain/.pbrain/index
+pbrain-test search 'beta sense' --semantic --json
+stderr 'no index for this model'
+! exists docs/brain/.pbrain/index
+pbrain-test sync
+rm -r $WORK/test-model
+pbrain-test add --title 'Model gone' --body 'beta gone' --json
+cp docs/brain/.pbrain/index/manifest $WORK/manifest-gone
+pbrain-test search 'beta sense' --semantic --json
+stderr 'not on this machine'
+cmp docs/brain/.pbrain/index/manifest $WORK/manifest-gone
+
+-- name-a --
+semantic.model = "test-model"
+-- name-b --
+semantic.model = "test-model-b"
+-- broken --
+{
+-- updated --
+---
+kind: note
+title: Related row
+author: human:test
+created: 2026-11-21T10:00:00Z
+---
+
+gamma new meaning
+-- private --
+---
+kind: note
+title: Local result
+author: human:test
+created: 2026-11-21T09:00:00Z
+---
+
+alpha personal material
+-- private2 --
+---
+kind: note
+title: Another local
+author: human:test
+created: 2026-11-21T09:00:00Z
+---
+
+delta personal words
+-- repo/docs/brain/exact.md --
+---
+kind: note
+title: Exact row
+author: human:test
+created: 2026-11-21T10:00:00Z
+---
+
+alpha query is an exact hit
+-- repo/docs/brain/related.md --
+---
+kind: note
+title: Related row
+author: human:test
+created: 2026-11-21T10:00:00Z
+---
+
+alpha another useful meaning

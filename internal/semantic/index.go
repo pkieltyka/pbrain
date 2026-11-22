@@ -79,6 +79,7 @@ type indexDB struct {
 	model       string
 	items       map[string]storedItem // path -> row
 	score       *sql.Stmt
+	from        manifest // the manifest openIndex read this index from; zero for a new index
 }
 
 type storedItem struct {
@@ -541,7 +542,7 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 			meta["model"] != m.Model || meta["dim"] != strconv.Itoa(m.Dim) {
 			return false
 		}
-		x.dim, x.fingerprint, x.model = m.Dim, m.Fingerprint, m.Model
+		x.dim, x.fingerprint, x.model, x.from = m.Dim, m.Fingerprint, m.Model, m
 		if x.prepare(ctx) != nil {
 			return false
 		}

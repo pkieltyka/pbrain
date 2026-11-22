@@ -122,6 +122,8 @@ func scenarioCondition(cond string) (bool, error) {
 	switch cond {
 	case "pty":
 		return ptyAvailable(), nil
+	case "root":
+		return os.Geteuid() == 0, nil
 	case "badnames", "nfdistinct", "casedistinct":
 		fsTraitsOnce.Do(probeFSTraits)
 		return fsTraits[cond], nil

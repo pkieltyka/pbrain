@@ -60,7 +60,7 @@ type BuildResult struct {
 type Progress struct {
 	Section     item.Section
 	Done, Total int  // items to do
-	Waiting     bool // waiting for another build's lock
+	Waiting     bool // waiting for the index lock, held by a build or a search's catch-up
 }
 
 type SectionStatus struct {

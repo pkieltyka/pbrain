@@ -1,10 +1,14 @@
 package semantic
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io/fs"
+	"slices"
+	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
@@ -141,6 +145,187 @@ func (s *Source) runIndexes(ctx context.Context) {
 
 // Attach gives the source the scanned items. Call it once, after the scan, before Score.
 func (s *Source) Attach(secs []SectionInput) { s.secs = secs }
+
+// Catch-up bounds (semantic.md, "Catch-up in a search").
+const (
+	catchUpItems    = 20              // most uncovered items a search takes on
+	catchUpPassages = 20              // most passages it embeds
+	catchUpBudget   = 2 * time.Second // no embedding call starts after this
+)
+
+// catchUp is one section's part of a catch-up: its index and the items it would replace.
+type catchUp struct {
+	o       *openedIndex
+	si      *sectionIndex
+	items   []catchUpItem
+	works   []*work
+	missing [][]int // per work, the passages still to embed
+}
+
+type catchUpItem struct {
+	rel, title string
+	body       []byte
+	check      Check
+}
+
+// CatchUp embeds and saves the few items that the usable indexes do not cover, within the bounds
+// above, so that Score finds them (semantic.md, "Catch-up in a search"). It takes each index lock
+// by one attempt only, and a fault leaves the items uncovered: it returns only the context's
+// error. Call it once, after Attach and before Score.
+func (s *Source) CatchUp(ctx context.Context) error {
+	if s.reason != 0 {
+		return nil
+	}
+	if err := wait(ctx, s.indexes); err != nil {
+		return err
+	}
+	// Step 2: the gap, shared section first, each in path order.
+	secs := slices.Clone(s.secs)
+	slices.SortStableFunc(secs, func(a, b SectionInput) int { return cmp.Compare(a.Section, b.Section) })
+	var parts []*catchUp
+	total := 0
+	for _, in := range secs {
+		o := s.usable(in.Section)
+		if o == nil {
+			continue
+		}
+		part := &catchUp{o: o}
+		for _, it := range in.Items {
+			if _, ok := covers(o.x, in, it); ok {
+				continue
+			}
+			rel, ok := relPath(in.Root, it.Path)
+			if !ok {
+				continue
+			}
+			body, err := in.Body(it)
+			if err != nil {
+				continue
+			}
+			part.items = append(part.items, catchUpItem{rel, it.Header.Title, body, ContentCheck(it.Header.Title, body)})
+		}
+		if total += len(part.items); total > catchUpItems {
+			return nil
+		}
+		if len(part.items) > 0 {
+			slices.SortFunc(part.items, func(a, b catchUpItem) int { return strings.Compare(a.rel, b.rel) })
+			parts = append(parts, part)
+		}
+	}
+	if len(parts) == 0 {
+		return nil
+	}
+	// Step 3: the plan, with no lock and no write.
+	cache := s.opt.Cache != nil && s.opt.Cache.exists()
+	embeds := 0
+	for _, part := range parts {
+		part.si = &sectionIndex{opt: s.opt, m: s.m, sec: part.o.section, x: part.o.x, cache: cache && part.o.section == item.Shared}
+		for _, c := range part.items {
+			w := newWork(c.rel, c.title, c.body, c.check)
+			missing, err := part.si.cut(ctx, w, c.title, c.body)
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
+			if err != nil {
+				return nil
+			}
+			part.works = append(part.works, w)
+			part.missing = append(part.missing, missing)
+			embeds += len(missing)
+		}
+	}
+	if embeds > catchUpPassages {
+		return nil
+	}
+	// Step 4: the model.
+	if err := wait(ctx, s.model); err != nil {
+		return err
+	}
+	if s.query == nil {
+		return nil
+	}
+	// Step 5: each section under its lock.
+	now := s.opt.Now
+	if now == nil {
+		now = time.Now
+	}
+	var began time.Time
+	for _, part := range parts {
+		lock, err := s.opt.Files.TryLock(part.o.dir, indexLockName)
+		if err != nil {
+			continue
+		}
+		if began.IsZero() {
+			began = now()
+		}
+		exposed, err := s.catchUpSection(ctx, part, func() bool { return now().Sub(began) >= catchUpBudget })
+		lock.Close()
+		if err != nil {
+			return err
+		}
+		if exposed {
+			return nil
+		}
+	}
+	return nil
+}
+
+// catchUpSection is step 5 for one section, under its lock: it replaces each item whose passages
+// all get a vector before late reports the time is up, then publishes. exposed reports a cache
+// found to hold a Git repository, which ends the catch-up; err is only the context's error.
+func (s *Source) catchUpSection(ctx context.Context, part *catchUp, late func() bool) (exposed bool, err error) {
+	o := part.o
+	if m, state := readManifest(s.opt.Files, o.dir); state != IndexOK || m != o.x.from {
+		return false, nil // a build has published since this search read the index
+	}
+	replaced := 0
+	defer func() {
+		if replaced > 0 && err == nil {
+			if m, perr := o.x.publish(ctx, s.opt.Files, o.dir, s.opt.Rand); perr == nil {
+				o.x.from = m
+			}
+		}
+	}()
+items:
+	for k, w := range part.works {
+		for _, i := range part.missing[k] {
+			if late() {
+				break items
+			}
+			vs, eerr := part.si.embed(ctx, s.emb, []string{w.ps[i].Text})
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
+			if eerr != nil {
+				break items
+			}
+			if kerr := part.si.keep(w, i, vs[0]); kerr != nil {
+				if kerr == errCacheGit {
+					return true, nil
+				}
+				break items
+			}
+		}
+		if serr := part.si.store(ctx, w); serr != nil {
+			if ctx.Err() != nil {
+				return false, ctx.Err()
+			}
+			break
+		}
+		replaced++
+	}
+	return false, nil
+}
+
+// usable is the opened index of a section that can be read, or nil.
+func (s *Source) usable(sec item.Section) *openedIndex {
+	for i := range s.opened {
+		if o := &s.opened[i]; o.section == sec && o.state == IndexOK {
+			return o
+		}
+	}
+	return nil
+}
 
 // Score joins the background task and compares. text must be the text given to Start.
 // It returns only the context's error.

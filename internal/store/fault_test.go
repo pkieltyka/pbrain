@@ -57,6 +57,9 @@ func (f *faultFiles) OpenRegular(d sys.Dir, name string) (sys.RegularFile, error
 func (f *faultFiles) Lock(ctx context.Context, d sys.Dir, name string) (io.Closer, error) {
 	return f.Files.Lock(ctx, unwrap(d), name)
 }
+func (f *faultFiles) TryLock(d sys.Dir, name string) (io.Closer, error) {
+	return f.Files.TryLock(unwrap(d), name)
+}
 func (d faultDir) Sub(name string, create bool) (sys.Dir, error) {
 	return d.f.wrap(d.Dir.Sub(name, create))
 }

@@ -290,6 +290,9 @@ func runSearch(ctx context.Context, env Env, in *invocation, b *brain.Brain, fea
 	}
 	if src != nil {
 		src.Attach(inputs(dirs, r.cat))
+		if err := src.CatchUp(ctx); err != nil {
+			return outcome{err: err}
+		}
 		req.Semantic = src
 	}
 	res, err := search.Run(ctx, r.cat, r.g, req)

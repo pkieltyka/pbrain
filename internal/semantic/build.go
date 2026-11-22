@@ -163,6 +163,7 @@ type builder struct {
 	art *embed.Artifact
 	emb embed.Embedder
 	x   *indexDB
+	si  *sectionIndex // x, shared with a catch-up's code
 
 	changed  bool
 	lastPub  time.Time
@@ -231,7 +232,7 @@ func (b *builder) run() (BuildResult, error) {
 		if st, ok := x.items[rel]; ok && st.check == check {
 			continue
 		}
-		w := &work{path: rel, content: ContentDigest(it.Header.Title, body), check: check}
+		w := newWork(rel, it.Header.Title, body, check)
 		todo = append(todo, w)
 		bodies[w] = struct {
 			title string
@@ -248,6 +249,7 @@ func (b *builder) run() (BuildResult, error) {
 	slices.Sort(dead)
 	b.total = len(todo)
 	b.lastPub, b.lastProg = b.now(), b.now()
+	b.si = &sectionIndex{opt: b.opt, m: b.m, sec: b.sec.Section, x: x, cache: b.sec.Section == item.Shared && b.opt.Cache != nil}
 
 	// Steps 7 to 10.
 	var pending []*work
@@ -255,18 +257,11 @@ func (b *builder) run() (BuildResult, error) {
 	for _, w := range todo {
 		src := bodies[w]
 		delete(bodies, w)
-		w.ps = Passages(src.title, src.body)
-		w.vecs = make([][]float32, len(w.ps))
-		for i, p := range w.ps {
-			v, ok, err := b.reuse(p.Digest)
-			if err != nil {
-				return b.res, err
-			}
-			if ok {
-				w.vecs[i] = v
-				w.reused++
-				continue
-			}
+		missing, err := b.si.cut(ctx, w, src.title, src.body)
+		if err != nil {
+			return b.res, err
+		}
+		for _, i := range missing {
 			queue = append(queue, queued{w, i})
 		}
 		pending = append(pending, w)
@@ -297,23 +292,105 @@ func (b *builder) run() (BuildResult, error) {
 	return b.res, nil
 }
 
+// sectionIndex is what a build and a catch-up share to fill one section's index: its in-memory
+// database, the model that fills it and the per-user cache, which only the shared section uses.
+type sectionIndex struct {
+	opt   Options
+	m     embed.Model
+	sec   item.Section
+	x     *indexDB
+	cache bool // read and write opt.Cache
+}
+
+// errCacheGit is the error of a cache folder found to hold a Git repository below its root.
+var errCacheGit = configErr("the cache folder holds a Git repository; move it or set PBRAIN_CACHE")
+
+// newWork is one item to cut, with both its digest and its check.
+func newWork(path, title string, body []byte, check Check) *work {
+	return &work{path: path, content: ContentDigest(title, body), check: check}
+}
+
+// cut cuts w's item and takes every vector found by digest. It returns the passages still to embed.
+func (s *sectionIndex) cut(ctx context.Context, w *work, title string, body []byte) ([]int, error) {
+	w.ps = Passages(title, body)
+	w.vecs = make([][]float32, len(w.ps))
+	var missing []int
+	for i, p := range w.ps {
+		v, ok, err := s.reuse(ctx, p.Digest)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			w.vecs[i] = v
+			w.reused++
+			continue
+		}
+		missing = append(missing, i)
+	}
+	return missing, nil
+}
+
 // reuse looks for a vector by passage digest: in the index, then, for the shared section, in the cache.
-func (b *builder) reuse(digest [32]byte) ([]float32, bool, error) {
-	v, ok, err := b.x.vectorByDigest(b.ctx, digest)
+func (s *sectionIndex) reuse(ctx context.Context, digest [32]byte) ([]float32, bool, error) {
+	v, ok, err := s.x.vectorByDigest(ctx, digest)
 	if err != nil {
-		return nil, false, ctxOr(b.ctx, buildIOErr("the index cannot be read"))
+		return nil, false, ctxOr(ctx, buildIOErr("the index cannot be read"))
 	}
 	if ok {
 		return v, true, nil
 	}
-	if b.sec.Section != item.Shared || b.opt.Cache == nil {
+	if !s.cache {
 		return nil, false, nil
 	}
-	v, ok, err = b.opt.Cache.readVector(b.m.Fingerprint, digest, b.m.Dim)
+	v, ok, err = s.opt.Cache.readVector(s.m.Fingerprint, digest, s.m.Dim)
 	if err != nil {
-		return nil, false, configErr("the cache folder holds a Git repository; move it or set PBRAIN_CACHE")
+		return nil, false, errCacheGit
 	}
 	return v, ok, nil
+}
+
+// embed embeds texts as documents and checks every vector it gets back.
+func (s *sectionIndex) embed(ctx context.Context, emb embed.Embedder, texts []string) ([][]float32, error) {
+	vs, err := emb.Embed(ctx, embed.Document, texts)
+	if err != nil {
+		return nil, ctxOr(ctx, buildIOErr("the model failed to embed a passage"))
+	}
+	if len(vs) != len(texts) {
+		return nil, buildIOErr("the model returned the wrong number of vectors")
+	}
+	for _, v := range vs {
+		if !validVector(v, s.m.Dim) {
+			return nil, buildIOErr("the model returned a vector that is not a unit vector of its dimension")
+		}
+	}
+	return vs, nil
+}
+
+// keep gives passage i of w its new vector and, for the shared section, writes it to the cache.
+func (s *sectionIndex) keep(w *work, i int, v []float32) error {
+	w.vecs[i] = v
+	if !s.cache {
+		return nil
+	}
+	if err := s.opt.Cache.writeVector(s.m.Fingerprint, w.ps[i].Digest, v); err != nil {
+		if errors.Is(err, ErrCacheExposed) {
+			return errCacheGit
+		}
+		return buildIOErr("the vector cache cannot be written")
+	}
+	return nil
+}
+
+// store replaces w's item in the index with all its passages, in one transaction.
+func (s *sectionIndex) store(ctx context.Context, w *work) error {
+	stored := make([]storedPassage, len(w.ps))
+	for i, p := range w.ps {
+		stored[i] = storedPassage{Ord: i, Start: p.Start, Stop: p.End, Digest: p.Digest, Vector: w.vecs[i]}
+	}
+	if err := s.x.putItem(ctx, w.path, w.content, w.check, stored); err != nil {
+		return ctxOr(ctx, buildIOErr("the index cannot be updated"))
+	}
+	return nil
 }
 
 // flush embeds the queued passages eight at a time, then stores every pending item, in order.
@@ -333,35 +410,19 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		for i, q := range batch {
 			texts[i] = q.w.ps[q.i].Text
 		}
-		vs, err := b.emb.Embed(ctx, embed.Document, texts)
+		vs, err := b.si.embed(ctx, b.emb, texts)
 		if err != nil {
-			return ctxOr(ctx, buildIOErr("the model failed to embed a passage"))
-		}
-		if len(vs) != len(batch) {
-			return buildIOErr("the model returned the wrong number of vectors")
+			return err
 		}
 		for i, q := range batch {
-			if !validVector(vs[i], b.m.Dim) {
-				return buildIOErr("the model returned a vector that is not a unit vector of its dimension")
-			}
-			q.w.vecs[q.i] = vs[i]
-			if b.sec.Section == item.Shared && b.opt.Cache != nil {
-				if err := b.opt.Cache.writeVector(b.m.Fingerprint, q.w.ps[q.i].Digest, vs[i]); err != nil {
-					if errors.Is(err, ErrCacheExposed) {
-						return configErr("the cache folder holds a Git repository; move it or set PBRAIN_CACHE")
-					}
-					return buildIOErr("the vector cache cannot be written")
-				}
+			if err := b.si.keep(q.w, q.i, vs[i]); err != nil {
+				return err
 			}
 		}
 	}
 	for _, w := range pending {
-		stored := make([]storedPassage, len(w.ps))
-		for i, p := range w.ps {
-			stored[i] = storedPassage{Ord: i, Start: p.Start, Stop: p.End, Digest: p.Digest, Vector: w.vecs[i]}
-		}
-		if err := b.x.putItem(ctx, w.path, w.content, w.check, stored); err != nil {
-			return ctxOr(ctx, buildIOErr("the index cannot be updated"))
+		if err := b.si.store(ctx, w); err != nil {
+			return err
 		}
 		b.changed = true
 		b.res.PassagesReused += w.reused
