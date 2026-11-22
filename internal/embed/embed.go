@@ -29,6 +29,32 @@ const (
 	Document
 )
 
+// OpenOptions selects the model runtime. The zero value runs on the CPU.
+type OpenOptions struct {
+	Device       string // "" or "cpu" for the CPU, "auto" for automatic selection
+	MemoryBudget int64  // bytes for a device batch
+}
+
+// Fallback describes why a model with an accelerator path runs on the CPU.
+type Fallback string
+
+const (
+	NoFallback        Fallback = ""
+	FallbackAsked     Fallback = "asked"
+	FallbackNoSupport Fallback = "unsupported"
+	FallbackNoDevice  Fallback = "absent"
+	FallbackFailed    Fallback = "failed"
+	FallbackMemory    Fallback = "memory"
+)
+
+// RunInfo describes the runtime used by an opened embedder.
+type RunInfo struct {
+	Device   string // "cpu" or a device ID such as "cuda:0"
+	Name     string
+	Budget   int64 // bytes for a device batch
+	Fallback Fallback
+}
+
 type Embedder interface {
 	// Embed returns one vector per text, in order, each of Dim() values and of unit length.
 	// A text longer than the model takes is cut at a token boundary, never refused.
@@ -36,6 +62,7 @@ type Embedder interface {
 	Embed(ctx context.Context, role Role, texts []string) ([][]float32, error)
 	Dim() int
 	Fingerprint() string
+	Info() RunInfo
 	Close() error
 }
 
@@ -73,7 +100,7 @@ type Artifact struct {
 // Entry joins one model row with the functions of its adapter.
 type Entry struct {
 	Model Model
-	Open  func(ctx context.Context, a *Artifact) (Embedder, error)
+	Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)
@@ -84,7 +111,7 @@ type Registry interface {
 	Names() []string // sorted
 	// Open builds the model from a.Files alone. It reads nothing from disk. It takes the bytes over:
 	// a.Files is nil when it returns, with or without an error, and the caller keeps no other reference to them.
-	Open(ctx context.Context, a *Artifact) (Embedder, error)
+	Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
 	// Derive calls the entry's Derive; an error for a model without Source.
 	Derive(m Model, source [][]byte) ([][]byte, error)
 }
@@ -125,7 +152,7 @@ func (r *registry) entry(m Model) (Entry, error) {
 	return e, nil
 }
 
-func (r *registry) Open(ctx context.Context, a *Artifact) (Embedder, error) {
+func (r *registry) Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error) {
 	if a == nil {
 		return nil, errors.New("embed: no artifact")
 	}
@@ -140,7 +167,7 @@ func (r *registry) Open(ctx context.Context, a *Artifact) (Embedder, error) {
 	if len(a.Files) != len(e.Model.Files) {
 		return nil, fmt.Errorf("embed: %d files for %q, which has %d", len(a.Files), a.Model.Name, len(e.Model.Files))
 	}
-	return e.Open(ctx, a)
+	return e.Open(ctx, a, o)
 }
 
 func (r *registry) Derive(m Model, source [][]byte) ([][]byte, error) {

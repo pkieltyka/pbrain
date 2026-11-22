@@ -68,7 +68,7 @@ func realEncoder(t *testing.T) *encoder {
 	t.Helper()
 	e := Entry()
 	r := embed.NewRegistry(e)
-	x, err := r.Open(t.Context(), verified(t, fixtureDir(t, "PBRAIN_TEST_GEMMA2_PACK"), e.Model))
+	x, err := r.Open(t.Context(), verified(t, fixtureDir(t, "PBRAIN_TEST_GEMMA2_PACK"), e.Model), embed.OpenOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,7 +207,7 @@ func TestGemmaBuildsFromBytes(t *testing.T) {
 	if err := os.RemoveAll(temp); err != nil {
 		t.Fatal(err)
 	}
-	x, err := embed.NewRegistry(e).Open(t.Context(), a)
+	x, err := embed.NewRegistry(e).Open(t.Context(), a, embed.OpenOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -294,9 +294,13 @@ func BenchmarkGemmaFirstQuery(b *testing.B) {
 	r := embed.NewRegistry(e)
 	for b.Loop() {
 		a := verified(b, d, e.Model)
-		x, err := r.Open(b.Context(), a)
+		x, err := r.Open(b.Context(), a, embed.OpenOptions{})
 		if err != nil {
 			b.Fatal(err)
+		}
+		if info := x.Info(); info.Device != "cpu" {
+			_ = x.Close()
+			b.Fatalf("first query opened on %q, want CPU", info.Device)
 		}
 		if _, err := x.Embed(b.Context(), embed.Query, []string{"where is login state kept"}); err != nil {
 			b.Fatal(err)

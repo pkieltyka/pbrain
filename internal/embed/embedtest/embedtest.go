@@ -138,7 +138,7 @@ func sortedKeys(table map[string][]float32) []string {
 }
 
 // open builds an embedder from the artifact's bytes alone, after hashing them against the pins.
-func (k *Kit) open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
+func (k *Kit) open(ctx context.Context, a *embed.Artifact, _ embed.OpenOptions) (embed.Embedder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -214,6 +214,7 @@ func (e *embedder) Embed(ctx context.Context, _ embed.Role, texts []string) ([][
 
 func (e *embedder) Dim() int            { return Dim }
 func (e *embedder) Fingerprint() string { return e.fingerprint }
+func (e *embedder) Info() embed.RunInfo { return embed.RunInfo{Device: "cpu"} }
 func (e *embedder) Close() error {
 	if e.closed.CompareAndSwap(false, true) {
 		e.kit.Closes.Add(1)

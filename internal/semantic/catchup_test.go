@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/pbrain/internal/embed"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/search"
@@ -477,6 +478,12 @@ func TestCatchUpFailures(t *testing.T) {
 			}
 			return vs, nil
 		},
+		"accelerator error": func(n int, vs [][]float32) ([][]float32, error) {
+			if n > 1 {
+				return nil, fmt.Errorf("injected: %w", embed.ErrAccelerator)
+			}
+			return vs, nil
+		},
 		"wrong length": func(n int, vs [][]float32) ([][]float32, error) {
 			if n > 1 {
 				return [][]float32{{1, 0}}, nil
@@ -489,7 +496,7 @@ func TestCatchUpFailures(t *testing.T) {
 		opt := e.opts()
 		opt.Registry = &failing{Registry: e.kit.Registry, fail: fail}
 		db := s.manifestDB()
-		if res, err := e.search(ctx, opt, "alpha", s); err != nil || !res.Ready || res.Missing != 1 || s.manifestDB() != db {
+		if res, err := e.search(ctx, opt, "alpha", s); err != nil || !res.Ready || !hit(res, "notes/a.md") || res.Missing != 1 || s.manifestDB() != db {
 			t.Errorf("%s: %+v %v", name, res, err)
 		}
 	}

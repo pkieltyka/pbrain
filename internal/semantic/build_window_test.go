@@ -23,8 +23,8 @@ type windowTestRegistry struct {
 	batches []int
 }
 
-func (r *windowTestRegistry) Open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
-	e, err := r.Registry.Open(ctx, a)
+func (r *windowTestRegistry) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
+	e, err := r.Registry.Open(ctx, a, opt)
 	if err != nil {
 		return nil, err
 	}

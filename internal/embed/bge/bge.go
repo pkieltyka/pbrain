@@ -53,7 +53,7 @@ func (h *handoff) ReadFile(name string) ([]byte, error) {
 	return data, nil
 }
 
-func open(ctx context.Context, a *embed.Artifact) (embed.Embedder, error) {
+func open(ctx context.Context, a *embed.Artifact, _ embed.OpenOptions) (embed.Embedder, error) {
 	files := a.Files
 	a.Files = nil
 	if err := ctx.Err(); err != nil {
@@ -118,6 +118,7 @@ func newEmbedder(model *encoder.BERT) (*embedder, error) {
 
 func (e *embedder) Dim() int            { return modelRow.Dim }
 func (e *embedder) Fingerprint() string { return modelRow.Fingerprint }
+func (e *embedder) Info() embed.RunInfo { return embed.RunInfo{Device: "cpu"} }
 func (e *embedder) Window() int         { return embedWindow }
 
 func (e *embedder) Close() error {

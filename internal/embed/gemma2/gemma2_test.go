@@ -140,7 +140,7 @@ func TestGemmaEntry(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	a := &embed.Artifact{Files: [][]byte{{1}}}
-	if _, err := open(ctx, a); err != context.Canceled || a.Files != nil {
+	if _, err := open(ctx, a, embed.OpenOptions{}); err != context.Canceled || a.Files != nil {
 		t.Fatal("cancelled open kept artifact")
 	}
 }

@@ -125,7 +125,7 @@ func TestRegistry(t *testing.T) {
 	files := func() [][]byte { return [][]byte{slices.Clone(k.Bytes[a.Files[0].URL])} }
 
 	art := &embed.Artifact{Model: a, Files: files()}
-	e, err := k.Registry.Open(ctx, art)
+	e, err := k.Registry.Open(ctx, art, embed.OpenOptions{})
 	if err != nil || art.Files != nil {
 		t.Fatalf("Open: %v, files kept: %v", err, art.Files != nil)
 	}
@@ -158,11 +158,11 @@ func TestRegistry(t *testing.T) {
 		"bytes not pinned":    {ctx, &embed.Artifact{Model: a, Files: changed}},
 		"opener fails":        {cancelled, &embed.Artifact{Model: a, Files: files()}},
 	} {
-		if _, err := k.Registry.Open(c.ctx, c.a); err == nil || c.a.Files != nil {
+		if _, err := k.Registry.Open(c.ctx, c.a, embed.OpenOptions{}); err == nil || c.a.Files != nil {
 			t.Errorf("%s: %v, files kept: %v", name, err, c.a.Files != nil)
 		}
 	}
-	if _, err := k.Registry.Open(ctx, nil); err == nil {
+	if _, err := k.Registry.Open(ctx, nil, embed.OpenOptions{}); err == nil {
 		t.Error("a nil artifact was opened")
 	}
 	if _, err := k.Registry.Derive(a, nil); err == nil {
@@ -225,7 +225,7 @@ func TestModelFindVerifyDownload(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(model.path, "keywords.txt"), bytes.Repeat([]byte("x"), int(a.Files[0].Size)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.Registry.Open(ctx, art); err != nil {
+	if _, err := k.Registry.Open(ctx, art, embed.OpenOptions{}); err != nil {
 		t.Fatalf("the verified bytes no longer open: %v", err)
 	}
 	found, _ = embed.Find(sys.Native(), a, nil, cache.dir)
@@ -409,7 +409,7 @@ func TestPack(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := k.Registry.Open(ctx, art); err != nil {
+	if _, err := k.Registry.Open(ctx, art, embed.OpenOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	first, _ := os.ReadFile(filepath.Join(pack.path, "keywords.txt"))

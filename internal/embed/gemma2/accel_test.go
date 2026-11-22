@@ -231,20 +231,6 @@ func tinyEncoderForTest(t *testing.T) (*encoder, *embeddinggemma2.Encoder) {
 
 func TestGemmaAcceleratorDispatchBatchingAndCloseRetry(t *testing.T) {
 	e, enc := tinyEncoderForTest(t)
-	if err := requireAccelerator(enc); err != nil {
-		// Under -tags cuda, calling Embed without an attached "cuda" accelerator must fail loud
-		// with embed.ErrAccelerator and never silently fall back to CPU.
-		if !errors.Is(err, embed.ErrAccelerator) {
-			t.Fatalf("requireAccelerator err = %v, want embed.ErrAccelerator", err)
-		}
-		if _, embErr := e.Embed(t.Context(), embed.Document, []string{"one", "two"}); !errors.Is(embErr, embed.ErrAccelerator) {
-			t.Fatalf("CUDA build Embed without accelerator = %v, want embed.ErrAccelerator", embErr)
-		}
-		if _, emptyErr := e.Embed(t.Context(), embed.Document, nil); !errors.Is(emptyErr, embed.ErrAccelerator) {
-			t.Fatalf("CUDA build empty Embed without accelerator = %v, want embed.ErrAccelerator", emptyErr)
-		}
-		return
-	}
 
 	// 1. CPU path (no accelerator attached): bit-identical to Model.Embed(tokenIDs), empty input returns empty slice.
 	emptyOut, err := e.Embed(t.Context(), embed.Document, nil)
