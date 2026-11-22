@@ -102,7 +102,7 @@ type Entry struct {
 	Model Model
 	Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
 	// Devices lists the adapter's usable GPUs without opening a model. Nil means CPU only.
-	Devices func() []DeviceInfo
+	Devices func() Listing
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)

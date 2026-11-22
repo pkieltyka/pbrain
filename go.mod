@@ -7,8 +7,9 @@ require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
 	github.com/pkieltyka/aikit v1.79.1
-	github.com/pkieltyka/goinfer v0.6.1
+	github.com/pkieltyka/goinfer v0.6.2-0.20261122184410-7c698cc5a0bd
 	github.com/pkieltyka/goinfer/backend/cuda v0.6.1
+	github.com/pkieltyka/goinfer/backend/vulkan v0.6.2-0.20261122184410-7c698cc5a0bd
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/pflag v1.1.0
 	go.yaml.in/yaml/v3 v3.0.6

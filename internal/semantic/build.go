@@ -445,7 +445,11 @@ func (b *builder) openEmbedder() error {
 		if errors.As(err, &config) && config != nil && config.Code == "invalid_config" {
 			return ctxOr(b.ctx, err)
 		}
-		return ctxOr(b.ctx, wrapAccelIO("the model cannot be opened", err))
+		message := "the model cannot be opened"
+		if errors.Is(err, embed.ErrAccelerator) {
+			message += ": " + err.Error()
+		}
+		return ctxOr(b.ctx, wrapAccelIO(message, err))
 	}
 	b.emb = emb
 	b.reportRuntime()

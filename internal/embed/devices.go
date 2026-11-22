@@ -19,6 +19,26 @@ type DeviceInfo struct {
 	MemoryKind            string // dedicated, shared or unknown
 }
 
+// Selector returns the persistent selector when the runtime exposes one.
+func (d DeviceInfo) Selector() string {
+	if d.Persistent != "" {
+		return d.Persistent
+	}
+	return d.ID
+}
+
+// Listing keeps an empty inventory distinct from a backend that could not be asked.
+type Listing struct {
+	Devices []DeviceInfo
+	Failed  map[string]error
+}
+
+func (l Listing) Sorted() []DeviceInfo {
+	devices := slices.Clone(l.Devices)
+	slices.SortFunc(devices, compareDevices)
+	return devices
+}
+
 func (r *registry) Devices() []DeviceInfo {
 	var devices []DeviceInfo
 	seen := map[string]bool{}
@@ -27,7 +47,7 @@ func (r *registry) Devices() []DeviceInfo {
 		if probe == nil {
 			continue
 		}
-		for _, d := range probe() {
+		for _, d := range probe().Devices {
 			if !seen[d.ID] {
 				seen[d.ID] = true
 				devices = append(devices, d)
@@ -40,14 +60,18 @@ func (r *registry) Devices() []DeviceInfo {
 
 // namedDevice resolves a device selector only among devices that can run this model.
 func namedDevice(e Entry, selector string) (string, error) {
-	devices := slices.Clone(e.Devices())
-	slices.SortFunc(devices, compareDevices)
+	listing := e.Devices()
+	devices := listing.Sorted()
 	ids := make([]string, 0, len(devices)+1)
 	for _, d := range devices {
 		if selector == d.Backend || selector == d.ID || selector == d.Persistent {
-			return d.ID, nil
+			return d.Selector(), nil
 		}
 		ids = append(ids, d.ID)
+	}
+	backend, _, _ := strings.Cut(selector, ":")
+	if err := listing.Failed[backend]; err != nil {
+		return "", fmt.Errorf("%w: %w", ErrAccelerator, err)
 	}
 	ids = append(ids, "cpu")
 	message := fmt.Sprintf("device %q is unavailable; available devices: %s; see pbrain devices",
@@ -56,6 +80,9 @@ func namedDevice(e Entry, selector string) (string, error) {
 }
 
 func compareDevices(a, b DeviceInfo) int {
+	if order := cmp.Compare(knownFreeRank(a.Memory), knownFreeRank(b.Memory)); order != 0 {
+		return order
+	}
 	if order := cmp.Compare(memoryKindRank(a.MemoryKind), memoryKindRank(b.MemoryKind)); order != 0 {
 		return order
 	}
@@ -74,6 +101,13 @@ func compareDevices(a, b DeviceInfo) int {
 		return order
 	}
 	return cmp.Compare(a.ID, b.ID)
+}
+
+func knownFreeRank(memory string) int {
+	if memory == "live" || memory == "estimated" {
+		return 0
+	}
+	return 1
 }
 
 func memoryKindRank(kind string) int {

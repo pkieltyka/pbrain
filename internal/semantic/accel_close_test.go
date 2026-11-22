@@ -148,9 +148,9 @@ func TestBuildAcceleratorErrors(t *testing.T) {
 func TestSearchOpensCPU(t *testing.T) {
 	e := newEnv(t)
 	probes := 0
-	reg := embed.NewRegistry(embed.Entry{Model: e.m(), Open: e.reg.Open, Devices: func() []embed.DeviceInfo {
+	reg := embed.NewRegistry(embed.Entry{Model: e.m(), Open: e.reg.Open, Devices: func() embed.Listing {
 		probes++
-		return []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}
+		return embed.Listing{Devices: []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}}
 	}})
 	hook := &accelHookRegistry{Registry: reg}
 	e.reg = hook

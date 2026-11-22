@@ -65,16 +65,33 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	}
 	// The three float32 feed-forward matrices per layer are a lower bound on CUDA's upload.
 	weightFloor := 3 * 4 * int64(cfg.Layers) * int64(cfg.Hidden) * int64(cfg.Intermediate)
-	info, err := chooseRuntime(ctx, opt.Device, weightFloor, cudaCompiled, cudaDevices, func() error {
-		return attachAccelerator(m)
+	info, err := chooseRuntime(ctx, opt.Device, weightFloor, cudaCompiled || vulkanCompiled, listDevices, func(device embed.DeviceInfo) error {
+		if device.Backend != "vulkan" {
+			return attachAccelerator(m)
+		}
+		// Do not replace the CPU encoder until the returned UUID is verified.
+		candidate, err := embeddinggemma2.NewEncoder(model, tok, conf.Prompts)
+		if err != nil {
+			return err
+		}
+		if err := attachVulkan(candidate, device.Selector()); err != nil {
+			if acc := candidate.Accelerator(); acc != nil {
+				return errors.Join(err, acc.Close())
+			}
+			return err
+		}
+		m = candidate
+		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	if info.Device != "cpu" && ctx.Err() == nil {
 		var memory embed.DeviceInfo
-		if devices := cudaDevices(); len(devices) > 0 {
-			memory = devices[0]
+		if strings.HasPrefix(info.Device, "cuda:") {
+			if devices := cudaDevices(); len(devices) > 0 {
+				memory = devices[0]
+			}
 		}
 		info.Budget = memoryBudget(memory, opt.MemoryBudget)
 	}
@@ -86,48 +103,6 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 		return nil, err
 	}
 	return e, nil
-}
-
-// chooseRuntime handles the default CUDA device supported by goinfer v0.5.0.
-// The registry has already resolved and validated any explicit GPU selector.
-func chooseRuntime(ctx context.Context, selector string, weightFloor int64, compiled bool,
-	probe func() []embed.DeviceInfo, attach func() error) (embed.RunInfo, error) {
-	cpu := embed.RunInfo{Device: "cpu"}
-	switch selector {
-	case "":
-		return cpu, nil
-	case "cpu":
-		cpu.Fallback = embed.FallbackAsked
-		return cpu, nil
-	case "auto":
-		if !compiled {
-			cpu.Fallback = embed.FallbackNoSupport
-			return cpu, nil
-		}
-		devices := probe()
-		if len(devices) == 0 {
-			cpu.Fallback = embed.FallbackNoDevice
-			return cpu, nil
-		}
-		d := devices[0]
-		if d.Memory == "live" && d.FreeBytes < weightFloor {
-			cpu.Fallback = embed.FallbackMemory
-			return cpu, nil
-		}
-		if err := ctx.Err(); err != nil {
-			return embed.RunInfo{}, err
-		}
-		if err := attach(); err != nil {
-			cpu.Fallback = embed.FallbackFailed
-			return cpu, nil
-		}
-		return embed.RunInfo{Device: d.ID, Name: d.Name}, nil
-	default:
-		if err := attach(); err != nil {
-			return embed.RunInfo{}, err
-		}
-		return embed.RunInfo{Device: selector}, nil
-	}
 }
 
 func (e *encoder) Dim() int            { return dimension }
