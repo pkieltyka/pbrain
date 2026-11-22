@@ -34,8 +34,8 @@ type Source struct {
 	opened   []openedIndex // one per section of dirs, in order
 	secs     []SectionInput
 
-	closeOnce sync.Once
-	closeErr  error
+	closeMu sync.Mutex
+	closed  bool
 }
 
 type openedIndex struct {
@@ -483,30 +483,39 @@ func spanInside(in SectionInput, it *item.Item, start, stop int) bool {
 	return start >= 0 && stop >= start && stop <= n
 }
 
-// Close cancels the background task, waits for it and closes an opened embedder exactly once.
-// It is safe to call when Attach or Score were never reached.
+// Close cancels the background task, waits for it, closes all opened indexes once, and closes an
+// opened embedder. If the embedder's Close fails (for example on a transient accelerator drain
+// error), Close returns that error and retains the embedder handle so a subsequent Close retries it;
+// once the embedder closes cleanly, further Close calls are no-ops. It is safe to call when Attach
+// or Score were never reached.
 func (s *Source) Close() error {
-	s.closeOnce.Do(func() {
+	s.closeMu.Lock()
+	defer s.closeMu.Unlock()
+	if !s.closed {
+		s.closed = true
 		if s.cancel != nil {
 			s.cancel()
 		}
 		<-s.model
 		<-s.indexes
-		if s.emb != nil {
-			if err := s.emb.Close(); err != nil {
-				s.closeErr = wrapAccelIO("the model cannot be closed", err)
+		for i := range s.opened {
+			if s.opened[i].x != nil {
+				s.opened[i].x.Close()
+				s.opened[i].x = nil
+			}
+			if s.opened[i].dir != nil {
+				s.opened[i].dir.Close()
+				s.opened[i].dir = nil
 			}
 		}
-		for _, o := range s.opened {
-			if o.x != nil {
-				o.x.Close()
-			}
-			if o.dir != nil {
-				o.dir.Close()
-			}
+	}
+	if s.emb != nil {
+		if err := s.emb.Close(); err != nil {
+			return wrapAccelIO("the model cannot be closed", err)
 		}
-	})
-	return s.closeErr
+		s.emb = nil
+	}
+	return nil
 }
 
 // Status loads no model and writes nothing. It returns only file-system errors (io).

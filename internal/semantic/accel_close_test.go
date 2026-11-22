@@ -18,14 +18,16 @@ import (
 
 type accelHookRegistry struct {
 	embed.Registry
-	opens     atomic.Int64
-	openErr   error
-	embedErr  error
-	queryErr  error
-	docErr    error
-	closeErr  error
-	onEmbed   func(role embed.Role, texts []string)
-	docChunks []int
+	opens      atomic.Int64
+	closeCalls atomic.Int64
+	openErr    error
+	embedErr   error
+	queryErr   error
+	docErr     error
+	closeErr   error
+	closeErrs  []error
+	onEmbed    func(role embed.Role, texts []string)
+	docChunks  []int
 }
 
 type accelHookEmbedder struct {
@@ -65,8 +67,19 @@ func (h *accelHookEmbedder) Embed(ctx context.Context, role embed.Role, texts []
 }
 
 func (h *accelHookEmbedder) Close() error {
-	_ = h.Embedder.Close()
-	return h.r.closeErr
+	h.r.closeCalls.Add(1)
+	if len(h.r.closeErrs) > 0 {
+		err := h.r.closeErrs[0]
+		h.r.closeErrs = h.r.closeErrs[1:]
+		if err != nil {
+			return err
+		}
+		return h.Embedder.Close()
+	}
+	if h.r.closeErr != nil {
+		return h.r.closeErr
+	}
+	return h.Embedder.Close()
 }
 
 func TestBuildAcceleratorErrorsAndClosePropagation(t *testing.T) {
@@ -202,10 +215,12 @@ func TestSourceAcceleratorFailLoudAndCPUControls(t *testing.T) {
 		t.Fatalf("CatchUp with accelerator doc error = %v, want %v", err, cuCause)
 	}
 
-	// 4. Close-only error on Source surfaces from Source.Close() as typed io + ErrAccelerator.
+	// 4. Close-only error on Source surfaces as typed io + ErrAccelerator, retains the embedder for
+	// retry on a subsequent Source.Close(), and becomes a no-op once Close succeeds.
 	e4, s4, in4 := setupIndexed(t)
-	closeCause := fmt.Errorf("%w: close failed", embed.ErrAccelerator)
-	e4.reg = &accelHookRegistry{Registry: e4.reg, closeErr: closeCause}
+	closeCause := fmt.Errorf("%w: close drain failed", embed.ErrAccelerator)
+	hr4 := &accelHookRegistry{Registry: e4.reg, closeErrs: []error{closeCause, nil}}
+	e4.reg = hr4
 	src4 := Start(t.Context(), e4.opts(), "query", []SectionDir{s4.sectionDir()})
 	src4.Attach([]SectionInput{in4})
 	if scores, err := src4.Score(t.Context(), "query", in4.Items); err != nil || !scores.Ready {
@@ -213,7 +228,19 @@ func TestSourceAcceleratorFailLoudAndCPUControls(t *testing.T) {
 	}
 	var pe *errs.Error
 	if err := src4.Close(); !errors.As(err, &pe) || pe.Code != "io" || !errors.Is(err, closeCause) {
-		t.Fatalf("Source.Close error = %v, want *errs.Error{io} + %v", err, closeCause)
+		t.Fatalf("first Source.Close error = %v, want *errs.Error{io} + %v", err, closeCause)
+	}
+	if hr4.closeCalls.Load() != 1 {
+		t.Fatalf("first Source.Close called emb.Close %d times, want 1", hr4.closeCalls.Load())
+	}
+	if err := src4.Close(); err != nil {
+		t.Fatalf("retry Source.Close error = %v, want nil", err)
+	}
+	if hr4.closeCalls.Load() != 2 {
+		t.Fatalf("retry Source.Close called emb.Close %d times, want 2", hr4.closeCalls.Load())
+	}
+	if err := src4.Close(); err != nil || hr4.closeCalls.Load() != 2 {
+		t.Fatalf("third Source.Close = %v (calls=%d), want nil and 2", err, hr4.closeCalls.Load())
 	}
 
 	// 5. Control: ordinary non-accelerator open failure keeps ModelFailed lexical degradation.
