@@ -112,11 +112,12 @@ type OpenOptions struct {
     MemoryBudget int64
 }
 
-// Fallback says why the CPU runs although "auto" was asked.
+// Fallback says why a model that has a GPU path runs on the CPU.
 type Fallback string
 
 const (
     NoFallback        Fallback = ""
+    FallbackAsked     Fallback = "asked"       // the selector was "cpu"
     FallbackNoSupport Fallback = "unsupported" // this binary has no accelerator for this model
     FallbackNoDevice  Fallback = "absent"      // no driver or no usable device on this machine
     FallbackFailed    Fallback = "failed"      // a device is there and could not be attached
@@ -129,8 +130,7 @@ type RunInfo struct {
     Device   string   // "cpu", or the device's id: "cuda:0"
     Name     string   // the device's own name when the runtime gives one, else ""
     Budget   int64    // bytes a batch may take on the device; 0 on the CPU
-    Fallback Fallback // set only when Device is "cpu" and the request was "auto"
-    Window   int      // texts the embedder wants in one Embed call; 0 means 8
+    Fallback Fallback // empty on a GPU, and for a model with no GPU path
 }
 
 // DeviceInfo is one line of the listing.
@@ -284,7 +284,12 @@ embed:
 | `failed` | `embedding on the CPU, which is slow: the GPU could not be used` |
 | `memory` | `embedding on the CPU, which is slow: the GPU has too little free memory` |
 
-- on the CPU because `cpu` was asked, or for a model with no accelerator: nothing.
+- for a model with no GPU path, which is bge-small: nothing. The CPU is its normal path (owner's
+  decision, 2026-11-22).
+
+The owner's decision is that a sync warns whenever a model that has a GPU path runs on the CPU, so
+`cpu` asked for by name warns too, with its own reason, `asked`: `embedding on the CPU, which is
+slow: the CPU was asked for`.
 
 A run that embeds nothing opens no model and prints neither. With `--json` each is
 `{"notice":{"code":"…","message":"…"}}` on standard error, the form of every notice, and each
@@ -314,8 +319,8 @@ release that gives it its own fingerprint, or deleting the index and the cache's
    backend's limit on a batch's total, 8,192 on v0.5.0. `bytesPerPosition` is 136 KB for CUDA on v0.5.0 (0.13 MiB
    measured), a constant of the adapter until goinfer reports it (ask 5).
 
-A query, and any call with one text, is one `EmbedIDs`, as today. `Info().Window` is 256 on an
-accelerator and 8 on the CPU. The build replaces `batchSize` with the embedder's window and is
+A query, and any call with one text, is one `EmbedIDs`, as today. The adapter is `embed.Windowed`
+with 256 on an accelerator; on the CPU it is not, and gets the build's 8. The build replaces `batchSize` with the embedder's window and is
 otherwise unchanged: it cuts until the window is full, embeds, stores.
 
 **Reuse by digest must not depend on the window.** Today it does, in three ways (the last two
@@ -382,7 +387,7 @@ After the weights are on the device:
    forward; it cannot make one passage smaller. A passage of 8 tokens takes about 1 MiB and one
    of 2,048 about 270 MiB, and each is tried on the device as it comes. This is the minimum of
    the owner's "clamp to [min, max]", read as one input, and the one place the budget is
-   exceeded; see the question for the owner. If the device cannot give that memory, step 5
+   exceeded (owner's decision, 2026-11-22). If the device cannot give that memory, step 5
    decides.
 4. `PBRAIN_GPU_MEMORY` replaces the 30% and nothing else: the budget is that value, at most the
    ceiling and at most a live free figure. Step 3 holds for it too, and its description says so:
@@ -569,8 +574,8 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    32 and 128. It goes first (operator's decision, 2026-11-22), before tickets 1 to 3, so it
    brings the two small things it needs and touches neither the gemma adapter nor device
    selection: an optional interface, `embed.Windowed { Window() int }`, which the build asks by
-   type assertion and uses in place of its batch of 8, and which ticket 1 folds into
-   `Info().Window`; and the fixed order of the `meta` rows, so that two databases can be compared
+   type assertion and uses in place of its batch of 8, and which stays as it is (`RunInfo`
+   carries no window); and the fixed order of the `meta` rows, so that two databases can be compared
    as files. `TestBuildWorkersSameDatabase`: the same section built at 1, 4 and 32 workers gives
    the same database bytes and the same counts.
 5. **goinfer.** When a release has the asks: move the pin (read first, as every pin). Enumeration
@@ -586,7 +591,9 @@ seconds at full size, 1.5%. Schedule it when a measured sync shows the device id
    `internal/cli/README.measure.md`. @architect: functional spec 7.1, 9.4, 10, the notice list and
    the command list; architecture 8.7, a decision for GPU-first sync, 17; `components/semantic.md`
    (interfaces, Build's steps, both adapters, tests); `components/cli.md`; the semantic skill topic
-   and the README. #29 closes with it.
+   and the README. The spec text for tickets 1 to 4 was written ahead, on 2026-11-22, with the
+   owner's decisions, and closed #29's open points; what is left for this ticket is the measured
+   figures, the semantic skill topic and the README.
 
 Tickets 1 to 4 need nothing from goinfer. 2 needs 1; 3 needs 2. Ticket 4 is built first: it is
 the largest measured gain in this plan for the default model and waits on no decision.
@@ -610,29 +617,34 @@ the largest measured gain in this plan for the default model and waits on no dec
 
 4 and 8 are the two that decide how fast a GPU sync is. 4 alone gains little while 8 stands.
 
+## Decided by the owner, 2026-11-22
+
+All five recommendations were accepted.
+
+1. **The CPU warning** is for a model that has a GPU path, which is EmbeddingGemma 2: its sync
+   warns whenever it falls back to the CPU or is run on it. bge-small on the CPU is its normal
+   path and prints no warning. (aikit has a seam for a matrix-product backend, `BERT.UseBackend`;
+   bge-small on a GPU would be its own measurement and is not in this plan.)
+2. **One input alone always runs**, whatever the budget.
+3. **Overlap of the stages** is deferred: #42 stays conditional on a measurement that shows the
+   device idle more than 3% of the time.
+4. **Release binaries get the `cuda` tag** once the CPU fallback is safe, after #38, as a ticket of
+   its own. Until then a release user of `embeddinggemma-2` reads "this pbrain has no GPU support".
+5. **`eg2_combined` is an experiment.** It is kept out of the spec and of the user's documentation.
+   CI keeps building and vetting it so that it does not rot; it is not a supported build.
+
+With these, and with the operator's decisions recorded above (the tie order, a close error
+dropped, `Source.Close` returning nothing), #29's three open points are closed: an accelerator
+that cannot be had falls back under `auto` and fails under a name, and a search never meets one;
+`eg2_combined` is not specified; a search runs on the CPU (#32).
+
+The tickets are issues #37 to #43, in the plan's order: #37 the seam and search on the CPU, #38
+selection and notices, #39 the window, the packer and the memory rule, #40 bge-small workers,
+#41 what waits for goinfer, #42 overlap, #43 measurements and the user's documentation.
+
 ## Open questions
 
-For the owner, through @operator:
-
-- **bge-small has no GPU path.** It is the default model. Under this plan its sync prints no
-  warning, since nothing was fallen back from and a person can do nothing about it. The other
-  reading of the direction is a warning on every CPU sync. Recommended: no warning for bge-small.
-  (aikit has a seam for a matrix-product backend, `BERT.UseBackend`; bge-small on a GPU would be its
-  own measurement and is not in this plan.)
-- **One passage alone may exceed the budget.** A longest passage needs about 270 MiB. Where 30%
-  of free memory, or the amount a person set, is less than a passage needs, that passage still
-  runs on the GPU, alone. The other course is to send such a run to the CPU, or to fail a named
-  device. Recommended: run it, as the minimum of "clamp to [min, max]"; the limit then governs
-  batching and never refuses a card that works.
-- **Overlap of the stages (ticket 6)** waits for a measurement, against point 4 of the direction.
-  Recommended: wait; it is worth under 2% today.
-- **Release binaries are untagged**, so a release user of `embeddinggemma-2` would always read "this
-  pbrain has no GPU support". Once ticket 2 makes a `cuda` build safe on a machine with no GPU, the
-  Linux release can carry the tag: 56 MiB against 23 MiB, unstripped. Recommended: yes, as its own
-  ticket after ticket 2.
-- **`eg2_combined`**, open since #29: supported, or an experiment to leave out of the spec?
-
-For @lead-dev, with ticket 3:
+For @lead-dev, with #39:
 
 - A slice of short notes for the GPU figures: the fixture has none.
 

@@ -35,10 +35,61 @@ type Embedder interface {
     Embed(ctx context.Context, role Role, texts []string) ([][]float32, error)
     Dim() int
     Fingerprint() string
+    // Info says what the embedder runs on. It can change between two Embed calls, when an
+    // accelerator that ran out of memory gives way to the CPU, and never during one.
+    Info() RunInfo
     // Close releases the model. An error says only that the release failed: the vectors already
     // returned stand, and the callers in semantic drop it ("The source" and "Build").
     Close() error
 }
+
+// Windowed is optional: an embedder that works best with many texts in one Embed call says how
+// many. The build asks for it by type assertion and uses 8 for an embedder without it. The
+// number is fixed for the life of the embedder and does not depend on the machine.
+type Windowed interface {
+    Window() int
+}
+
+// OpenOptions says what the caller wants the model to run on. The zero value is the CPU.
+type OpenOptions struct {
+    // Device is a selector ("Devices"): "" or "cpu"; "auto"; a backend, such as "cuda"; or one
+    // device, such as "cuda:0" or the persistent id the listing prints.
+    Device string
+    // MemoryBudget, when positive, replaces the 30% of the memory rule: bytes of device memory
+    // that a batch of several texts may take. Ignored on the CPU.
+    MemoryBudget int64
+}
+
+// Fallback says why a model that has a GPU path runs on the CPU.
+type Fallback string
+
+const (
+    NoFallback        Fallback = ""
+    FallbackAsked     Fallback = "asked"       // the selector was "cpu"
+    FallbackNoSupport Fallback = "unsupported" // this binary has no accelerator for this model
+    FallbackNoDevice  Fallback = "absent"      // no driver or no usable device on this machine
+    FallbackFailed    Fallback = "failed"      // a device is there and could not be attached
+    FallbackMemory    Fallback = "memory"      // the device ran out of memory, at the upload or for one text alone
+)
+
+type RunInfo struct {
+    Device   string   // "cpu", or the device's id: "cuda:0"
+    Name     string   // the device's own name when the runtime gives one, else ""
+    Budget   int64    // bytes a batch of several texts may take on the device; 0 on the CPU
+    Fallback Fallback // empty on a GPU, and for a model with no GPU path
+}
+
+// DeviceInfo is one line of the listing.
+type DeviceInfo struct {
+    ID, Backend, Name     string // "cuda:0", "cuda", "NVIDIA RTX PRO 6000 …"; ID "cpu" for the CPU
+    Persistent            string // the runtime's lasting id for this device, or ""
+    TotalBytes, FreeBytes int64  // 0 when unknown
+    Memory                string // "live", "estimated" or "unknown": how FreeBytes was obtained
+    MemoryKind            string // "dedicated", "shared" (the host's, an integrated GPU) or "unknown"
+}
+
+// ErrAccelerator marks a failure of an accelerator that the adapter does not recover from.
+var ErrAccelerator = errors.New("accelerator failed")
 
 type File struct {
     Name   string   // file name inside the model folder
@@ -67,7 +118,10 @@ type Artifact struct {
 // Entry joins one model row with the functions of its adapter.
 type Entry struct {
     Model Model
-    Open  func(ctx context.Context, a *Artifact) (Embedder, error)
+    Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
+    // Devices lists the GPUs this adapter could attach on this machine; nil for a model that
+    // runs on the CPU only. It opens no model.
+    Devices func() []DeviceInfo
     // Derive is set only for a model with Source. It is pure: from the verified bytes of
     // Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
     Derive func(source [][]byte) ([][]byte, error)
@@ -81,7 +135,12 @@ type Registry interface {
     Names() []string // sorted
     // Open builds the model from a.Files alone. It reads nothing from disk. It takes the bytes over:
     // a.Files is nil when it returns, with or without an error, and the caller keeps no other reference to them.
-    Open(ctx context.Context, a *Artifact) (Embedder, error)
+    // A selector that names nothing Devices lists, or a GPU for a model with none, is an
+    // *errs.Error with code invalid_config. A listed device that cannot be attached wraps ErrAccelerator.
+    Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
+    // Devices lists every device some entry can use, each once, GPUs in the order of the
+    // automatic choice ("Devices"), the CPU last. It opens no model.
+    Devices() []DeviceInfo
     // Derive calls the entry's Derive; an error for a model without Source.
     Derive(m Model, source [][]byte) ([][]byte, error)
 }
@@ -181,6 +240,8 @@ type Options struct {
     ModelDir  sys.Dir  // personal.toml model_path, opened by cli; nil when unset
     Cache     *Cache   // nil when no cache folder is known
     CacheErr  error    // ErrCacheExposed when the folder failed its test
+    Device    string   // the selector as cli validated it, from --device or PBRAIN_DEVICE; "" means "auto" in Build. A search ignores it
+    GPUMemory int64    // PBRAIN_GPU_MEMORY in bytes; 0 means the rule
     Rand      io.Reader
     Now       func() time.Time
 }
@@ -217,29 +278,34 @@ func (s *Source) CatchUp(ctx context.Context) error
 func (s *Source) Score(ctx context.Context, text string, eligible []*item.Item) (search.Scores, error)
 
 // Close cancels the background task, waits for it, closes each opened index and closes an
-// opened embedder once. An error from the embedder's Close is dropped: with a model that runs
-// on CPUs, Close returns nil. It is safe to call when Attach or Score were never reached.
-func (s *Source) Close() error
+// opened embedder once. An error from the embedder's Close is dropped.
+// It is safe to call when Attach or Score were never reached.
+func (s *Source) Close()
 
 type BuildResult struct {
     Section          item.Section
     Items            int // items the index holds after the run
     ItemsRemoved     int // items gone from the section whose entries this run dropped
     PassagesEmbedded int
-    PassagesReused   int // taken from the index's own entries or from the cache
+    PassagesReused   int    // taken from the index's own entries, from the cache, or from an earlier passage of this run
+    Device           string // what embedded this section's passages: "cpu", "cuda:0"; "" when the run embedded nothing
 }
 
 type Progress struct {
     Section     item.Section
     Done, Total int  // items to do
     Waiting     bool // waiting for the index lock, which a build or a search's catch-up holds
+    // Run is set on the one report sent when the build opens the model, and again if the
+    // embedder's Info changes; nil on every other report.
+    Run *embed.RunInfo
 }
 
 // Build brings one section's index up to date. It calls scan after it holds the index lock and
 // works from that scan alone. An item whose body cannot be read as scanned is left for the next run.
 // Errors, all *errs.Error: no_model; invalid_config (unknown model, a model_path folder that is
-// incomplete or fails Verify, an exposed cache, or neither a cache folder nor a model_path);
-// fetch_failed from the download; io for the file system, the lock and a failed embedding.
+// incomplete or fails Verify, an exposed cache, neither a cache folder nor a model_path, or a
+// device selector that names nothing this machine lists); fetch_failed from the download; io
+// for the file system, the lock, a named device that cannot be attached and a failed embedding.
 func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl embed.Downloader,
     notify func(embed.Model, int64), progress func(Progress)) (BuildResult, error)
 
@@ -376,11 +442,24 @@ For one section, `Build`:
 4. **Makes sure of the model**, whenever the scan found at least one item, whether or not anything will be embedded. For a model in the cache it first takes the model's own lock, `<cache>/models/<FolderName(m)>.lock`, with `Files.Lock` under the command's context, and holds it until the model is verified: two projects of one person share the cache and each holds only its own index lock, so without it one build could remove source files another is still reading. The order is always index lock, then model lock (architecture §10.4), and this is the only place two locks are held at once. With the lock held it looks again, since another build may have finished the work. It calls `Find`; if the model is absent it calls `Download`, unless `ModelDir` is set, in which case an absent or wrong-sized file is `invalid_config`. For a model with `Source`, the files fetched are the source files, into `<cache>/models/<FolderName(m)>.source/`, each kept only if its size and digest are the pinned ones; then `Pack` writes the pack into `<cache>/models/<FolderName(m)>/`, and the source files are removed once `Verify` has accepted the pack; the empty `.source` folder may remain. A run interrupted before that finds the source files again and does not download them twice. Deriving holds the source and the pack in memory together, about 2 GB for EmbeddingGemma 2, once. It then calls `Verify`. A failure of `Verify` is `invalid_config` for `ModelDir`; for the cache the files that failed are removed, obtained again and verified once more, and a second failure is `fetch_failed`. So a run that reuses every vector still restores a model whose cache was deleted and still refuses a wrong local copy, and after any successful run a search finds the model. A source digest that is wrong is `fetch_failed`; a pack that does not come out with its pinned digests, and any file-system failure, is `io`; in every case no unverified pack is left under the model's name. The model lock is released here. The `Artifact` is kept only until it is known whether a passage must be embedded; the inference runtime is opened only for the first batch.
 5. Opens the index (`openIndex`, with its full check). If it is not usable, which includes an index whose stored passages fail that check although no item has changed, it starts a new in-memory database with the schema and the four `meta` rows for the expected fingerprint. It then removes leftovers of a crash or of an older fingerprint: temporary files, and files with a name of the generated database form other than the one in use. It removes nothing else, whatever the manifest says.
 6. Computes each item's `ContentCheck`, then finds the items no entry covers (to do), in path order, and the rows whose path has no item in the scan (dead); `ItemsRemoved` counts the dead paths. Dead rows are kept until step 10's last publication, so that step 7 can still take their vectors: an item that was only renamed is not embedded again.
-7. For each item to do: computes its `ContentDigest`, cuts its passages from the same title and body, and for each passage looks for a vector by digest, the SHA-256 of its text, first in `passage` (through its index on `digest`, dead rows and the item's own old rows included), then, for the shared section, in the cache. Passages found are reused. The others are queued.
-8. Embeds queued passages eight at a time, as `Document`. Before the first batch it opens the `Artifact` of step 4 with `Registry.Open`; with no batch, the runtime is never opened and the `Artifact` is dropped. A vector from the model that is not of the right length, not finite or not of unit length within 0.001 fails the run with `io`; a vector from the cache or from the database that fails the same test is treated as absent and embedded again. For the shared section each new vector is written to the cache at once.
+7. For each item to do: computes its `ContentDigest`, cuts its passages from the same title and body, and for each passage looks for a vector by digest, the SHA-256 of its text, by the rule of "Reuse by digest" below. Passages found are reused. The others are queued.
+8. Embeds queued passages a window at a time, as `Document`. Before the first window it opens the `Artifact` of step 4 with `Registry.Open` and `OpenOptions{Device: Options.Device, MemoryBudget: Options.GPUMemory}`, an empty `Device` standing for `auto`; with nothing queued, the runtime is never opened and the `Artifact` is dropped. The window is the embedder's `Window()` when it is `Windowed`, else 8; how the embedder runs the texts of a window, on workers or in batches on a device, is its own matter (the two adapters below). When the model is opened the build sends one `Progress` whose `Run` is the embedder's `Info()`, and another whenever `Info()` differs after a window; `BuildResult.Device` is the last `Info().Device`. An `Open` that fails with `invalid_config` ends the run with that error; one that wraps `ErrAccelerator` ends it with `io`, `the model cannot be opened`. An `Embed` that fails ends it with `io`, `the model failed to embed a passage`; what was published stays, and the next run goes on from it. A vector from the model that is not of the right length, not finite or not of unit length within 0.001 fails the run with `io`; a vector from the cache or from the database that fails the same test is treated as absent and embedded again. For the shared section each new vector is written to the cache at once.
 9. When all passages of an item have vectors, replaces the item in one transaction: delete the row of that path, which removes its passages, then insert the item, with its digest and its check, and its passages.
 10. Publishes whenever 20 seconds have passed since the last publication, at an item boundary, and at the end if anything changed. Before the last publication the dead rows are deleted in one transaction. A publication in between may still hold them; they cover no item and are never scored. What an interruption can lose is therefore at most 20 seconds of work plus the item in progress, however long that item is; for the shared section its vectors are already in the cache. A run that changed nothing publishes nothing.
-11. Reports `Progress` every 10 seconds, closes the runtime if it opened one, releases the lock and returns the counts. An error from the embedder's `Close` is dropped, as in the source: the last publication is done by then, the index on disk is whole, and the run returns its counts with no error (spec 9.4). A build with the `cuda` tag has a failure of its own here, which is not specified yet (issue #29).
+11. Reports `Progress` every 10 seconds, closes the runtime if it opened one, releases the lock and returns the counts. An error from the embedder's `Close` is dropped, as in the source, whatever it ran on: the last publication is done by then, the index on disk is whole, and the run returns its counts with no error (spec 9.4; operator's decision, 2026-11-22, for an accelerator's close error too).
+
+**Reuse by digest.** What a passage is given must not depend on the window, so the rule is stated on sets that are fixed when the run starts, never on what happens to be stored at the moment an item is cut. `replace` is the set of paths this run will store, known at step 6. A *base row* is a row as the database held it when the run started. For a passage of item I with digest D, the vector is the first of:
+
+1. **I's own base rows** with D, lowest `ord` first. They are there whenever I is cut, since only I's own replacement removes them.
+2. **Base rows of paths outside `replace`** with D: unchanged items, and items gone from the section, whose rows step 10 keeps until the last publication. Lowest path first, then lowest `ord`.
+3. **This run's own answer for D**: what the first passage with D in path order was given, whether by a hit in 1, 2 or 4 or by a new embedding. The build keeps a map from every digest it has resolved to where its vector is: in memory while that item is not stored, then the stored row's path and `ord`. About 100 bytes a passage.
+4. **The cache**, for the shared section. It is asked only for a digest this run has not met, so it answers from what it held before the run.
+
+Rows of other paths in `replace`, old or newly stored, are never read for this. `vectorByDigest` takes the asker's path and `replace`, joins `passage` to `item`, and returns tiers 1 and 2 in that order. A hit in any tier counts in `PassagesReused`; a passage that reaches the end is embedded, counted in `PassagesEmbedded` and entered in the map. So a passage whose twin is queued in the same window is not embedded twice, and `PassagesEmbedded` is the number of distinct digests no tier answered, at any window, for one starting index and one starting cache. Two cases this rule decides the same way at every window, where a lookup in whatever is stored would not: in a personal section A held X, A is edited to Y and a later B now holds X, and B embeds X; A and an unchanged Z both hold X with different bytes from two devices, A's other passage is edited and a new B holds X, and B takes Z's.
+
+The two counters report the work of one invocation. A run interrupted after a window's vectors reached the cache reports them as reused when it resumes. A resumed run ends with the same stored items and passages as an uninterrupted one, and with the same vector bytes when the index it started from held one vector for each digest; where it held two, a checkpoint moves a path out of `replace` and the resumed run may take the other.
+
+The four `meta` rows are inserted in a fixed order, by key, so that two builds of the same section on one device give the same file.
 
 An interrupted run leaves a usable index holding every published item; the next run finds the rest to do. An item whose body cannot be read as scanned (`store.ErrChanged`) is skipped and stays to do. Publication rewrites the whole database, about 160 ms at 35,000 passages of 384 dimensions by a scratch measurement, which is why it is paced by time and not by count.
 
@@ -410,7 +489,7 @@ An interrupted run leaves a usable index holding every published item; the next 
 | `embed.Find` fails: a file missing or of the wrong size | `ModelAbsent` |
 | no section in `dirs` has a manifest with the expected fingerprint | `NoIndex` |
 
-If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifact` it returns, and embeds the text as `Query`, while a second opens each section's index. The query vector must have `Dim` finite values and unit length within 0.001. The goroutine runs under a context that `Close` cancels. `Score`, after `Attach`, then:
+If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifact` it returns with the zero `OpenOptions`, and embeds the text as `Query`, while a second opens each section's index. The zero options are the CPU: a search never attaches an accelerator, in any build and whatever `Options.Device` says (owner's decision, 2026-11-22). Check, load and one query on the CPU are inside rule 3 for both models, where an accelerator's start-up alone took EmbeddingGemma 2 past it (1,050 ms against 286 ms; `internal/cli/README.measure.md`). A catch-up embeds through the same embedder, one text a call, so on the CPU too. The query vector must have `Dim` finite values and unit length within 0.001. The goroutine runs under a context that `Close` cancels. `Score`, after `Attach`, then:
 
 1. Takes each section's index, which the background task has opened with `openIndex` beside the model and `CatchUp` may have added to, and decides coverage. A section whose index is not usable contributes all its items to `Missing`; in a usable one, each item no entry covers adds one. If no section is usable: not ready, `NoIndex`.
 2. Waits for the background task. A failed verification, a failed open, a failed embedding or a query vector that fails its test: not ready, `ModelFailed`, and the search keeps its lexical results. A `text` other than the one given to `Start` is a programming error and panics.
@@ -419,7 +498,7 @@ If all pass, it starts one goroutine that runs `embed.Verify`, opens the `Artifa
 
 `Score` returns an error only when the context ends. `Start`, `Attach`, `Score` and `Close` never write and never take a lock, and the source never downloads. `CatchUp` is the one method that writes.
 
-**Closing the model fails nothing.** `Close` comes after the search has its scores. If the embedder's `Close` returns an error, the source drops it and releases the embedder all the same: the scores stand, `Close` returns nil, and the command prints the results and exits as it would have (spec 7.1). There is nothing a caller could do with such an error, and a cleanup that fails must not take back an answer that was right. A build with the `cuda` tag has a failure of its own here, which is not specified yet (issue #29). That is why `Close` returns an error at all.
+**Closing the model fails nothing.** `Close` comes after the search has its scores. If the embedder's `Close` returns an error, the source drops it and releases the embedder all the same: the scores stand, and the command prints the results and exits as it would have (spec 7.1). There is nothing a caller could do with such an error, and a cleanup that fails must not take back an answer that was right. `Close` therefore returns nothing. A search has no accelerator, so no failure of one can reach it, and an error that wraps `ErrAccelerator` is treated as any other: a failed open or a failed embedding of the query is `ModelFailed`, and the search keeps its lexical results; a failed embedding in a catch-up leaves those items uncovered, as every catch-up failure does, and the items the index covers are still scored.
 
 ### Catch-up in a search
 
@@ -470,7 +549,8 @@ The `index_progress` notice of a build that waits says `<section>: waiting for a
 - **Which model.** `Options.ModelName` is `Config.Semantic.Model` as `brain` resolved it (`components/brain.md`): the name `pbrain.toml` gives; `brain.DefaultModel`, which is `bge-small-en-v1.5`, when it has no `semantic.model` key; and `""` when it says `"none"`. `semantic` and `embed` hold no default of their own, so a test registry needs no entry of that name, and a test in `cli` or `cmd/pbrain` checks that the release registry holds `brain.DefaultModel`.
 - **`model_path`.** `cli` makes a relative `model_path` absolute against the brain folder and opens it with `sys.OpenNamed(env.Files, path, false)`. The folder is one the person names, so a link in the path or above it is followed (architecture §10.3); inside the folder `Find` and `Verify` follow none, and the digests decide what the files are. A folder that cannot be opened is `invalid_config`. The calibration tool opens its model folder the same way.
 - `search --semantic`: after `brain.Open` and before the scan, open the cache with `create = false` and call `Start` with the query text and the view's section folders, deferring `Close` so that a failed scan or any later error cancels the work. After the scan, which already keeps bodies for a search, `Attach` one `SectionInput` per section, call `CatchUp`, put the source in `search.Request.Semantic`, and turn `Result.Sem` into one notice: `semantic_not_ready` with the reason and `pbrain sync` (or `PBRAIN_CACHE` for an exposed cache), or `semantic_partial` with `Missing` when it ran and `Missing` is above zero.
-- `pbrain sync`: open the cache with `create = true`, then call `Build` for the shared section and, with `--personal`, for the personal one, in that order, each with a `ScanFunc` that scans with bodies kept, and print one line per result. A personal section whose folder does not exist is not created: its line reports no item. `notify` becomes the `model_download` notice and `progress` the `index_progress` notices.
+- `pbrain sync`: open the cache with `create = true`, then call `Build` for the shared section and, with `--personal`, for the personal one, in that order, each with a `ScanFunc` that scans with bodies kept, and print one line per result. A personal section whose folder does not exist is not created: its line reports no item. `notify` becomes the `model_download` notice and `progress` the `index_progress` notices; a `Progress` whose `Run` is set becomes `embedding_device` or `cpu_fallback` instead, each printed at most once per command ("Output and notice texts"). `Options.Device` is the value of `--device`, else of `PBRAIN_DEVICE`, else empty; `Options.GPUMemory` is `PBRAIN_GPU_MEMORY`, a whole number of MiB of at least 1, in bytes. `cli` checks only their form: a selector is `auto`, `cpu`, or a backend name of lower-case letters with an optional `:` and what follows it; anything else, and a `PBRAIN_GPU_MEMORY` that is not such a number, is `invalid_config` before the brain is scanned. Whether the selector names something is `Registry.Open`'s to say.
+- `pbrain devices`: no brain is opened. Print `Registry.Devices()`, one line each.
 - `pbrain sync --status`: one scan with bodies kept, the cache with `create = false`, then `Status`. A section whose folder or index folder does not exist is reported as `IndexNone`, with its item count, and nothing is created. `ModelPresent` is the result of `Find` and `Verify` together.
 
 ### Output and notice texts
@@ -483,7 +563,16 @@ The `index_progress` notice of a build that waits says `<section>: waiting for a
 shared: 5000 items indexed, 1 item removed; 12 passages embedded, 3 reused
 ```
 
-JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000, "items_removed": 1, "passages_embedded": 12, "passages_reused": 3}]}`, numbers printed also when zero.
+JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000, "items_removed": 1, "passages_embedded": 12, "passages_reused": 3, "device": "cuda:0"}]}`, numbers printed also when zero, and `device` left out when `BuildResult.Device` is empty. The text line does not name the device; the notice does.
+
+**`pbrain devices`.** One line per `DeviceInfo`, GPUs first in the order of the automatic choice, then the CPU: the id, the name, and `<total> MiB, <free> free`, each number left out when unknown; the CPU's line is `cpu` and `<n> threads`, the number Go is allowed. Nothing is marked as chosen: what a sync uses depends on the project's model, which this command does not read.
+
+```
+cuda:0  NVIDIA RTX PRO 6000 Blackwell Max-Q  97887 MiB, 97249 free
+cpu     32 threads
+```
+
+JSON: `{"devices": [{"id": "cuda:0", "backend": "cuda", "name": "…", "persistent": "…", "total_bytes": 102641958912, "free_bytes": 101972967424, "memory": "live", "memory_kind": "dedicated"}, {"id": "cpu", "backend": "cpu", "threads": 32}]}`, a field left out when empty or unknown.
 
 **`pbrain sync --status`.** The first line is one of `model: none` (semantic search is off), `model: <name>, on this machine`, `model: <name>, not on this machine` and `model: <name>, not supported by this pbrain`. Then one line per section of the view: `<section>: <Indexed> of <Items> items indexed` (`1 item` when the section holds one), followed by ` (built for another model)` for `IndexStale` or ` (unreadable)` for `IndexUnreadable`; `IndexNone` adds nothing. JSON: `{"model": "<name>", "model_present": true, "sections": [{"section": "shared", "items": 5000, "indexed": 4988}]}`, with `"stale": true` or `"unreadable": true` on a section; `model` is left out when semantic search is off and `model_present` when false.
 
@@ -500,6 +589,10 @@ JSON: `{"model": "<ModelName>", "sections": [{"section": "shared", "items": 5000
 | `semantic_partial` | `Ready` and `Missing > 0` | `<Missing> items are not in the index: run <x>` (`1 item is` for one) |
 | `model_download` | from `notify`, before the first request | `downloading model <name>, <n> MB, from <host>`, with the size in units of 1,000,000 bytes rounded up and the distinct hosts of the files' addresses, comma-separated |
 | `index_progress` | from `progress`, every 10 seconds | `<section>: <Done> of <Total> items` (`1 item` for a total of one), or `<section>: waiting for another pbrain command` when `Waiting` |
+| `embedding_device` | the first `Progress.Run` of a `pbrain sync` whose `Device` is a GPU | `<Device> (<Name>), <n> MiB a batch`, the parentheses left out when `Name` is empty and `<n>` being `Budget` in MiB, rounded down |
+| `cpu_fallback` | the first `Progress.Run` of a `pbrain sync` whose `Fallback` is set | `embedding on the CPU, which is slow: ` and, for `asked`, `the CPU was asked for`; `unsupported`, `this pbrain has no GPU support for <model>`; `absent`, `no usable GPU was found`; `failed`, `the GPU could not be used`; `memory`, `the GPU has too little free memory` |
+
+Neither of the last two is printed by a search, by a sync that embeds nothing, or for a model with no GPU path, whose `Fallback` is always empty (owner's decision, 2026-11-22: the CPU is that model's normal path). A sync that begins on a GPU and gives it up prints both, in that order.
 
 ### Calibration
 
@@ -554,9 +647,54 @@ These figures are reported and not gated: no release decision hangs on them in v
 
 ### The adapter contract
 
-Whatever runtime is chosen, its adapter (a sub-package of `embed`, imported only where the release registry is built) must: build the model from the `Artifact`'s bytes alone, opening no file; hand those bytes to its runtime without keeping a second reference that could write them, and never write them itself; add the model's own query and document prompts; keep text from a body from being read as a special token of the model; cut an over-long text at the model's token limit, and for a document cut it so that the passage keeps at least half of that limit: the prefix is cut first, only as far as needed and never below half the limit, then the passage from its end; print nothing on standard output; return unit-length vectors of `Dim`; give the same vectors for the same text in any batch; hold no global state between embedders; and make no network call.
+Whatever runtime is chosen, its adapter (a sub-package of `embed`, imported only where the release registry is built) must: build the model from the `Artifact`'s bytes alone, opening no file; hand those bytes to its runtime without keeping a second reference that could write them, and never write them itself; add the model's own query and document prompts; keep text from a body from being read as a special token of the model; cut an over-long text at the model's token limit, and for a document cut it so that the passage keeps at least half of that limit: the prefix is cut first, only as far as needed and never below half the limit, then the passage from its end; print nothing on standard output; return unit-length vectors of `Dim`; give the same vectors for the same text in any batch, at any worker count and at any memory budget, on one device; return them in the order of the texts; open on the CPU unless `OpenOptions` asks otherwise; hold no global state between embedders; and make no network call.
 
 **Stray output.** No package that is linked is known to print: the aikit packages were read for it at the release our aikit was forked from, and the loader adds no print; goinfer's were read in its audit. A test of the normal path still cannot show that a failure path stays silent, and one raw line would break the output contract of spec 6.3. So the guarantee is made where it cannot be missed: `cmd/pbrain` takes the process's real standard output and standard error for `Env.Stdout` and `Env.Stderr`, then points the variables `os.Stdout` and `os.Stderr` at the null device, before any command runs. `cli` writes only through `Env`, so its output is unchanged, and anything a linked library prints through those variables is discarded, whatever path it takes. A crash of the Go runtime still reaches the real standard error, because the runtime writes to the descriptor itself. No runtime reads an environment variable either; `TestRuntimeEnvAndOutput` reads the linked sources again on every new pin.
+
+### Devices
+
+Owner's direction, 2026-11-22: the GPU is the primary path for `pbrain sync`, the CPU a fallback that still works and says so, and a machine can have several GPUs. The plan and its measurements are `docs/plans/sync-throughput.md`. A search is not part of this: it opens the CPU ("The source").
+
+**Names.** `cpu`. A GPU is `<backend>:<index>`, with the backend's name as the runtime's listing gives it: `cuda:0`. The index is the device's place in that backend's own listing, which can change with a reboot or a visibility mask; each device also has the persistent id its runtime gives it, when it gives one. pbrain fixes no backend name of its own.
+
+**Selectors**, in `OpenOptions.Device`:
+
+| Selector | Means | When it cannot be had |
+|---|---|---|
+| `auto` | the automatic choice below | the next candidate, at last the CPU with a `Fallback` |
+| `""`, `cpu` | the CPU | — |
+| a backend, `cuda` | the first device of that backend in the automatic order | error |
+| one device, `cuda:0` or a persistent id | that device and no other | error |
+
+A named selector fails in one of two ways. It names nothing the listing shows, be it a backend this binary lacks, a backend with no device on this machine, or an index or id that is not there: `invalid_config`, whose message lists what the listing shows and names `pbrain devices`. Or it names a listed device and attaching it fails: an error that wraps `ErrAccelerator`, which `Build` reports as `io`. A named device never gives way to another GPU or to the CPU. For a model with no GPU path, `auto` and `cpu` give the CPU with an empty `Fallback`, and a named backend or device is `invalid_config` with a message that says the model runs on the CPU only.
+
+**The automatic choice.** Candidates are the devices of the backends compiled in that can run the model in batches. A device is dropped only when a live figure says it cannot hold the weights. The rest are tried in this order, and the first that attaches is used:
+
+1. memory kind: dedicated, then unknown, then shared;
+2. the free figure: live, then estimated, then unknown;
+3. most free memory, compared only within one row of 2;
+4. backend: `cuda`, then the AMD backend, then `metal` (operator's decision, 2026-11-22);
+5. lowest index.
+
+With none left the CPU runs, and `Fallback` says why: `unsupported` when no backend is compiled in, `absent` when none lists a device, `failed` when the last one tried could not be attached, `memory` when that failure was the device running out of memory at the upload. With goinfer v0.5.0 an adapter can attach only CUDA's default device, lists it as `cuda:0` when the driver answers a memory query, and cannot tell `memory` from `failed`; the rest comes with the listing goinfer is asked for (`pkieltyka/goinfer` issues #23 to #30).
+
+**The memory budget** is what a batch of several texts may take on the device, decided once, after the weights are uploaded, from that device's free memory:
+
+| The free figure is | Budget |
+|---|---|
+| live | 30% of it, at most 6 GiB |
+| an estimate | 30% of it, at most 1 GiB |
+| unknown | 1 GiB |
+
+A live zero is a figure, and gives a budget of zero. `OpenOptions.MemoryBudget` replaces the 30% and nothing else: the budget is that value, at most 6 GiB and at most a live free figure. Nothing raises a budget. The ceiling is 6 GiB because no measurement supports more: from 64 to 128 short texts a call the gain was 2.5%, at 2.1 GB on the device in all. The probe reserves nothing: two syncs that probe at the same moment read the same figure, and if what they then take collides, an allocation fails and the back-off below recovers.
+
+**One text alone always runs**, whatever the budget (owner's decision, 2026-11-22). The budget limits how many texts share a forward pass; it cannot make one passage smaller, and a device that works is never refused beforehand because a longest passage might not fit.
+
+**Back-off**, for an adapter whose runtime reports an allocation failure as such and stays usable after it. When a batch of several texts fails because the device is out of memory, the adapter halves the positions it allows a batch, packs the same texts again in order into strictly smaller groups of whole texts, and retries; the allowance does not grow again while the embedder lives. Each failure tries strictly less, down to one text a call, so the retries end. When one text alone fails that way: under `auto` the adapter closes the accelerator, embeds that text and everything after it on the CPU, and its `Info` becomes `{Device: "cpu", Fallback: "memory"}`; under a named selector `Embed` fails with an error that wraps `ErrAccelerator`. Any other failure of a forward pass on an accelerator is such an error at once: a device that fails for another reason may also be returning wrong vectors. goinfer v0.5.0 does not report an allocation failure as such, so until it does every failure of a batch ends the run.
+
+**What the index records about the device: nothing.** The fingerprint names the model and how text is prepared ("Fingerprints"), and no column or `meta` row names what made a vector. One index can hold vectors from several devices: after a fallback in the middle of a run, a sync with another selector, or vectors taken from the cache. A column per passage would be a new index format, which embeds every personal section again, and the cache's files would need it too; a single `meta` row would be wrong for the mixed index it is meant to explain. Each new backend joins the shared fingerprint only when its vectors pass rule 2 against the CPU's (architecture §8.7); if a backend is ever found to make bad vectors, the remedy is a release that gives it its own fingerprint, or deleting the index and the cache's vectors.
+
+**Sameness.** Two builds of the same section from the same index and cache, on one device with no fallback, give the same file at any window, worker count and budget, and are compared by bytes. Three comparisons, and only these, may show different vector bytes: one device against another; a run that fell back to the CPU part of the way against one that did not, where the point of the fall depends on what else held the card's memory; and a run that reused vectors another device had put in the index or the cache.
 
 ### Our libraries
 
@@ -642,10 +780,14 @@ The handover is what keeps the checked bytes private. Go allows a caller of `Rea
 1. **Special tokens.** In each text, every literal `[PAD]`, `[UNK]`, `[CLS]`, `[SEP]` and `[MASK]` gets a space after its first character (`[SEP]` becomes `[ SEP]`). The tokenizer then gives the ordinary pieces, the same as for the text with no special meaning.
 2. **A query** gets the instruction `Represent this sentence for searching relevant passages: ` in front, is tokenised with `Tokenizer().Encode`, and is cut from its end to 510 tokens.
 3. **A document** is split at its first blank line into prefix and passage; with no blank line the whole text is the passage. Each part is tokenised on its own, which gives the same tokens as the whole text, since no token crosses white space. If together they pass 510 tokens, the prefix is cut from its end to `max(255, 510 - passage tokens)`, then the passage is cut from its end to what remains. The passage therefore always has at least 255 tokens of room.
-4. The tokens are wrapped with the ids of `[CLS]` and `[SEP]`, and `Embed(ids)` gives the vector: the first token's state, L2-normalised. aikit has no batch call for this model, so the texts of one call are embedded one after another, each in one forward pass; a text's vector does not depend on what else the call holds. The adapter never passes more than 512 ids, so aikit's own silent cut at that length is never reached.
-5. The context is checked before each text; a forward pass in progress is not interrupted.
+4. The tokens are wrapped with the ids of `[CLS]` and `[SEP]`, and `Embed(ids)` gives the vector: the first token's state, L2-normalised. aikit has no batch call for this model, so every text has a forward pass of its own, and a text's vector does not depend on what else the call holds. The adapter never passes more than 512 ids, so aikit's own silent cut at that length is never reached.
+5. **One text** runs in the calling goroutine, and aikit spreads that one forward pass over the processors Go is allowed. A query and a catch-up are always this case.
+6. **Several texts** run on workers: `min(W, len(texts))` goroutines, each taking the next index from a shared counter, tokenising that text, calling `Embed(ids)` and writing the vector to its own slot, so the result is in the order of the texts whatever finishes first. `W` is `runtime.GOMAXPROCS(0)`, at most 32. aikit's `BERT` is made for this: each forward takes its own scratch from a pool, and with several in flight its kernels stay serial and give the same bits as when they are spread. One forward a worker is what scales: from 4 cores to 16 the single spread forward gains 39% and from there to 32 threads 5%, where 16 workers give 2.12 times the single forward and 32 give 2.35 times (`docs/plans/sync-throughput.md`). Each worker costs about 14 MiB at the peak. Nothing above 32 workers is measured, and whether the second thread of a core is worth a worker is not settled (issue #43).
+7. The context is checked before each text; a forward pass in progress is not interrupted. The first error ends the call with no vectors, after every worker has returned, so the model can be closed as soon as `Embed` has.
 
-`Close` calls the model's `Close` and drops it. aikit's kernels take their parallelism from the number of processors Go is allowed; the adapter does not change it.
+The adapter is `Windowed` with a window of 128 texts, on every machine: four times the largest `W`, so that the end of a window, where workers run out of texts one by one, is a small part of it, and so that what a run stores and counts cannot depend on the number of cores. On the measured slice a window of 128 was faster than 32 by 3%, 23% and 8% at 4, 16 and 32 workers. `Info` is `{Device: "cpu"}` whatever `OpenOptions` asks, except that a named GPU is `invalid_config`: the model has no GPU path. There is no setting for the workers; `GOMAXPROCS`, `taskset` and a container's limit are honoured through the Go runtime.
+
+`Close` calls the model's `Close` and drops it.
 
 **Measured in the check** (one Intel laptop, 4 threads, single runs): token ids equal to the reference on 22 texts and a worst difference from its vectors of 1.7e-13 in cosine; check, load and first query 124 to 153 ms, of which the check of the five files is 104 to 110 ms and the load 8 to 12 ms; a warm query 16 to 19 ms; a search peaks at 0.14 GB, the 134 MB of model bytes included; indexing runs at about 2,800 tokens a second and peaks under 0.2 GB, so a first index of 5,000 items of about 500 tokens each takes about 14 minutes. The longest-prefix test of "What a cut passage is evidence for" passes with the same numbers as on hugot (0.9863 for a changed first word, 1.0 for a changed word in the cut tail), and across 30 windows of our corpus the two runtimes' vectors agree to 2.5e-10. About 1 MB of binary. **At full size** (phase 28, Linux, four CPUs, the 5,000-item, 50 MB brain; `internal/cli/README.measure.md`): check, load and one query 89 to 123 ms, median 93; a first index of both sections in 6,072.9 s (1 hour 41 minutes) for 48,511 passages, 7.99 a second, with a peak of 1,351 MiB; an index after one new note in 0.77 s; `search --semantic` at warm medians of 302 to 309 ms in the shared view and 332 to 333 ms in the personal view, with up to 549 MiB. The memory figures of the small check above do not hold at this size. Not measured: any arm64 or macOS run, a cold file cache, and batching.
 
@@ -693,11 +835,15 @@ Package `internal/embed/gemma2` is the only package of pbrain that imports goinf
 
 **Opening and `Embed`.**
 
-1. `Open` builds the tokenizer from `tokenizer.bin` with `LoadPack` and the model from the two weight files, side by side, then the encoder from both and the prompts; nothing is read from disk.
+1. `Open` builds the tokenizer from `tokenizer.bin` with `LoadPack` and the model from the two weight files, side by side, then the encoder from both and the prompts; nothing is read from disk. It then follows `OpenOptions.Device` by the rules of "Devices": with the zero options nothing more happens and the encoder runs on the CPU; otherwise it attaches an accelerator with `Encoder.UseAccelerator`, uploads the weights, and works out the budget. The backends this binary has are those whose goinfer module it imports: the CUDA module in a build with the `cuda` tag, none in the untagged build, where `auto` gives the CPU with `unsupported`.
 2. **Special tokens.** Body text must never produce a special token. The adapter encodes text with `EncodeSegments` and special-token parsing off, which a pack-loaded tokenizer serves as the JSON-loaded one does, and adds `<bos>` and `<eos>` itself. The published `Tokenize` reads a literal `<eos>` as the real token, as the reference does; the adapter does not use it.
 3. **Prompts.** A query gets `task: search result | query: ` in front, a document `title: none | text: `, as the checkpoint defines them. The item's title and section titles stay inside the text, as pbrain lays them out; whether the title should go into the prompt's title slot is a question for the fixture, and changing it changes the preparation version.
 4. **The cut.** The model takes 8,192 tokens and goinfer refuses more. The adapter never sends more than 2,048 including the prompt and the two special tokens, which bounds time and memory: a 2,294-token text took 5.8 s. A document is split at its first blank line into prefix and passage and cut by the same rule as the other adapter: the prefix only as far as needed and never below half the room, then the passage from its end.
-5. Texts of one call are embedded one after another; goinfer runs its matmuls across the processors by itself. The vector is the mean over every token of the projected last hidden state, L2-normalised, 768 values.
+5. **On the CPU** the texts of one call are embedded one after another with `Encoder.EmbedIDs`; goinfer runs its matrix products across the processors by itself and has no gate for forward passes side by side, so the adapter starts no workers. It is not `Windowed`: the build gives it 8 texts a call.
+6. **On an accelerator**, a query and any call with one text are one `EmbedIDs`. Several documents are tokenised, then walked in order: a batch is closed when the next text would take it past `P` positions or 256 texts, run with `Encoder.EmbedIDsBatch`, and the walk goes on. `P` is the budget divided by the bytes one position takes on that backend, at most the backend's own limit on a batch; a text longer than `P` is a batch alone. For CUDA on goinfer v0.5.0 a position takes 136 KB (0.13 MiB measured) and a batch is limited to 8,192 positions in total, so no budget above about 1.1 GB can be spent until goinfer lifts that limit. goinfer lays the texts of a batch end to end, each attending within itself, with no padding, so the adapter does not sort by length; and a text's vector is the same bits alone and in any batch (measured at 1, 2, 8 and up to 128 texts a call; tested in goinfer). On an accelerator the adapter is `Windowed` with a window of 256.
+7. The vector is the mean over every token of the projected last hidden state, L2-normalised, 768 values. `Info` gives the device's id, its name when the runtime has one, and the budget; `Close` closes the accelerator, if any, then drops the model.
+
+What batching buys depends on the text: on passages of real length, 31 to 873 tokens, eight a call gave 7.7% over two, with the device busy 96% of the time, so the build's speed there is the kernel's (`pkieltyka/goinfer` issue #30); on texts of 64 tokens, 128 a call gave ten times one a call.
 
 **Costs to state wherever this model is offered; they are why it is the model a project opts into and not the default (decision 27 as revised, 2026-11-21):** a first index at 0.902 passages a second on four CPUs (measured on Linux in phase 28 on an Intel Core Ultra 7 255H, from the start of a run that was not finished; the estimate was about 440 tokens a second), which is about 95 minutes for 5,000 items of one passage each and a projected 15 hours for the 5,000-item, 50 MB brain of spec section 16 with its 48,511 passages, whose generated text is token-heavy; with an NVIDIA GPU and a build with the `cuda` tag, 1 hour 10 minutes for that brain, measured on a Ryzen 9 7950X with an RTX PRO 6000; at that size, on that machine, up to 1,687 MiB of memory at a search and 4,758 MiB while indexing with the GPU (1.08 GiB at a one-item search and 1.88 GiB seen early in the unfinished run); a search at that size in 773 to 820 ms as a warm median on four cores, where bge-small takes 292 to 326 ms; a one-time download of 1.52 GB for a 552 MB pack; and 9 right of 20 on our reworded questions against 13 for bge-small.
 
@@ -731,6 +877,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestBuildFirstAndNoOp` | A first build embeds every passage; a second embeds none, computes no `ContentDigest` and never opens the inference runtime, though it verifies the model's files. Scenarios 35 and 37. |
 | `TestBuildRestoresModel` | With a complete index and the cache deleted, a build with no item changed downloads and verifies the model, embeds nothing, opens no runtime, and the next search with the source is ready. With a complete index and wrong weights of the right size at `model_path`, the same build fails with `invalid_config` and leaves the index as it was. An empty section asks for no model. Scenario 35. |
 | `TestSemanticNoticeTable`, in `cli` | Every row of the notice table, in text and JSON, in both views; singular and plural forms; the status line for each model state and each `IndexState`. No message holds an item id, a path or an address. Scenarios 35 and 37. |
+| `TestSyncDeviceNotices`, `TestCLIDevices`, in `cli` | `embedding_device` and each text of `cpu_fallback`, in text and JSON, at most once per command, and both when a run gives up its GPU; neither for a model with no GPU path, for a sync that embeds nothing or for a search; `device` in the JSON of a section that embedded and absent from one that did not. `--device` wins over `PBRAIN_DEVICE`; a malformed selector and a `PBRAIN_GPU_MEMORY` that is not a whole number of at least 1 are `invalid_config` before the scan. `pbrain devices` runs from an empty directory, in text and JSON, and prints the CPU's line alone in a build with no accelerator. Issue #38. |
 | `TestBuildIncremental` | After one added note: one passage embedded. After one edited paragraph of a long source: one embedded, the rest reused from the index. After a deleted item: `ItemsRemoved` 1 and its rows gone from the published database. An item is never half present: a build stopped between two transactions holds either all of an item's old passages or all of its new ones. A replacement whose insert fails part-way (a duplicate key forced by the test) is rolled back: the old item and all its old passages are still there, and nothing is published. Scenario 37. |
 | `TestBuildRename` | A personal item moved to a new path with its text unchanged: the next build embeds nothing, opens no runtime and does not touch the per-user cache, and the published database has the new path and not the old. |
 | `TestModelProvisionShared` | Two processes building different sections of different projects against one empty cache, one paused after it has opened the source files: both finish with the same verified pack, the source is downloaded once, and neither fails on files the other removed. A cancelled wait for the model lock ends with the context's error. The model lock is never taken before the index lock. |
@@ -741,6 +888,11 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestBuildConcurrent` | Two processes building one section: the second waits, reports `Waiting` and then finds nothing to do. Staggered: process A scans, an item is added, process B builds and indexes it, then A gets the lock; A scans again under the lock, keeps B's entry and reports nothing removed. A search during a build that publishes reads one whole database, the old or the new. |
 | `TestBuildEmptySection` | A section with no item and no index: zero result, no `.pbrain/` created, also for a personal folder that does not exist. A section whose last item was deleted: a database with no item. A section with no item whose index is unreadable or built for another model: the build publishes an empty database and the status reports it as in order. `Status` creates nothing in either. |
 | `TestBuildErrors` | Semantic search off (an empty `ModelName`): `no_model`. Unknown name: `invalid_config` listing the names. A changed body is skipped. A vector of the wrong length fails with `io` and leaves the old index. Scenario 35. |
+| `TestBuildUsesEmbedderWindow`, `TestBuildWorkersSameDatabase` | An embedder that is `Windowed` is given that many texts a call and one that is not is given 8. The same section built with the embedder at 1, 4 and 32 workers gives the same database bytes and the same counts. Issue #40. |
+| `TestBuildWindowInvariance` | A fake embedder whose vector is a function of the text. Windows of 1, 8, 64 and 1,024 give the same database bytes and the same counts: on a first build; on a build with two items sharing a passage, which is embedded once; and, in a personal section, on the two incremental cases of "Reuse by digest", with an index whose stored vectors differ from what the fake would make. Every run starts from its own copy of the same index and the same cache. Issue #39. |
+| `TestReuseTiers` | Each tier of "Reuse by digest" alone and each above the next: an own base row before another path's, a path outside `replace` before this run's answer, this run's answer before the cache; inside tiers 1 and 2 the lowest path and `ord`; a row of another path in `replace` is never taken, before or after that path is stored. Issue #39. |
+| `TestBuildResumed` | On an index holding one vector for each digest, a run interrupted after its first publication and resumed ends byte for byte as an uninterrupted one. On an index holding two vectors for one digest, the two ends have the same item and passage rows, and the vector bytes are not compared. Neither compares `PassagesEmbedded` or `PassagesReused` across the interruption. Issue #39. |
+| `TestBuildDeviceReports` | A fake embedder with a GPU `Info`: one `Progress` carries `Run` when the model opens, none after windows that leave `Info` unchanged, one more when it changes to the CPU with `memory`; `BuildResult.Device` is the last. A build that embeds nothing sends none and leaves `Device` empty. `Open` failing with `invalid_config` ends the build with it; with `ErrAccelerator`, `io`. An embedder whose `Close` fails with `ErrAccelerator` after a successful run: the counts are returned with no error. Issue #38. |
 | `TestModelIdentityBuild` | Wrong weights of the right size, at `model_path` and in the cache, and a missing companion file of a two-file model: `Build` fails (`invalid_config`, or a new download for the cache) and publishes no database; a search returns its lexical results with not ready and never calls `Registry.Open`. A file replaced by name after `Verify` returned, and a file overwritten in place through the same open file after `Verify` returned, change nothing: the test registry hashes the bytes it is given and they are the pinned ones. Two models with one name and different files use two folders. A valid offline two-file folder builds with no request. Scenario 35. |
 | `TestContentDigestFraming` | A title holding a zero byte, and a body starting with one, never collide with another title and body pair; moving bytes between the end of the title and the start of the body changes the digest. For `ContentCheck` the same move changes the CRC while the size stays, and one added byte changes the size. |
 | `TestIndexFormatChange` | A section holding an index of format 2 as v0.1.1 published it (a manifest with `"format": 2` and `sha256`, and its database file), written by a test helper: `Status` reports `IndexUnreadable` with nothing indexed, and a search answers `NoIndex` with the lexical results. The build then publishes a format 3 index and removes the old database file. With the cache holding the shared vectors, the shared build embeds nothing and never opens the inference runtime; the personal build embeds every passage. Scenario 37. |
@@ -753,6 +905,7 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestCatchUpNeverCreates` | No index, an index of another fingerprint, an unreadable index, format 2, a missing model, an exposed cache and `model = "none"`: after an add, a search writes no file, creates no folder and takes no lock, and its notice is the one of scenario 35. With `model_path` and no cache folder: the item is caught up and no cache folder appears. In a section folder that cannot be written: the search succeeds with `semantic_partial`. A cache folder whose `vectors` folder holds `.git`: nothing is written there and the item stays uncovered. Scenarios 35 and 42. |
 | `TestCatchUpFailures` | Each leaves the search successful and the previous index in force: an embedder that fails, one that returns a vector of the wrong length, a publication whose rename fails, a cancelled context (the context's error, nothing published). After a failed publication the item is still scored in that search. Scenario 42. |
 | `TestSourceLifecycle` | `Start` returns before the model is open and the scan can run meanwhile; `Close` without `Attach`, after a failed scan and after `Score` each cancels the task and closes the embedder once and only if it was opened; a cancelled context ends `Score` with the context's error. |
+| `TestSearchOpensCPU` | A registry that records `OpenOptions`: `Start`, `Score` and `CatchUp`, with `Options.Device` set to a GPU, open with the zero options every time, and `Build` with an empty `Options.Device` opens with `auto`. An embedder that fails with `ErrAccelerator` at open or at the query leaves the search with its lexical results and `ModelFailed`; one that fails so in a catch-up leaves the search successful with `semantic_partial` for the uncovered items and the covered ones scored, as `TestCatchUpFailures` has it for any failure. With the real model in a build with the `cuda` tag and a GPU present: check, load and one query inside 600 ms. Issue #37. |
 | `TestCLISemanticCPUClosePreservesResults`, `TestCLISyncCPUClosePreservesResults` (package `cli`) | An embedder whose `Close` returns an ordinary error, called once in each case. `search --semantic` prints the same output as with a healthy embedder, its semantic result included, writes nothing to standard error and exits 0. `sync` prints its counts and exits 0, and `sync --status` then finds every item indexed. Spec 7.1 and 9.4. |
 | `TestSourceBadQueryVector` | A runtime that returns a query vector of the wrong dimension, with a value that is not a number, or not of unit length: not ready with `ModelFailed`, no hit, lexical results kept. Scenario 35. |
 | `TestSourceNotReady` | Each row of the check table gives its reason and opens no model; no file is written and no request made in any of them. Scenario 35. |
@@ -763,6 +916,8 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestBgeBuildsFromBytes` | The model folder is deleted after `Verify` and before `Open`: the embedder opens and embeds, and `a.Files` is nil afterwards, also when `Open` fails. An `Artifact` with four files (the pooling file missing is one case), with six, or with an empty one fails before the loader is called. With the load step replaced by a fake, through a package variable kept for this test: a loader that skips one of the five paths (the pooling file is one case), one that reads a path twice, one that asks for another name and one that calls the `Open` method each make the opener fail. Guards the loader against a new pin of aikit. |
 | `TestBgeCutRule` | A 600-token query is cut to 510 from its end. A 400-token prefix with a 300-token passage: the prefix is cut to 255 and the passage to 255. A 400-token prefix with a 50-token passage: the prefix keeps 400 and nothing is cut. Changing the passage's first word changes the vector; changing a word in its cut tail does not. |
 | `TestBgeSpecialTokens` | `a [SEP] b [CLS] c` gives the ids of the plain pieces, never ids 101 or 102 inside the text; a text with and without the inserted space gives the same ids. |
+| `TestBgeWorkersSameBytes` | With the model files present: 64 texts at 1, 4 and 32 workers give equal bytes, and equal to the single forward's. Issue #40. |
+| `TestBgeWorkersKeepInputOrder`, `TestBgeWorkersCancelAndJoin`, `TestBgeWorkersDiscardResultsOnFailure`, `TestBgeSingleForwardAndClose` | With a fake model: the vectors come back in the order of the texts under random delays; a cancelled context returns its error only after every worker has returned; an error from one text returns no vectors; one text runs in the calling goroutine, and a closed model refuses. Issue #40. |
 | `TestRuntimeQuiet` | For each real model, in a child process whose standard output and standard error are pipes the test reads: opening the model and embedding print nothing on either. |
 | `TestStrayOutputDiscarded`, in `cmd/pbrain` | In a child process built with `cmd/pbrain`'s start-up code: after it has run, `fmt.Printf` and a write to the `os.Stderr` variable put no byte on either real pipe, while writes through `Env.Stdout` and `Env.Stderr` arrive whole. This covers a library's failure-path print without having to cause the failure. |
 | `TestRuntimeEnvAndOutput` | A source check on the pinned commits. For every Go file, tests excluded, of the aikit and goinfer packages that `cmd/pbrain` links, listed with `go list -deps` once for each of the four release targets, so that a file a build constraint leaves out on the test's own machine is read too: no call of `os.Getenv`, `os.LookupEnv`, `os.Environ` or `syscall.Getenv`, and no use of `os.Stdout`, `os.Stderr`, `fmt.Print`, `fmt.Printf`, `fmt.Println`, `print`, `println` or the default logger of `log`, outside a short list of allowed places kept in the test with a reason for each: one list for all targets, keyed by file and symbol. Each target must select files of both modules. It fails when a new pin adds one. The aikit packages have none today. |
@@ -771,6 +926,11 @@ Every test uses the test registry of `internal/embed/embedtest`: a model `test-m
 | `TestGemmaTokenizerBinary` | In pbrain, on the pinned commit: `BuildPack` of the pinned `tokenizer.json` gives the pinned digest; the pack-loaded tokenizer gives the stored reference ids of the 22 texts. Our goinfer carries the wider checks (its unit tests, its fuzz target and its real-checkpoint test). Load time is recorded by the benchmark, with 100 ms as the release threshold; the spike measured 24 to 26 ms. |
 | `TestGemmaBuildsFromBytes` | The pack folder is deleted after `Verify` and before `Open`: the embedder opens and embeds. Vectors equal those of the published loader on the same checkpoint. |
 | `TestGemmaSpecialTokensAndCut` | A body holding `<eos>`, `<bos>` and `<start_of_turn>` yields no special id between the first and the last token; the same body without them differs only by those pieces. No call passes 2,048 tokens; a long prefix with a short passage keeps the passage whole; a long passage is cut from its end; a 9,000-token text is cut, not refused. |
+| `TestDeviceSelection` | The rules of "Devices" as functions of a listing and of which attaches succeed, with no model: each selector; the automatic order on a dedicated card with a live figure, a shared card reporting a larger figure and one of unknown kind, which come out dedicated, unknown, shared; a device dropped only by a live figure under the weights; each `Fallback`; a selector naming nothing listed is `invalid_config` and a listed device that fails to attach wraps `ErrAccelerator`; a named GPU for a model with no GPU path is `invalid_config`. In a build with the `cuda` tag on a machine with no driver, which is CI: the listing holds no GPU, `auto` gives the CPU with `absent`, and `cuda` is `invalid_config`. Issue #38. |
+| `TestMemoryBudget` | The budget as a function of the figure, its kind and the override: live, estimated, unknown, a live zero, 400 MiB free (120 MiB, not raised), an override of 8 MiB (kept), an override over 6 GiB and one over the free figure. Issue #39. |
+| `TestGemmaPacker` | Order kept; no batch over `P` positions or 256 texts; a text longer than `P` alone; one text and a query never batched. Issue #39. |
+| `TestGemmaBatchSameBytes` | With the model present, a build with the `cuda` tag and a GPU: the 59 fixture passages embedded alone, at the default budget and at an override that allows one text a batch give equal bytes. Issue #39. |
+| `TestGemmaBackOff` | A fake accelerator that reports out of memory for a batch twice and then for one text alone: the positions tried fall strictly, eight texts of 200 tokens end in single calls and not in a loop, the vectors before the fall equal a run with no failure, and `Info` becomes the CPU with `memory` under `auto` while a named device fails with `ErrAccelerator`. Any other failure of a batch is `ErrAccelerator` at once. With the release of goinfer that reports the failure as such (issue #41). |
 | `TestDeriveDeterministic` | Deriving twice from the same source gives the same bytes, which match the pinned digests; a source with one changed byte, and a result with one changed byte, are refused and nothing is written; the source files are removed only after the pack verifies, and the empty folder may remain; an interrupted run does not download the source twice; source files placed at `model_path` are not accepted and nothing is written there. |
 | `TestCalibrate` | On a fixture with known scores: the cut-off from the calibration half only; the abstention gate fails when a held-out page shows a lexical result, and when a regression case shows any; the gain gate fails when a tighter page drops an expected id; a fixture without recorded halves or with too few questions is refused; the report has one row per arm of the wider comparison, and the two any-word arms score the same candidates; the partial tier's gates fail on a near-miss question that returns partial rows; maxima below a provisional cut-off are still collected; an exact match beyond the first page is excluded from the maxima; with 38 of 40 empty pages for each mode alone and 36 for both, the combined gate fails and the release check with it; a long-source question with no `evidence`, with two expected ids, or with a quotation found twice in its item, is refused; with one such question whose evidence is on the page, one that needs the read, one whose item is first and never shows it and one whose item is not retrieved, the report counts each once; with the expected item fifth on the page and the quotation not in its snippet, the reader opens the first result, the question is a miss of the second kind, and only the upper bound counts it; with a long body after the quotation, the size to the evidence is smaller than the size delivered by exactly that tail; in the guided-retry arm both searches are charged; at a budget where the text form of the page would hold a fifth result that the JSON form does not, an expected item in fifth place is not retrieved, and where the JSON body of the read ends before a quotation that the text form would have shown, the evidence is not visible, and every size is that of the JSON responses; no miss enters a size. Scenario 34. |
 | `TestAdapterContract` | For each real model, where its files are present: reference vectors reproduced with cosine similarity of at least 0.999; an over-long text is cut, not refused; with the longest permitted prefix, a changed word at the start of the passage changes the vector; batch size does not change a vector; fingerprint and dimension match the table. Skipped with a message otherwise. |
