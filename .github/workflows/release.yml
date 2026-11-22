@@ -1,9 +1,10 @@
 name: release
 
 # Release binaries (architecture section 16, decision 10): on a pushed v* tag, the suite runs in the
-# release configuration, then GoReleaser builds Linux and macOS on amd64 and arm64 with
-# CGO_ENABLED=0 and uploads the archives and their SHA-256 checksums to a draft release. The suite
-# runs on Linux only: the macOS binaries are built but untested and unsupported for now
+# release configuration, then GoReleaser builds Linux CUDA and CPU-only binaries and untagged
+# macOS binaries on amd64 and arm64. It checks Gemma CPU fallback with the native Linux CUDA
+# binary before uploading the archives and SHA-256 checksums to a draft release. The suite
+# runs on Linux only, and the macOS binaries are untested and unsupported for now
 # (architecture section 17).
 
 on:
@@ -36,3 +37,4 @@ jobs:
           args: release --clean --release-notes docs/release-notes/${{ github.ref_name }}.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PBRAIN_VERIFY_RELEASE_CUDA: "1"

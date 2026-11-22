@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo=$(git rev-parse --show-toplevel)
+host="$(go env GOHOSTOS)_$(go env GOHOSTARCH)"
+cd "${1:?release distribution directory required}"
+version=$(jq -er .version metadata.json)
+sha256sum --check --strict "pbrain_${version}_checksums.txt"
+
+shopt -s nullglob
+archives=(pbrain_"${version}"_*.tar.gz)
+if (( ${#archives[@]} != 6 )); then
+    echo "expected six release archives, got ${#archives[@]}" >&2
+    exit 1
+fi
+
+scratch=$(mktemp -d)
+trap 'rm -rf "$scratch"' EXIT
+
+check_archive() {
+    local os=$1 arch=$2 suffix=$3 tags=$4
+    local archive="pbrain_${version}_${os}_${arch}${suffix}.tar.gz"
+    local binary="$scratch/pbrain_${os}_${arch}${suffix}"
+    tar -xOzf "$archive" pbrain > "$binary"
+    local build_info build_tags
+    build_info=$(go version -m "$binary")
+    build_tags=$(awk -F= '/^[[:space:]]*build[[:space:]]+-tags=/ {print $2}' <<< "$build_info")
+    if [[ "$build_tags" != "$tags" ]]; then
+        echo "$archive: expected build tags '$tags', got '$build_tags'" >&2
+        return 1
+    fi
+    grep -Fxq $'\tbuild\tGOOS='"$os" <<< "$build_info"
+    grep -Fxq $'\tbuild\tGOARCH='"$arch" <<< "$build_info"
+    grep -Fxq $'\tbuild\tCGO_ENABLED=0' <<< "$build_info"
+
+    if [[ "$os" == linux && "${os}_${arch}" == "$host" ]]; then
+        chmod +x "$binary"
+        echo "testing $archive"
+        (
+            cd "$repo"
+            PBRAIN_SCENARIO_BINARY="$binary" CUDA_VISIBLE_DEVICES= \
+                go test -p 2 -count=1 -run '^TestReleaseBinaryOutput$' ./cmd/pbrain
+        )
+    fi
+}
+
+for arch in amd64 arm64; do
+    check_archive linux "$arch" "" cuda
+    check_archive linux "$arch" _cpu ""
+    check_archive darwin "$arch" "" ""
+done

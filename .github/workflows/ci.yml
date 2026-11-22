@@ -16,6 +16,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
@@ -45,6 +47,22 @@ jobs:
           go build -tags 'cuda eg2_combined' -o /dev/null ./cmd/pbrain
           go vet -tags cuda ./...
           go vet -tags 'cuda eg2_combined' ./...
+          GOOS=linux GOARCH=arm64 go build -tags cuda -o /dev/null ./cmd/pbrain
+          GOOS=linux GOARCH=arm64 go vet -tags cuda ./...
+      - name: verify CUDA fallback without a GPU
+        env:
+          CGO_ENABLED: "0"
+          CUDA_VISIBLE_DEVICES: ""
+        run: |
+          go test -tags cuda -run '^TestCUDAFallbackWithoutDevice$' ./internal/embed/gemma2
+          go test -tags cuda -run '^TestSyncDeviceNotices$' ./internal/cli
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=publish
+      - name: verify release archives and checksums
+        run: bash .github/scripts/verify-release-archives.sh dist
 
   race:
     name: test (race)
