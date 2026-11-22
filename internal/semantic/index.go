@@ -217,6 +217,20 @@ func vectorBlob(v []float32) []byte {
 	return b
 }
 
+func readVector(blob []byte, dim int) []float32 {
+	if len(blob) != 4*dim {
+		return nil
+	}
+	v := make([]float32, dim)
+	for i := range v {
+		v[i] = math.Float32frombits(binary.LittleEndian.Uint32(blob[4*i:]))
+	}
+	if !validVector(v, dim) {
+		return nil
+	}
+	return v
+}
+
 // putItem replaces the item at path, with all its passages, in one transaction: an item is in the
 // index with all its old passages or all its new ones, never half.
 func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, check Check, passages []storedPassage) error {
@@ -296,18 +310,51 @@ func (x *indexDB) vectorByDigest(ctx context.Context, digest [32]byte) ([]float3
 		if err := rows.Scan(&blob); err != nil {
 			return nil, false, err
 		}
-		if len(blob) != 4*x.dim {
-			continue
-		}
-		v := make([]float32, x.dim)
-		for i := range v {
-			v[i] = math.Float32frombits(binary.LittleEndian.Uint32(blob[4*i:]))
-		}
-		if validVector(v, x.dim) {
+		if v := readVector(blob, x.dim); v != nil {
 			return v, true, nil
 		}
 	}
 	return nil, false, rows.Err()
+}
+
+// baseVectorByDigest gives the asking item's base rows priority. Other paths
+// that this sync replaces are excluded, whether their rows are old or already written.
+func (x *indexDB) baseVectorByDigest(ctx context.Context, digest [32]byte, path string, replace map[string]bool) ([]float32, bool, error) {
+	rows, err := x.conn.QueryContext(ctx, `
+		SELECT item.path, passage.vector
+		FROM passage JOIN item ON item.id = passage.item_id
+		WHERE passage.digest = ?
+		ORDER BY item.path != ?, item.path, passage.ord`, digest[:], path)
+	if err != nil {
+		return nil, false, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var source string
+		var blob []byte
+		if err := rows.Scan(&source, &blob); err != nil {
+			return nil, false, err
+		}
+		if source != path && replace[source] {
+			continue
+		}
+		if v := readVector(blob, x.dim); v != nil {
+			return v, true, nil
+		}
+	}
+	return nil, false, rows.Err()
+}
+
+func (x *indexDB) vectorAt(ctx context.Context, path string, ord int) ([]float32, error) {
+	var blob []byte
+	id := x.items[path].id
+	if err := x.conn.QueryRowContext(ctx, `SELECT vector FROM passage WHERE item_id = ? AND ord = ?`, id, ord).Scan(&blob); err != nil {
+		return nil, err
+	}
+	if v := readVector(blob, x.dim); v != nil {
+		return v, nil
+	}
+	return nil, fmt.Errorf("stored vector at %q passage %d is invalid", path, ord)
 }
 
 // passagesOf returns an item's stored passages in order.

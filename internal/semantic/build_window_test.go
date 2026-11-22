@@ -21,6 +21,7 @@ import (
 type windowTestRegistry struct {
 	embed.Registry
 	batches []int
+	width   int
 }
 
 func (r *windowTestRegistry) Open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
@@ -36,7 +37,7 @@ type windowTestEmbedder struct {
 	registry *windowTestRegistry
 }
 
-func (*windowTestEmbedder) Window() int { return 128 }
+func (e *windowTestEmbedder) Window() int { return e.registry.width }
 
 func (e *windowTestEmbedder) Embed(ctx context.Context, role embed.Role, texts []string) ([][]float32, error) {
 	e.registry.batches = append(e.registry.batches, len(texts))
@@ -54,7 +55,7 @@ func windowTestSection(t *testing.T) *section {
 
 func TestBuildUsesEmbedderWindow(t *testing.T) {
 	e := newEnv(t)
-	r := &windowTestRegistry{Registry: e.reg}
+	r := &windowTestRegistry{Registry: e.reg, width: 128}
 	e.reg = r
 	s := windowTestSection(t)
 	got := e.mustBuild(s)
