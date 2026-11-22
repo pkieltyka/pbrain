@@ -114,7 +114,7 @@ func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl e
 		}
 	}
 	defer func() {
-		if cerr := b.close(); cerr != nil && retErr == nil {
+		if cerr := b.close(); retErr == nil && errors.Is(cerr, embed.ErrAccelerator) {
 			retErr = wrapAccelIO("the model cannot be closed", cerr)
 		}
 	}()

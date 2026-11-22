@@ -243,6 +243,24 @@ func TestSourceAcceleratorFailLoudAndCPUControls(t *testing.T) {
 		t.Fatalf("third Source.Close = %v (calls=%d), want nil and 2", err, hr4.closeCalls.Load())
 	}
 
+	t.Run("CPU close error", func(t *testing.T) {
+		e, s, in := setupIndexed(t)
+		hook := &accelHookRegistry{Registry: e.reg, closeErr: errors.New("ordinary CPU close failure")}
+		e.reg = hook
+		src := Start(t.Context(), e.opts(), "query", []SectionDir{s.sectionDir()})
+		t.Cleanup(func() { _ = src.Close() })
+		src.Attach([]SectionInput{in})
+		if scores, err := src.Score(t.Context(), "query", in.Items); err != nil || !scores.Ready {
+			t.Fatalf("Score before close error = (%+v, %v)", scores, err)
+		}
+		if err := src.Close(); err != nil {
+			t.Fatalf("Source.Close = %v, want nil", err)
+		}
+		if err := src.Close(); err != nil || hook.closeCalls.Load() != 1 {
+			t.Fatalf("second Source.Close = %v (calls=%d), want nil and 1", err, hook.closeCalls.Load())
+		}
+	})
+
 	// 5. Control: ordinary non-accelerator open failure keeps ModelFailed lexical degradation.
 	e5, s5, in5 := setupIndexed(t)
 	e5.reg = &accelHookRegistry{Registry: e5.reg, openErr: errors.New("ordinary cpu open failure")}

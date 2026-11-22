@@ -14,6 +14,7 @@ import (
 type cliHookRegistry struct {
 	embed.Registry
 	opens    atomic.Int64
+	closes   atomic.Int64
 	openErr  error
 	queryErr error
 	docErr   error
@@ -48,8 +49,47 @@ func (h *cliHookEmbedder) Embed(ctx context.Context, role embed.Role, texts []st
 }
 
 func (h *cliHookEmbedder) Close() error {
+	h.r.closes.Add(1)
 	_ = h.Embedder.Close()
 	return h.r.closeErr
+}
+
+func TestCLISemanticCPUClosePreservesResults(t *testing.T) {
+	rb, _ := semanticBrain(t)
+	if status, _, errOut := rb.run("sync"); status != 0 || errOut != "" {
+		t.Fatalf("initial sync: status=%d err=%q", status, errOut)
+	}
+	args := []string{"search", "beta", "material", "zzz", "--semantic"}
+	status, want, errOut := rb.run(args...)
+	if status != 0 || errOut != "" || !strings.Contains(want, "beta-b1b1  note  provisional  2026-11-02  semantic\n") {
+		t.Fatalf("healthy search: status=%d out=%q err=%q", status, want, errOut)
+	}
+	hook := &cliHookRegistry{Registry: rb.env.Models, closeErr: errors.New("ordinary CPU close failure")}
+	rb.env.Models = hook
+	status, out, errOut := rb.run(args...)
+	if status != 0 || out != want || errOut != "" {
+		t.Fatalf("search with CPU close failure: status=%d out=%q err=%q, want status 0 and output %q", status, out, errOut, want)
+	}
+	if calls := hook.closes.Load(); calls != 1 {
+		t.Fatalf("embedder Close calls = %d, want 1", calls)
+	}
+}
+
+func TestCLISyncCPUClosePreservesResults(t *testing.T) {
+	rb, _ := semanticBrain(t)
+	hook := &cliHookRegistry{Registry: rb.env.Models, closeErr: errors.New("ordinary CPU close failure")}
+	rb.env.Models = hook
+	status, out, errOut := rb.run("sync")
+	if status != 0 || errOut != "" || !strings.Contains(out, "shared: 2 items indexed") {
+		t.Fatalf("sync with CPU close failure: status=%d out=%q err=%q", status, out, errOut)
+	}
+	if calls := hook.closes.Load(); calls != 1 {
+		t.Fatalf("embedder Close calls = %d, want 1", calls)
+	}
+	status, out, errOut = rb.run("sync", "--status")
+	if status != 0 || errOut != "" || !strings.Contains(out, "shared: 2 of 2 items indexed") {
+		t.Fatalf("published index: status=%d out=%q err=%q", status, out, errOut)
+	}
 }
 
 func TestCLISemanticAcceleratorFailLoudAndControls(t *testing.T) {
