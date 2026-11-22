@@ -74,6 +74,41 @@ func TestCLINoBrainDispatch(t *testing.T) {
 	}
 }
 
+func TestCommandHelpDefaultsAndTags(t *testing.T) {
+	for _, tc := range []struct {
+		command string
+		options map[string]string
+	}{
+		{"search", map[string]string{"--limit": "default 5)", "--max-chars": "default 3000)", "--offset": "default 0)", "--tag": "filter by tag (repeatable)"}},
+		{"list", map[string]string{"--limit": "default 20)", "--max-chars": "default 2000)", "--tag": "filter by tag (repeatable)"}},
+		{"get", map[string]string{"--limit": "default 20 with --history, 50 with --outline", "--max-chars": "default 6000 for the body, 2000 with --history, 2000 with --outline"}},
+		{"prime", map[string]string{"--max-chars": "default 2000)", "--tag": "filter by tag (repeatable)"}},
+		{"tags", map[string]string{"--limit": "default 50)", "--max-chars": "default 2000)"}},
+		{"check", map[string]string{"--limit": "default 50)", "--max-chars": "default 4000)"}},
+		{"audience", map[string]string{"--limit": "default 20)", "--max-chars": "default 2000)"}},
+		{"init", map[string]string{"--path": "default docs/brain"}},
+		{"add", map[string]string{"--kind": "default note)", "--tag": "add a tag to the item (repeatable)"}},
+		{"import", map[string]string{"--tag": "add a tag to the item (repeatable)"}},
+	} {
+		t.Run(tc.command, func(t *testing.T) {
+			status, stdout, stderr := invoke(t, Env{Files: noFiles{}}, Features{}, tc.command, "--help")
+			if status != 0 || stderr != "" {
+				t.Fatalf("help: %d %q %q", status, stdout, stderr)
+			}
+			options := map[string]string{}
+			for _, line := range strings.Split(stdout, "\n") {
+				flag, text, _ := strings.Cut(strings.TrimSpace(line), " ")
+				options[flag] = strings.TrimSpace(text)
+			}
+			for flag, want := range tc.options {
+				if !strings.Contains(options[flag], want) {
+					t.Errorf("%s help = %q, want %q", flag, options[flag], want)
+				}
+			}
+		})
+	}
+}
+
 func TestSyncAlias(t *testing.T) {
 	const message = "pbrain index is now pbrain sync: the old name will be removed in the next release"
 	env := Env{Files: noFiles{}}
