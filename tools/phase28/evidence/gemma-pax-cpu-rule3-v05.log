@@ -1,0 +1,36 @@
+2026-11-22T08:22:11+00:00
+master=c56bb5d07f6ec72564ea55db0592dfd872f1fd31
+pax
+Linux 7.3.4
+Architecture:                            x86_64
+CPU(s):                                  32
+Model name:                              AMD Ryzen 9 7950X 16-Core Processor
+Thread(s) per core:                      2
+Core(s) per socket:                      16
+CPU CORE L1d:L1i:L2:L3
+  0    0 0:0:0:0
+  1    1 1:1:1:0
+  2    2 2:2:2:0
+  3    3 3:3:3:0
+MemTotal:       130973592 kB
+btrfs
+go version go1.27.3 linux/amd64
+9:	github.com/pkieltyka/aikit v1.79.1
+10:	github.com/pkieltyka/goinfer v0.5.0
+PBRAIN_TEST_GEMMA2_PACK=/var/tmp/pbrain-phase28-gemma-22.5UFzx5/gemma-pack
+taskset -c 0-3 env GOWORK=off GOFLAGS= CGO_ENABLED=0 GOMAXPROCS=4 PBRAIN_ALLOW_GEMMA2=1 PBRAIN_TEST_GEMMA2_PACK=$pack go test -p 2 -run ^$ -bench ^BenchmarkGemmaFirstQuery$ -benchtime=1x -count=5 ./internal/embed/gemma2
+name, memory.used [MiB], utilization.gpu [%]
+NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition, 2 MiB, 0 %
+2026-11-22T08:22:11+00:00
+loadavg before benchmark: 0.80 0.70 1.12 1/3541 3742566
+goos: linux
+goarch: amd64
+pkg: github.com/pkieltyka/pbrain/internal/embed/gemma2
+cpu: AMD Ryzen 9 7950X 16-Core Processor
+BenchmarkGemmaFirstQuery-4   	       1	 353268725 ns/op
+BenchmarkGemmaFirstQuery-4   	       1	 286211612 ns/op
+BenchmarkGemmaFirstQuery-4   	       1	 284047393 ns/op
+BenchmarkGemmaFirstQuery-4   	       1	 282949299 ns/op
+BenchmarkGemmaFirstQuery-4   	       1	 287521059 ns/op
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	1.594s
