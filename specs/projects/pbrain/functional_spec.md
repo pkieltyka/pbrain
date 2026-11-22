@@ -273,7 +273,7 @@ A negative offset is a usage error. An offset at or past the end returns an empt
 
 ### 6.3 Streams and exit codes
 
-- **Standard output** carries only the result. **Standard error** carries errors and notices; with `--json` each line there is one object, `{"error": {"code": "…", "message": "…"}}` or `{"notice": {"code": "…", "message": "…"}}`.
+- **Standard output** carries only the result. **Standard error** carries errors and notices; with `--json` each line there is one object, `{"error": {"code": "…", "message": "…"}}` or `{"notice": {"code": "…", "message": "…"}}`. One thing is not pbrain's to promise: when `pbrain devices` or `pbrain sync` asks a GPU, the GPU's driver may write lines of its own on standard error, so there standard error is not pbrain's alone. A program that reads it with `--json` takes each line that is a JSON object and skips any line that is not. A search asks no GPU.
 - **0**: success, including an empty search. **1**: the command failed and standard output is empty. **2**: wrong usage.
 - Two commands print on standard output and still exit 1: `check`, if the brain in its view has an error, prints its report, whichever page was asked for; `delete` without `--yes` prints its preview (section 8.6).
 - Files skipped by a read are reported as one notice with their count, pointing to `check`. Only broken files count, the ones `check` reports as an error (`bad_front_matter`, `bad_file_name`). A `.md` file without front matter is not an item (section 2.2): nothing was skipped, and it never raises the notice. One broken file never fails a read.
