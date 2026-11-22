@@ -1,0 +1,5 @@
+=== RUN   TestGemmaParity
+    real_test.go:135: 22 raw and 22 prepared texts, 768 and 512 dimensions: minimum cosine 0.99999999999862
+--- PASS: TestGemmaParity (27.53s)
+PASS
+ok  	github.com/pkieltyka/pbrain/internal/embed/gemma2	27.701s

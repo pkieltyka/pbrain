@@ -260,6 +260,121 @@ stored bit-identical ordered vectors. Each build matched its pre-tag
 vector digest and returned the same rankings for the three labeled
 semantic queries `a003`, `a004` and `a005`.
 
+### Full-size CUDA sync and CPU search comparison
+
+2026-11-22. Candidate `b79b9aad8529a5593b1bd9cb33a5b06ccec2f8c8`
+used Go 1.27.3, goinfer v0.5.0, `CGO_ENABLED=0`, `GOAMD64=v1` and
+`-trimpath`. The two executables were the untagged CPU build and the
+plain `-tags cuda` build. The host was a Ryzen 9 7950X with 124.9 GiB of
+RAM visible to Linux, kernel 7.3.4, btrfs and an RTX PRO 6000 Blackwell
+Max-Q Workstation Edition (97,887 MiB, driver 595.112.07). The measured
+processes used `GOMAXPROCS=4` on CPUs 8–11, four physical cores on one L3.
+The local text pack came from `f9972ac22e696a105c482202646979e33e4b5a1e`.
+The runs recorded `/proc/loadavg` and `nvidia-smi` before timing each
+command or benchmark process.
+
+#### Matched CPU/CUDA sample and parity
+
+Both fresh `pbrain sync --json` runs on the same 32 notes embedded all
+59 passages from an empty index and cache. Three labeled `search
+--semantic --json` queries returned their expected semantic hits in
+both arms. One-minute load at the start of these commands was 11.21–14.54.
+
+| Small fixture | CPU | CUDA |
+| --- | ---: | ---: |
+| Fresh sync wall time | 19.024 s | 2.551 s |
+| Fresh sync peak host RSS | 2,085.7 MiB | 1,875.7 MiB |
+| Median of three semantic searches | 520.9 ms | 1,081.4 ms |
+
+The published SQLite indexes passed `PRAGMA quick_check` and had
+the same index fingerprint, `e3c9a68ccccdf02cf42843d7d19fac984a5c6f922630f12217cbab68343509e9`.
+All 59 pairs matched on item path, passage ordinal, span and digest.
+Comparing the CPU and CUDA 768-dimensional stored vectors in float64
+gave **minimum cosine 0.99999999999854**, at ordinal 0 of
+`decisions/standing-rule.md`, and **median 0.99999999999955**. The vectors
+differed bytewise. The untagged, model-present `TestGemmaParity` passed
+with minimum cosine 0.99999999999862 across 22 raw and 22 prepared
+reference texts checked at 512 and 768 dimensions.
+
+#### First query and full indexing
+
+CUDA rule 3 (`BenchmarkGemmaFirstQuery`, `-tags cuda -benchtime=1x
+-count=1`) measured digest verification, model open, one query and close.
+The five fresh processes used a primed pack. They took 1,049.7, 927.7,
+1,272.3, 957.3 and 1,101.4 ms. The median was **1,049.7 ms**, and every
+sample exceeded the 600 ms target. One-minute start load was 26.55–28.51.
+
+The CUDA candidate's `TestMeasureReads/personal` retained the 5,000-item,
+50,000,000-byte fixture and used an empty index and vector cache. The
+first `pbrain --personal sync --json` embedded 43,642 shared and 4,869
+personal passages. The next sync added one personal passage. The GPU
+sampler read compute-process memory roughly every three seconds, giving
+a sampled lower bound on device peak memory. The one-minute load was
+25.33 before the first sync.
+
+| CUDA sync | Wall time | Passages/s | Peak host RSS | Sampled device peak |
+| --- | ---: | ---: | ---: | ---: |
+| First sync, both sections | 4,181.3 s (1 h 9 m 41 s) | 11.60 | 4,758.0 MiB | 1,314 MiB |
+| Sync after one new personal note | 2.386 s | — | 2,421.2 MiB | — |
+
+#### Warm search on the CUDA-built index
+
+CUDA timed search before the one-note sync. The CPU follow-up used the
+same 4,500 shared and 500 personal items and byte-identical SQLite
+generations preserved from the first CUDA sync. Each row used ten
+fresh warm processes after a priming read. The first sample had
+uncontrolled cache state. One-minute load was 11.35–15.78 during the
+CUDA search series and 10.63–13.69 during the CPU series.
+
+| Semantic search | CPU median [range] (ms) | CPU peak MiB | CPU ≥1 s | CUDA median [range] (ms) | CUDA peak MiB | CUDA ≥1 s |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Shared, exact hit | 772.8 [696.4–1,036.4] | 1,626.5 | 1/10 | 1,452.7 [1,289.6–1,786.2] | 2,317.9 | 10/10 |
+| Shared, paraphrase | 779.7 [657.3–1,052.2] | 1,627.4 | 1/10 | 1,425.9 [1,312.6–1,743.2] | 2,295.0 | 10/10 |
+| Shared, paraphrase + BM25 | 802.4 [730.5–1,038.0] | 1,626.3 | 1/10 | 1,486.5 [1,256.1–1,762.1] | 2,319.0 | 10/10 |
+| Personal, exact hit | 820.1 [738.8–1,026.3] | 1,657.2 | 1/10 | 1,534.1 [1,333.4–1,794.5] | 2,380.1 | 10/10 |
+| Personal, paraphrase | 802.5 [767.9–998.7] | 1,647.9 | 0/10 | 1,509.7 [1,297.7–1,783.6] | 2,341.8 | 10/10 |
+| Personal, paraphrase + BM25 | 809.2 [687.4–1,103.1] | 1,686.8 | 1/10 | 1,510.5 [1,327.1–1,661.1] | 2,342.2 | 10/10 |
+
+#### Bounded catch-up on the CUDA-built index
+
+Each trial started from the same preserved shared generation, then
+added one or 20 shared notes with one uncached passage each. The timed
+command was `pbrain search 'where is login state kept' --semantic --json`.
+The two builds ran in alternating order. Each trial paired a held-lock
+control with a free-lock search on the same notes. The table reports ten
+timed trials per case after one warm-up. One-minute start load was
+9.94–16.33.
+
+| Shared search gap | CPU median [range] (ms) | CPU saved | CUDA median [range] (ms) | CUDA saved |
+| --- | ---: | ---: | ---: | ---: |
+| One passage, lock held | 820.4 [677.9–1,095.1] | 0 | 1,593.4 [1,377.6–1,801.2] | 0 |
+| One passage, lock free | 1,738.0 [1,332.8–1,956.1] | 1 | 2,281.2 [2,040.7–2,447.8] | 1 |
+| 20 passages, lock held | 790.4 [688.3–1,105.8] | 0 | 1,497.5 [1,410.0–1,852.1] | 0 |
+| 20 passages, lock free | 3,592.4 [3,406.4–3,870.8] | 15–19 | 2,721.5 [2,385.0–2,964.9] | 20 |
+
+Held-lock searches returned `semantic_partial` before release and
+preserved the generation. Every free-lock trial returned a new semantic
+hit. CPU searches at the full bound reported the remaining gap, with
+a median of 17 passages saved. CUDA saved the entire gap in each trial.
+The median paired added wall time was 917.8 ms for one passage and
+2,736.7 ms for 20 on CPU, and 742.4 ms and 1,290.6 ms on CUDA. The
+two-second bound applies to starting another embedding after acquiring
+the lock. The measured wall time includes query setup, scoring and
+publication.
+
+[Run plan](../../docs/plans/issue-22-gemma-cuda.md),
+[build and model provenance](../../tools/phase28/evidence/gemma-pax-22/host-build-model.log),
+[small fixture timings](../../tools/phase28/evidence/gemma-pax-22/small-timing.jsonl),
+[CPU/CUDA vector comparison](../../tools/phase28/evidence/gemma-pax-22/cpu-cuda-passage-parity.jsonl),
+[untagged parity test](../../tools/phase28/evidence/gemma-pax-22/cpu-reference-parity.log),
+[CUDA rule 3](../../tools/phase28/evidence/gemma-pax-22/cuda-rule3.log),
+[full CUDA run](../../tools/phase28/evidence/gemma-pax-22/cuda-full.log),
+[device samples](../../tools/phase28/evidence/gemma-pax-22/cuda-device-samples.jsonl),
+[retained index](../../tools/phase28/evidence/gemma-pax-22/retained-index.jsonl),
+[CPU warm search](../../tools/phase28/evidence/gemma-pax-22/cpu-warm.log),
+[catch-up samples](../../tools/phase28/evidence/gemma-pax-22/cpu-cuda-catchup.jsonl),
+[load and GPU preflight](../../tools/phase28/evidence/gemma-pax-22/preflight.jsonl).
+
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
