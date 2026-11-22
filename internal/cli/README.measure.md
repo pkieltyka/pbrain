@@ -670,3 +670,29 @@ prepared IDs for the 22 reference texts and 59 passages. The probe compared
 model rows are unchanged.
 
 [Commands and raw v0.6.2 measurements](../../tools/phase28/evidence/gguf-47-v062/)
+
+## Vulkan sync qualification on goinfer v0.6.2 (#49)
+
+2026-11-22 on pax, using the Google EmbeddingGemma 2 pack. The RX 9060 XT
+passed the saved 59-passage reproduction against CPU, with minimum cosine
+0.999999999998413. All 59 Vulkan vectors were byte-identical across
+singleton, default, reversed and 1 MiB layouts. The CUDA/CPU minimum
+cosine was 0.999999999998539.
+
+The first 200 passages of the full-corpus run supplied the matched slice
+of 100,066 positions. Each test used the desktop's default `GOMAXPROCS=32`.
+The timer covers preparation and embedding with the verified model
+already open. Both GPU runs requested a 1 GiB batch workspace.
+
+| Device | Seconds | Passages/s |
+| --- | ---: | ---: |
+| Vulkan · AMD Radeon RX 9060 XT | 49.24 | 4.06 |
+| CUDA · NVIDIA RTX PRO 6000 Blackwell Max-Q | 14.85 | 13.46 |
+| CPU · AMD Ryzen 9 7950X | 114.57 | 1.75 |
+
+Vulkan was 2.33 times as fast as CPU on this slice. On the full corpus
+with four allowed CPUs, the six complete 256-passage windows ran at
+0.928–0.975 passages/s, about 0.95. That run ended at 30 minutes by
+operator decision, with a readable checkpoint. See the separate
+worker settings, window positions, forward breakdown and VRAM samples
+in the [Vulkan capture](../../tools/phase28/evidence/vulkan-49-v062/).
