@@ -171,6 +171,43 @@ an upper bound for rule 3 on this fixture. Every warm Linux sample fits
 the 600 ms rule. Cold-cache and 5,000-item results are separate; arm64 Mac
 results are deferred (architecture §17).
 
+### SQLite sync with published goinfer v0.5.0
+
+On November 21, 2026, pbrain commit `93ae631ea40e8b092d0aff228b162c7d8597e2cd`
+ran with the published goinfer and CUDA backend modules at `v0.5.0`.
+All three Linux amd64 binaries used Go 1.27.3, `GOWORK=off`, `CGO_ENABLED=0`,
+`GOAMD64=v1`, and `-trimpath`. Runtime used `GOMAXPROCS=4` on a Ryzen 9
+7950X with an RTX PRO 6000 Blackwell Max-Q Workstation Edition, NVIDIA driver
+595.112.07, and btrfs. The CPU build used no tags. The GPU builds used
+`-tags cuda` and `-tags 'cuda eg2_combined'` respectively.
+
+The fixture was the same 32 current shared Markdown notes used in the
+[goinfer application benchmark](https://github.com/pkieltyka/goinfer/blob/v0.5.0/docs/measurements/pbrain-embedding-rtx-combined-2026-11-21/README.md#pbrain-application-on-the-workstation).
+The source notes are in `internal/semantic/calibrate/testdata/retrieval/brain`
+at pbrain commit `b4def8fad8ea34101c369777604144fbbec2182a`.
+They produced 59 passages and 9,271 prepared tokens in the reference
+fixture. The model was the local text pack derived from
+`google/embeddinggemma-2@f9972ac22e696a105c482202646979e33e4b5a1e`
+with BF16 weights widened to FP32 for deterministic inference.
+
+Each arm ran once in CPU, CUDA, then combined CUDA order. Each command used
+a fresh process. The fresh sync started with an empty SQLite index and
+vector cache. The no-change sync used the resulting index, and the
+one-note sync added one short note that produced one passage. One-minute
+start load ranged from 0.70 to 1.32. Filesystem cache and GPU thermal
+state were uncontrolled.
+
+| `pbrain sync --json` wall time | CPU | CUDA | Combined CUDA |
+| --- | ---: | ---: | ---: |
+| Fresh index, 59 new vectors | 14.61 s | 2.34 s | 2.06 s |
+| No changes, zero new vectors | 243 ms | 237 ms | 240 ms |
+| One new note, one new vector | 461 ms | 1.05 s | 1.04 s |
+
+Every SQLite database passed `PRAGMA quick_check`. Both CUDA builds
+stored bit-identical ordered vectors. Each build matched its pre-tag
+vector digest and returned the same rankings for the three labeled
+semantic queries `a003`, `a004` and `a005`.
+
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
