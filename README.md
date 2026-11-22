@@ -100,7 +100,7 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 | BGE semantic search, personal view | 332–333 ms | Not yet measured |
 | BGE semantic + BM25, shared / personal view | 298 ms / 335 ms | Not yet measured |
 | BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
-| EmbeddingGemma 2, full-size measurements | Deferred until the model is cleared for use | Not yet measured |
+| EmbeddingGemma 2, full-size measurements | Not yet measured | Not yet measured |
 
 Search and get figures are warm medians on four CPUs. On four cores of a Ryzen 9 7950X the first index
 took 1 h 18 m, and the semantic search medians were 291–298 ms in the shared view and 321–326 ms in the
