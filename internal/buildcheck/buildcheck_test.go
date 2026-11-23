@@ -216,8 +216,8 @@ func TestReleaseConfig(t *testing.T) {
 	want := map[string]struct{ os, arch, tags []string }{
 		"pbrain-cpu": {os: []string{"linux", "darwin"}, arch: both},
 		// goinfer's Vulkan backend supports Linux amd64 only, so arm64 keeps CUDA alone.
-		"pbrain-cuda-vulkan": {os: []string{"linux"}, arch: []string{"amd64"}, tags: []string{"cuda", "vulkan"}},
-		"pbrain-cuda":        {os: []string{"linux"}, arch: []string{"arm64"}, tags: []string{"cuda"}},
+		"pbrain-cuda-vulkan": {os: []string{"linux"}, arch: []string{"amd64"}, tags: []string{"cuda", "vulkan", "eg2_combined", "eg2_fp16"}},
+		"pbrain-cuda":        {os: []string{"linux"}, arch: []string{"arm64"}, tags: []string{"cuda", "eg2_combined", "eg2_fp16"}},
 	}
 	for _, build := range cfg.Builds {
 		targets, ok := want[build.ID]

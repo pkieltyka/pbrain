@@ -26,8 +26,9 @@ func GGUFEntries() []embed.Entry {
 		Model: embed.Model{
 			Name: q8Name, Runtime: "goinfer", Dim: dimension, Cutoff: 0.72,
 			Fingerprint: q8Fingerprint, Files: slices.Clone(q8Files),
+			CUDAFP16Fingerprint: fp16Fingerprint(q8Fingerprint, goinferRevision),
 		},
-		Open: openQ8, Devices: listCUDADevices,
+		Open: openQ8, Devices: listCUDADevices, ResolveFP16: fp16Resolver(),
 	}}
 }
 

@@ -67,6 +67,7 @@ func semanticOptions(ctx context.Context, env Env, b *brain.Brain, create bool) 
 		rnd = rand.Reader
 	}
 	opt := semantic.Options{Files: env.Files, Registry: reg, ModelName: b.Config.Semantic.Model, Rand: rnd}
+	opt.CUDAPrecision = b.Config.Semantic.CUDAPrecision
 	release := func() {}
 	if opt.ModelName == "" {
 		return opt, release, nil
@@ -193,6 +194,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		return outcome{err: err}
 	}
 	opt.Device, opt.GPUMemory = runtimeOpt.Device, runtimeOpt.MemoryBudget
+	opt.ShareWriterResolution()
 	dirs, err := sectionDirs(in, b)
 	if err != nil {
 		return outcome{err: err}
@@ -202,6 +204,14 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 	}
 	shown := map[string]bool{}
 	progress := func(p semantic.Progress) {
+		if p.PrecisionFallback != "" {
+			const code = "cuda_precision_fallback"
+			if !shown[code] {
+				emitNotice(env.Stderr, in.json, errs.Notice{Code: code, Message: p.PrecisionFallback})
+				shown[code] = true
+			}
+			return
+		}
 		if p.Run != nil {
 			if n, ok := deviceNotice(*p.Run, opt.ModelName); ok && !shown[n.Code] {
 				emitNotice(env.Stderr, in.json, n)

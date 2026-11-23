@@ -30,16 +30,18 @@ type SectionInput struct {
 type ScanFunc func(ctx context.Context) (SectionInput, error)
 
 type Options struct {
-	Files     sys.Files
-	Registry  embed.Registry
-	ModelName string  // pbrain.toml semantic.model; "" when off
-	Device    string  // sync selector, empty for auto
-	GPUMemory int64   // batch budget override in bytes
-	ModelDir  sys.Dir // personal.toml model_path, opened by cli; nil when unset
-	Cache     *Cache  // nil when no cache folder is known
-	CacheErr  error   // ErrCacheExposed when the folder failed its test
-	Rand      io.Reader
-	Now       func() time.Time
+	Files         sys.Files
+	Registry      embed.Registry
+	ModelName     string // pbrain.toml semantic.model; "" when off
+	Device        string // sync selector, empty for auto
+	CUDAPrecision string
+	GPUMemory     int64   // batch budget override in bytes
+	ModelDir      sys.Dir // personal.toml model_path, opened by cli; nil when unset
+	Cache         *Cache  // nil when no cache folder is known
+	CacheErr      error   // ErrCacheExposed when the folder failed its test
+	Rand          io.Reader
+	Now           func() time.Time
+	writer        func() embed.WriteProfile
 }
 
 type CacheOptions struct {
@@ -61,10 +63,11 @@ type BuildResult struct {
 }
 
 type Progress struct {
-	Section     item.Section
-	Done, Total int            // items to do
-	Waiting     bool           // waiting for the index lock, held by a build or a search's catch-up
-	Run         *embed.RunInfo // set at open and when the runtime changes
+	Section           item.Section
+	Done, Total       int            // items to do
+	Waiting           bool           // waiting for the index lock, held by a build or a search's catch-up
+	Run               *embed.RunInfo // set at open and when the runtime changes
+	PrecisionFallback string
 }
 
 type SectionStatus struct {

@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -500,7 +501,8 @@ func TestIgnoreAndDisplayUseLiteralPaths(t *testing.T) {
 func TestReadProjectSettings(t *testing.T) {
 	c, err := decodeProject(nil)
 	if err != nil || c.Search != (Limits{5, 3000}) || c.List != (Limits{20, 2000}) || c.Get.MaxChars != 6000 ||
-		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != DefaultModel {
+		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != DefaultModel ||
+		c.Semantic.CUDAPrecision != "fp16" {
 		t.Fatalf("defaults: %+v %v", c, err)
 	}
 	c, err = decodeProject([]byte("search = { limit = 50, max_chars = 9000 }\nlist = { limit = 200 }\nsemantic = { model = \"bge-small-en-v1.5\" }\n[tags]\n"))
@@ -527,6 +529,7 @@ func TestReadProjectSettings(t *testing.T) {
 	}
 	for _, bad := range []string{
 		`semantic.model = ""`, "semantic.model = 42",
+		`semantic.cuda_precision = ""`, `semantic.cuda_precision = "FP16"`, "semantic.cuda_precision = 16",
 		"search = { limit = 0 }", "search = { limit = 51 }", "list = { limit = 201 }",
 		"get = { max_chars = 0 }", "prime = { max_chars = -1 }", "search = { limit = \"5\" }",
 		"[tags]\nCache = \"x\"", "[tags]\ncache = \"\"", "[tags]\ncache = \"two\\nlines\"", "[tags]\ncache = 3",
@@ -534,6 +537,12 @@ func TestReadProjectSettings(t *testing.T) {
 	} {
 		if _, err := decodeProject([]byte(bad)); code(err) != "invalid_config" {
 			t.Errorf("%q: %v", bad, err)
+		}
+	}
+	for _, want := range []string{"fp32", "fp16"} {
+		c, err := decodeProject([]byte("semantic.cuda_precision = " + strconv.Quote(want)))
+		if err != nil || c.Semantic.CUDAPrecision != want {
+			t.Fatalf("precision = %q, %v, want %q", c.Semantic.CUDAPrecision, err, want)
 		}
 	}
 	l, err := decodeLocal([]byte("model_path = \"/opt/models/x\"\nauthor = \"human:p\"\nfuture = 1\n"))

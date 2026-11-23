@@ -99,7 +99,10 @@ type Config struct {
 	Get, Prime   struct{ MaxChars int }
 	Tags         map[string]string // declared tags; nil when there is no [tags] table
 	HasTags      bool
-	Semantic     struct{ Model string } // "" when semantic search is off; the name is checked by embed, not here
+	Semantic     struct {
+		Model         string // "" when semantic search is off; embed checks the name
+		CUDAPrecision string
+	}
 }
 
 // Limits are a command's default page size and output budget.

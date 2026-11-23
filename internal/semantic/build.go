@@ -169,6 +169,7 @@ type builder struct {
 
 	art     *embed.Artifact
 	emb     embed.Embedder
+	writer  embed.WriteProfile
 	runInfo embed.RunInfo
 	x       *indexDB
 	si      *sectionIndex // x, shared with a catch-up's code
@@ -211,15 +212,26 @@ type queued struct {
 
 func (b *builder) run() (BuildResult, error) {
 	ctx, files := b.ctx, b.opt.Files
-	fp := IndexFingerprint(b.m)
+	b.writer = b.resolveWriter()
+	if err := ctx.Err(); err != nil {
+		return b.res, err
+	}
+	if b.writer.Reason != "" {
+		b.progress(Progress{Section: b.sec.Section, PrecisionFallback: b.writer.Reason})
+	}
+	fp := indexFingerprint(b.writer.Fingerprint)
+	matches := func(m manifest) bool {
+		return manifestProfile(m, b.m, b.opt.CUDAPrecision) == b.writer.Fingerprint
+	}
 	readSpan := trace.Start(ctx, "index_read")
-	x, state := openIndex(ctx, files, b.idx, fp, b.m.Dim, true)
+	x, state := openExpectedIndex(ctx, files, b.idx, matches, true)
 	readSpan.End()
 	if state != IndexOK {
 		var err error
 		if x, err = newIndex(ctx, fp, b.m.Name, b.m.Dim); err != nil {
 			return b.res, ctxOr(ctx, buildIOErr("the index cannot be built"))
 		}
+		x.cudaPrecisionRequest = precisionMarker(b.m, b.opt.CUDAPrecision)
 		b.changed = true // an index that is missing, unreadable or stale is replaced even when empty
 	}
 	b.x = x
@@ -267,7 +279,8 @@ func (b *builder) run() (BuildResult, error) {
 	}
 	b.vectors = make(map[[32]byte]vectorRef)
 	b.lastPub, b.lastProg = b.now(), b.now()
-	b.si = &sectionIndex{opt: b.opt, m: b.m, sec: b.sec.Section, x: x, cache: b.sec.Section == item.Shared && b.opt.Cache != nil}
+	b.si = &sectionIndex{opt: b.opt, m: b.m, vectorFingerprint: b.writer.Fingerprint, sec: b.sec.Section, x: x,
+		cache: b.sec.Section == item.Shared && b.opt.Cache != nil}
 
 	// Steps 7 to 10.
 	var pending []*work
@@ -319,11 +332,12 @@ func (b *builder) run() (BuildResult, error) {
 // sectionIndex is what a build and a catch-up share to fill one section's index: its in-memory
 // database, the model that fills it and the per-user cache, which only the shared section uses.
 type sectionIndex struct {
-	opt   Options
-	m     embed.Model
-	sec   item.Section
-	x     *indexDB
-	cache bool // read and write opt.Cache
+	opt               Options
+	m                 embed.Model
+	vectorFingerprint string
+	sec               item.Section
+	x                 *indexDB
+	cache             bool // read and write opt.Cache
 }
 
 // errCacheGit is the error of a cache folder found to hold a Git repository below its root.
@@ -377,7 +391,7 @@ func (s *sectionIndex) cachedVector(ctx context.Context, digest [32]byte) ([]flo
 		return nil, false, nil
 	}
 	lookup := trace.Start(ctx, "cache_lookup")
-	v, ok, err := s.opt.Cache.readVector(s.m.Fingerprint, digest, s.m.Dim)
+	v, ok, err := s.opt.Cache.readVector(s.vectorFingerprint, digest, s.m.Dim)
 	lookup.End()
 	if err != nil {
 		return nil, false, errCacheGit
@@ -413,7 +427,7 @@ func (s *sectionIndex) keep(ctx context.Context, w *work, i int, v []float32) er
 		return nil
 	}
 	write := trace.Start(ctx, "cache_write")
-	err := s.opt.Cache.writeVector(s.m.Fingerprint, w.ps[i].Digest, v)
+	err := s.opt.Cache.writeVector(s.vectorFingerprint, w.ps[i].Digest, v)
 	write.End()
 	if err != nil {
 		if errors.Is(err, ErrCacheExposed) {
@@ -454,7 +468,11 @@ func (b *builder) openEmbedder() error {
 		device = "auto"
 	}
 	open := trace.Start(b.ctx, trace.ModelOpen)
-	emb, err := b.opt.Registry.Open(b.ctx, b.art, embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory})
+	options := embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory}
+	if b.writer.Inventory != nil {
+		options.Writer = b.writer
+	}
+	emb, err := b.opt.Registry.Open(b.ctx, b.art, options)
 	open.EndWith(trace.Fields{Failed: err != nil})
 	b.art = nil
 	if err != nil {
@@ -469,6 +487,9 @@ func (b *builder) openEmbedder() error {
 		return ctxOr(b.ctx, wrapAccelIO(message, err))
 	}
 	b.emb = emb
+	if emb.Fingerprint() != b.writer.Fingerprint {
+		return buildIOErr("the model opened with a different vector profile")
+	}
 	b.reportRuntime()
 	return nil
 }

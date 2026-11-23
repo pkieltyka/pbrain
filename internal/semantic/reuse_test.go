@@ -185,7 +185,7 @@ func TestReuseTiers(t *testing.T) {
 	if err := e.cache.writeVector(m.Fingerprint, digest, axisVector(m.Dim, 6)); err != nil {
 		t.Fatal(err)
 	}
-	b := &builder{ctx: ctx, x: x, si: &sectionIndex{opt: e.opts(), m: m, x: x, cache: true},
+	b := &builder{ctx: ctx, x: x, si: &sectionIndex{opt: e.opts(), m: m, vectorFingerprint: m.Fingerprint, x: x, cache: true},
 		replace: map[string]bool{"b.md": true, "new.md": true},
 		vectors: map[[32]byte]vectorRef{digest: {pending: &work{vecs: [][]float32{axisVector(m.Dim, 5)}}}}}
 	assert := func(path string, wantAxis int) {

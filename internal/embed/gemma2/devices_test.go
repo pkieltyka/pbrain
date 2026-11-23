@@ -218,7 +218,7 @@ func TestAttachedBudget(t *testing.T) {
 					}
 					return acc, nil
 				})
-			got, err := attachDevice(model, device, test.override)
+			got, err := attachDevice(model, device, test.override, "")
 			if got != test.want || acc.reads != test.wantReads || acc.closed != test.closes ||
 				(test.closes > 0) != errors.Is(err, embed.ErrAccelerator) ||
 				test.memoryErr != nil && !errors.Is(err, test.memoryErr) {

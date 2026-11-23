@@ -849,3 +849,98 @@ arms for each model. The ordinary path still checks full SHA-256 for
 unsealed caches and external `model_path` files.
 
 [Raw records and measurement driver](../../tools/phase28/evidence/model-verity-59/)
+
+## CUDA document precision (#61)
+
+The paired syncs ran on pax with a Ryzen 9 7950X and an RTX PRO 6000
+Blackwell Max-Q (compute capability 12.0, driver 595.112.07). They
+used Go 1.27.3, goinfer v0.6.4 at `ab2721995e02`, the Linux amd64
+GPU build tags, CPUs 0–3 and `GOMAXPROCS=4`. Each sample started
+with two five-second measurements at or below 4% host CPU busy and
+no NVIDIA compute process. Only one workload ran at a time. Each
+invocation had 115 seconds before SIGINT, with a five-second grace period.
+
+Real `pbrain sync` built cold indexes and vector caches from the same
+22 shared notes in the #43 corpus (fixture SHA-256
+`bbf4f8235b28a52979fe0121e1c8ed58e8a45904095649bfeea8d81bba04c117`).
+Both precisions embedded 219 passages and 110,157 prepared positions
+in 14 forwards per run. There were two pairs per row with the precision
+order reversed in the second pair. Each sync opened the model and attached
+once. All used the default 6 GiB workspace budget.
+
+| Model | CUDA | Wall time (s) | Passages/s | Positions/s | Peak host RSS (MiB) | Sampled GPU peak (MiB) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Google pack | fp32 | 17.39 | 12.59 | 6,334 | 1,915 | 2,130 |
+| Google pack | fp16 | 3.64 | 60.12 | 30,238 | 2,030 | 1,782 |
+| Q8_0 | fp32 | 17.46 | 12.54 | 6,309 | 1,483 | 2,130 |
+| Q8_0 | fp16 | 3.93 | 55.76 | 28,046 | 1,548 | 1,782 |
+
+Rates and wall times are medians. Memory is the higher peak of the two
+samples, with device memory and utilization sampled every 100 ms. The Google
+pack ran 4.77× faster and Q8_0 4.45× faster. The highest sampled host RSS
+increased by 115 MiB for Google and 65 MiB for Q8_0, while device peaks fell
+by 348 MiB for both. Across both trials the sample median of device utilization
+was 100% for fp32, 79% for Google fp16 and 77% for Q8_0 fp16 (including setup
+and teardown).
+
+| Model / CUDA | Attach (ms) | Prepare (ms) | Forward (ms) | Publish (ms) |
+| --- | ---: | ---: | ---: | ---: |
+| Google / fp32 | 145.6 | 42.9 | 16,248.8 | 5.7 |
+| Google / fp16 | 306.2 | 46.1 | 2,454.1 | 5.7 |
+| Q8_0 / fp32 | 146.2 | 44.9 | 16,158.9 | 10.0 |
+| Q8_0 / fp16 | 492.3 | 37.2 | 2,352.7 | 5.4 |
+
+The adapter replay used the saved 200 passages and 100,066 prepared
+positions from #58 (prepared-ID SHA-256
+`97c426da8c155b04bf0b34e270dcfa5e8cf18bfc1343e926f63e638fea6bcd22`).
+All four arms used the same IDs in 13 forwards within the 8,192-position cap.
+Including preparation and packing, Google moved from 6,761 to 44,108
+positions/s and Q8_0 from 6,806 to 46,137 positions/s. Forward-only figures
+were 6,780 to 44,930 and 6,827 to 46,937 positions/s respectively. The
+end-to-end sync above also includes verification, decode, attachment and
+publication.
+
+Production sync of the frozen 32-note retrieval subset matched all 59 ordered
+passage keys, digests and spans across arms. Every vector was finite and
+unit-normalized. The bits changed between precisions for every passage on
+both model rows.
+
+| Model | fp16 compared with | Minimum cosine | Median cosine | Below 0.999 |
+| --- | --- | ---: | ---: | ---: |
+| Google pack | CUDA fp32 | 0.999999946101 | 0.999999981474 | 0/59 |
+| Google pack | CPU | 0.999999945920 | 0.999999981463 | 0/59 |
+| Q8_0 | CUDA fp32 | 0.999999899604 | 0.999999956185 | 0/59 |
+| Q8_0 | CPU | 0.999999899598 | 0.999999956195 | 0/59 |
+
+On each model, the 59 fp16 vectors matched singletons bit for bit across
+default, reversed, 1 MiB and injected certified-OOM retry layouts on the
+same encoder. The default used groups of 7,712 and 1,559 positions. The
+retry replaced the first group with 3,669, 3,711 and 332 positions. Real
+pbrain syncs on both rows with that forced split produced identical item
+and passage rows and all 59 shared vector-cache payloads compared with
+ordinary fp16. The largest group in the layout tests was 8,172 positions.
+Device memory sampled across the layout tests peaked at 1,786 MiB.
+
+CPU search then read each precision's cold-built index of the full 35-note
+retrieval fixture at cutoff 0.72. For each model and both `--semantic` and
+`--semantic --bm25`, the ordered result IDs matched fp32 on all 77 queries.
+There were no rank or threshold crossings. Each Gemma arm found the expected
+note first on 39 of 47 questions, in the top three and on the first page on
+42 of 47, and returned empty pages on all 30 held-out negatives. Both
+standalone and combined admission gates passed. Strict search found 16 of
+47 on the first page, and fp16 kept all 16.
+
+The default was enabled after those checks. A one-note rollout test for
+each model confirmed that the default attached `cuda-eg2-fp16`, the explicit
+fp32 opt-out attached plain `cuda`, and switching back restored the original
+fp16 fingerprint with one cache hit and zero new forwards. The model-free
+tests also cover old or unavailable capability, UUID matching, shared and
+personal cache isolation, checkpoint/resume and concurrent CPU catch-up.
+
+The Linux amd64 release build passed CPU-only startup, device listing and
+one-note sync with both GPU backends masked. The Linux arm64 release build
+with the same CUDA kernel tags passed cross-build, vet, the linked-selector
+test and the equivalent CPU fallback smoke under QEMU with arm64 glibc
+2.39. The arm64 checks were CPU-only.
+
+[Raw gate records and commands](../../tools/phase28/evidence/cuda-fp16-61/)

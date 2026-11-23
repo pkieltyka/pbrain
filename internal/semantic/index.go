@@ -55,13 +55,14 @@ var (
 
 // manifest is index/manifest: which database file is the index, and what it must be.
 type manifest struct {
-	Format      int    `json:"format"`
-	Fingerprint string `json:"fingerprint"`
-	Model       string `json:"model"`
-	Dim         int    `json:"dim"`
-	DB          string `json:"db"`
-	Size        int64  `json:"size"`
-	CRC32C      string `json:"crc32c"` // of the database file, as %08x
+	Format               int    `json:"format"`
+	Fingerprint          string `json:"fingerprint"`
+	Model                string `json:"model"`
+	Dim                  int    `json:"dim"`
+	DB                   string `json:"db"`
+	Size                 int64  `json:"size"`
+	CRC32C               string `json:"crc32c"` // of the database file, as %08x
+	CUDAPrecisionRequest string `json:"cuda_precision_request,omitempty"`
 }
 
 // scoreSQL is the one scoring query (semantic.md, "Scoring"). CROSS JOIN makes SQLite start from
@@ -73,14 +74,15 @@ WHERE d <= ?2`
 
 // indexDB is one index held in a private in-memory SQLite database. SQLite is never given a path.
 type indexDB struct {
-	db          *sql.DB
-	conn        *sql.Conn
-	dim         int
-	fingerprint string
-	model       string
-	items       map[string]storedItem // path -> row
-	score       *sql.Stmt
-	from        manifest // the manifest openIndex read this index from; zero for a new index
+	db                   *sql.DB
+	conn                 *sql.Conn
+	dim                  int
+	fingerprint          string
+	model                string
+	items                map[string]storedItem // path -> row
+	score                *sql.Stmt
+	from                 manifest // the manifest openIndex read this index from; zero for a new index
+	cudaPrecisionRequest string
 }
 
 type storedItem struct {
@@ -507,6 +509,13 @@ func readManifest(files sys.Files, dir sys.Dir) (manifest, IndexState) {
 		return manifest{}, IndexUnreadable
 	}
 	m := manifest{Format: int(format), Fingerprint: fingerprint, Model: model, Dim: int(dim), DB: db, Size: size, CRC32C: sum}
+	if _, present := raw["cuda_precision_request"]; present {
+		req, ok := text("cuda_precision_request")
+		if !ok || req != "fp16" {
+			return manifest{}, IndexUnreadable
+		}
+		m.CUDAPrecisionRequest = req
+	}
 	return m, IndexOK
 }
 
@@ -544,11 +553,17 @@ func fileCRC(data []byte) string { return fmt.Sprintf("%08x", crc32.Checksum(dat
 // openIndex reads a section's index from its index folder (semantic.md, "Reading"). With full set
 // (the build and the status) every stored row is checked as well.
 func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint string, dim int, full bool) (*indexDB, IndexState) {
+	return openExpectedIndex(ctx, files, dir, func(m manifest) bool {
+		return m.Fingerprint == fingerprint && m.Dim == dim
+	}, full)
+}
+
+func openExpectedIndex(ctx context.Context, files sys.Files, dir sys.Dir, matches func(manifest) bool, full bool) (*indexDB, IndexState) {
 	m, state := readManifest(files, dir)
 	if state != IndexOK {
 		return nil, state
 	}
-	if m.Fingerprint != fingerprint || m.Dim != dim {
+	if !matches(m) {
 		return nil, IndexStale
 	}
 	data, err := readDatabase(files, dir, m)
@@ -558,7 +573,7 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 		if state != IndexOK {
 			return nil, state
 		}
-		if m2.Fingerprint != fingerprint || m2.Dim != dim {
+		if !matches(m2) {
 			return nil, IndexStale
 		}
 		if m2 == m {
@@ -605,6 +620,7 @@ func openIndex(ctx context.Context, files sys.Files, dir sys.Dir, fingerprint st
 			return false
 		}
 		x.dim, x.fingerprint, x.model, x.from = m.Dim, m.Fingerprint, m.Model, m
+		x.cudaPrecisionRequest = m.CUDAPrecisionRequest
 		if x.prepare(ctx) != nil {
 			return false
 		}
@@ -697,6 +713,7 @@ func (x *indexDB) publish(ctx context.Context, files sys.Files, dir sys.Dir, rnd
 		return manifest{}, ioErr("the index cannot be written")
 	}
 	m := manifest{Format: indexFormat, Fingerprint: x.fingerprint, Model: x.model, Dim: x.dim, DB: name, Size: int64(len(data)), CRC32C: fileCRC(data)}
+	m.CUDAPrecisionRequest = x.cudaPrecisionRequest
 	mdata, _ := json.Marshal(m)
 	mtmp, err := stageFile(files, dir, mdata)
 	if err != nil {
