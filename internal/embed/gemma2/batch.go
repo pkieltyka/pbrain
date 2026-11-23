@@ -12,6 +12,7 @@ import (
 
 const (
 	batchInputs            = 256
+	batchPositions         = 8192       // qualified aggregate ceiling on both GPU backends
 	bytesPerPosition       = 136_000    // measured CUDA batch working set, goinfer v0.5.0
 	vulkanBytesPerPosition = 4 * 26_882 // float32 buffers in the Vulkan forward graph
 	gib                    = 1 << 30
@@ -52,7 +53,7 @@ func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimi
 			return 0, fmt.Errorf("invalid prepared length %d at input %d", length, i)
 		}
 		positions += length
-		if i > 0 && (vulkan && positions > embeddinggemma2.MaxTokens || retryLimit != nil && positions > *retryLimit) {
+		if i > 0 && (positions > batchPositions || retryLimit != nil && positions > *retryLimit) {
 			return i, nil
 		}
 		memory, err := estimate(lengths[:i+1])

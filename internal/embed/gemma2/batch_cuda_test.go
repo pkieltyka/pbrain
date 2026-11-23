@@ -165,22 +165,24 @@ func TestGemmaCUDAForcedSplitSameBytes(t *testing.T) {
 				t.Logf("%s: %d bit-identical vectors, forward attempts by aggregate positions %v", label, len(got), wrapper.shapes)
 			}
 			wrapper.shapes = nil
-			check("wide")
-			if len(wrapper.shapes) != 1 || wrapper.shapes[0] <= embeddinggemma2.MaxTokens {
-				t.Fatalf("wanted a real forward above 8192 aggregate positions, got %v", wrapper.shapes)
+			check("default budget")
+			if len(wrapper.shapes) != 2 || wrapper.shapes[0] <= batchPositions/2 ||
+				wrapper.shapes[0] > batchPositions || wrapper.shapes[1] > batchPositions {
+				t.Fatalf("wanted two capped forwards for the 59 passages, got %v", wrapper.shapes)
 			}
-			total := wrapper.shapes[0]
+			first := wrapper.shapes[0]
+			total := first + wrapper.shapes[1]
 			wrapper.shapes = nil
 			wrapper.failNext = true
 			check("forced split")
-			if wrapper.failNext || len(wrapper.shapes) < 3 || wrapper.shapes[0] != total ||
-				e.retryLimit == nil || *e.retryLimit != total/2 || e.model.Accelerator() != wrapper {
+			if wrapper.failNext || len(wrapper.shapes) < 3 || wrapper.shapes[0] != first ||
+				e.retryLimit == nil || *e.retryLimit != first/2 || e.model.Accelerator() != wrapper {
 				t.Fatalf("did not split on the same encoder: %v", wrapper.shapes)
 			}
 			positions := 0
 			for _, size := range wrapper.shapes[1:] {
-				if size >= total {
-					t.Fatalf("retried unchanged positions: %v", wrapper.shapes)
+				if size > first/2 {
+					t.Fatalf("forward exceeded the reduced retry limit: %v", wrapper.shapes)
 				}
 				positions += size
 			}

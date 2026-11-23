@@ -51,14 +51,14 @@ func TestGemmaPacker(t *testing.T) {
 		{"unknown exact fill", "cuda:0", []int{2, 1, 4, 3, 5}, 7 * bytesPerPosition, 0, []int{3, 1, 1}},
 		{"unknown oversize singleton", "cuda:0", []int{4, 2048, 1, 2, 3}, 7 * bytesPerPosition, 0, []int{1, 1, 3}},
 		{"unknown zero budget", "cuda:0", []int{1, 1, 1}, 0, 0, []int{1, 1, 1}},
-		{"unknown CUDA above 8192", "cuda:0", []int{2048, 2048, 2048, 2048, 1}, gib * 2, 0, []int{5}},
+		{"unknown CUDA ceiling", "cuda:0", []int{2048, 2048, 2048, 2048, 1}, gib * 2, 0, []int{4, 1}},
 		{"unknown Vulkan ceiling", "vulkan:0", []int{2048, 2048, 2048, 2048, 1}, gib * 2, 0, []int{4, 1}},
 		{"unknown Vulkan budget", "vulkan:0", []int{4, 3, 2}, 7 * vulkanBytesPerPosition, 0, []int{2, 1}},
 		{"input cap", "cuda:0", slices.Repeat([]int{1}, 257), gib, 0, []int{256, 1}},
 		{"known additional exact fit", "cuda:0", []int{2, 1, 4}, 14, embeddinggemma2.BatchMemoryUpperBound, []int{3}},
 		{"known additional one byte over", "cuda:0", []int{2, 1, 4}, 13, embeddinggemma2.BatchMemoryUpperBound, []int{2, 1}},
 		{"known zero when resident", "cuda:0", []int{4, 4, 4}, 0, embeddinggemma2.BatchMemoryUpperBound, []int{3}},
-		{"known CUDA above 8192", "cuda:0", []int{2048, 2048, 2048, 2048, 1}, 16386, embeddinggemma2.BatchMemoryUpperBound, []int{5}},
+		{"known CUDA retains ceiling", "cuda:0", []int{2048, 2048, 2048, 2048, 1}, 16386, embeddinggemma2.BatchMemoryUpperBound, []int{4, 1}},
 		{"known Vulkan remains capped", "vulkan:0", []int{2048, 2048, 2048, 2048, 1}, 16386, embeddinggemma2.BatchMemoryUpperBound, []int{4, 1}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
