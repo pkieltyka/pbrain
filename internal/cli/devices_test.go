@@ -145,6 +145,41 @@ func TestSyncDeviceNotices(t *testing.T) {
 	}
 }
 
+func TestSyncPrecisionNoticeOnce(t *testing.T) {
+	rb, kit := semanticBrain(t)
+	rb.put("personal/notes/20261104-000000-mine-m1m1.md", []string{"kind: note", "title: Mine",
+		"created: 2026-11-04T00:00:00Z", "author: agent:x"}, "delta mine\n")
+	config := "[semantic]\nmodel = \"test-model\"\ncuda_precision = \"fp16\"\n"
+	if err := os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte(config), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	model := kit.Models[embedtest.ModelA]
+	model.CUDAFP16Fingerprint = strings.Repeat("f", 64)
+	notice := errs.Notice{Code: "cuda_precision_fallback", Message: "cuda:0 supports compute capability 7.5; using fp32 CUDA (fp16 requires 8.0)"}
+	probes := 0
+	rb.env.Models = embed.NewRegistry(embed.Entry{
+		Model: model,
+		Devices: func() embed.Listing {
+			probes++
+			return embed.Listing{Devices: []embed.DeviceInfo{{ID: "cuda:0", Backend: "cuda"}}}
+		},
+		ResolveFP16: func(embed.Listing, string) (embed.DeviceInfo, string) { return embed.DeviceInfo{}, notice.Message },
+		Open:        kit.Registry.Open,
+	})
+	for i := 1; i <= 2; i++ {
+		code, out, stderr := rb.run("sync", "--personal", "--json")
+		if code != 0 || probes != i {
+			t.Fatalf("sync %d = (%d, %q, %q), %d probes", i, code, out, stderr, probes)
+		}
+		assertDeviceNotices(t, true, stderr, notice)
+	}
+	for _, args := range [][]string{{"search", "beta material zzz", "--semantic"}, {"sync", "--status"}} {
+		if code, out, stderr := rb.run(args...); code != 0 || stderr != "" || probes != 2 {
+			t.Fatalf("%v = (%d, %q, %q), %d probes", args, code, out, stderr, probes)
+		}
+	}
+}
+
 func assertDeviceNotices(t *testing.T, jsonMode bool, stderr string, expected ...errs.Notice) {
 	t.Helper()
 	var want []errs.Notice

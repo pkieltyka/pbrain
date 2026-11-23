@@ -116,6 +116,7 @@ type Entry struct {
 type Registry interface {
 	Lookup(name string) (Model, bool)
 	Names() []string // sorted
+	ResolveWriter(model Model, request, device string) WriteProfile
 	// Open builds the model from a.Files alone. It reads nothing from disk. It takes the bytes over:
 	// a.Files is nil when it returns, with or without an error, and the caller keeps no other reference to them.
 	Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)

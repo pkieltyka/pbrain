@@ -32,8 +32,7 @@ builds:
     ldflags:
       - -s -w -X github.com/pkieltyka/pbrain/internal/cli.version={{ if .IsSnapshot }}{{ .Version }}{{ else }}{{ .Tag }}{{ end }}
     mod_timestamp: "{{ .CommitTimestamp }}"
-  # Linux amd64: both GPU backends, the tag set issue #49 qualified (go version -m shows
-  # -tags=cuda,vulkan).
+  # Linux amd64 links both GPU backends and the qualified FP16 kernel.
   - id: pbrain-cuda-vulkan
     main: ./cmd/pbrain
     binary: pbrain
@@ -46,6 +45,8 @@ builds:
     tags:
       - cuda
       - vulkan
+      - eg2_combined
+      - eg2_fp16
     flags:
       - -trimpath
     ldflags:

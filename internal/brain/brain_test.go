@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -527,6 +528,7 @@ func TestReadProjectSettings(t *testing.T) {
 	}
 	for _, bad := range []string{
 		`semantic.model = ""`, "semantic.model = 42",
+		`semantic.cuda_precision = ""`, `semantic.cuda_precision = "FP16"`, "semantic.cuda_precision = 16",
 		"search = { limit = 0 }", "search = { limit = 51 }", "list = { limit = 201 }",
 		"get = { max_chars = 0 }", "prime = { max_chars = -1 }", "search = { limit = \"5\" }",
 		"[tags]\nCache = \"x\"", "[tags]\ncache = \"\"", "[tags]\ncache = \"two\\nlines\"", "[tags]\ncache = 3",
@@ -534,6 +536,12 @@ func TestReadProjectSettings(t *testing.T) {
 	} {
 		if _, err := decodeProject([]byte(bad)); code(err) != "invalid_config" {
 			t.Errorf("%q: %v", bad, err)
+		}
+	}
+	for _, want := range []string{"fp32", "fp16"} {
+		c, err := decodeProject([]byte("semantic.cuda_precision = " + strconv.Quote(want)))
+		if err != nil || c.Semantic.CUDAPrecision != want {
+			t.Fatalf("precision = %q, %v, want %q", c.Semantic.CUDAPrecision, err, want)
 		}
 	}
 	l, err := decodeLocal([]byte("model_path = \"/opt/models/x\"\nauthor = \"human:p\"\nfuture = 1\n"))

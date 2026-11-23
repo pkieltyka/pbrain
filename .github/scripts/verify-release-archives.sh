@@ -45,7 +45,7 @@ check_archive() {
 }
 
 # The Linux amd64 GPU archive links both backends; goinfer has no Vulkan backend for arm64.
-check_archive linux amd64 "" cuda,vulkan
+check_archive linux amd64 "" cuda,vulkan,eg2_combined,eg2_fp16
 check_archive linux arm64 "" cuda
 for arch in amd64 arm64; do
     check_archive linux "$arch" _cpu ""

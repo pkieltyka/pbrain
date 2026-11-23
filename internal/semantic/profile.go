@@ -12,7 +12,7 @@ func (o *Options) ShareWriterResolution() {
 	reg, name, request, device := o.Registry, o.ModelName, o.CUDAPrecision, o.Device
 	o.writer = sync.OnceValue(func() embed.WriteProfile {
 		model, _ := reg.Lookup(name)
-		return embed.ResolveWriter(reg, model, request, device)
+		return reg.ResolveWriter(model, request, device)
 	})
 }
 
@@ -45,7 +45,7 @@ func (b *builder) resolveWriter() embed.WriteProfile {
 		if b.opt.writer != nil {
 			return b.opt.writer()
 		}
-		return embed.ResolveWriter(b.opt.Registry, b.m, b.opt.CUDAPrecision, b.opt.Device)
+		return b.opt.Registry.ResolveWriter(b.m, b.opt.CUDAPrecision, b.opt.Device)
 	}
 	old, state := readManifest(b.opt.Files, b.idx)
 	if state == IndexOK {
