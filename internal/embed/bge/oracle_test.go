@@ -234,11 +234,15 @@ func TestBgeVendorOracle(t *testing.T) {
 			check(indices[j], vector)
 		}
 	}
-	if e.Fingerprint() != "6bd9989750090942b9ff6d86f27ea8a39e255457d0c01659991f87280e181b9b" ||
-		semantic.IndexFingerprint(Entry().Model) != "46000384c2fd339d6352b50398ba3a83a7e84cda36e7d53da029f19f92a3363e" {
-		t.Fatal("BGE model or index fingerprint changed")
-	}
 	t.Logf("%d tokenizer and singleton/multiworker vectors match %s", len(inputs), arch)
+}
+
+func TestBgeVendorIdentity(t *testing.T) {
+	m := Entry().Model
+	if m.Fingerprint != "6bd9989750090942b9ff6d86f27ea8a39e255457d0c01659991f87280e181b9b" ||
+		semantic.IndexFingerprint(m) != "46000384c2fd339d6352b50398ba3a83a7e84cda36e7d53da029f19f92a3363e" || m.Runtime != "aikit" {
+		t.Fatal("BGE model identity, index fingerprint or provenance label changed")
+	}
 }
 
 func BenchmarkBgeOraclePassages(b *testing.B) {

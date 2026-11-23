@@ -24,6 +24,9 @@ import (
 
 const (
 	aikitModule   = "github.com/pkieltyka/aikit"
+	pbrainModule  = "github.com/pkieltyka/pbrain"
+	bertPackage   = pbrainModule + "/internal/embed/bge/bert"
+	bertKernels   = bertPackage + "/internal/linalg"
 	goinferModule = "github.com/pkieltyka/goinfer"
 	cudaModule    = goinferModule + "/backend/cuda"
 	vulkanModule  = goinferModule + "/backend/vulkan"
@@ -104,7 +107,10 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 	for _, finding := range findings {
 		t.Error(finding)
 	}
-	if checked[aikitModule] == 0 || checked[goinferModule] == 0 ||
+	if checked[aikitModule] != 0 {
+		t.Fatalf("retired aikit code is linked for tags %v: %v", tags, checked)
+	}
+	if checked[bertPackage] == 0 || checked[bertKernels] == 0 || checked[goinferModule] == 0 ||
 		(slices.Contains(tags, "cuda") != (checked[cudaModule] > 0)) ||
 		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) {
 		t.Fatalf("incomplete runtime graph for tags %v: %v", tags, checked)
@@ -157,16 +163,48 @@ func scanRuntimeGraph(t *testing.T, graph io.Reader, report func(runtimePin, int
 		} else if err != nil {
 			t.Fatal(err)
 		}
-		if pkg.Module == nil || pkg.Module.Main {
+		if pkg.Module == nil {
 			continue
 		}
 		pin := runtimePin{pkg.Module.Path, pkg.Module.Version}
+		key := pin.module
+		if pkg.Module.Main {
+			if pkg.ImportPath != bertPackage && !strings.HasPrefix(pkg.ImportPath, bertPackage+"/") {
+				continue
+			}
+			// This copied runtime has the same audit boundary as a dependency.
+			key = pkg.ImportPath
+		}
+		if pkg.ImportPath == aikitModule || strings.HasPrefix(pkg.ImportPath, aikitModule+"/") {
+			key = aikitModule
+		}
 		for _, name := range pkg.GoFiles {
 			auditRuntimeFile(t, filepath.Join(pkg.Dir, name), pkg.ImportPath+"/"+name, func(line int, site runtimeSite) {
 				report(pin, line, site)
 			})
-			checked[pin.module]++
+			checked[key]++
 		}
+	}
+}
+
+func TestRuntimeAuditIncludesVendoredBERT(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "kernel.go"), []byte(`package linalg
+import "os"
+var setting = os.Getenv("UNREVIEWED_VENDORED_SETTING")`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var graph bytes.Buffer
+	pkg := runtimePackage{
+		Dir: dir, ImportPath: bertKernels, GoFiles: []string{"kernel.go"},
+		Module: &runtimeModule{Path: pbrainModule, Main: true},
+	}
+	if err := json.NewEncoder(&graph).Encode(pkg); err != nil {
+		t.Fatal(err)
+	}
+	checked, findings := reviewRuntimeGraph(t, &graph, 0, nil)
+	if checked[bertKernels] != 1 || len(findings) != 1 || !strings.Contains(findings[0], "UNREVIEWED_VENDORED_SETTING") {
+		t.Fatalf("vendored graph audit checked %v, reported %v", checked, findings)
 	}
 }
 

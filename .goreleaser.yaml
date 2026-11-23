@@ -90,6 +90,12 @@ archives:
     files:
       - LICENSE
       - README.md
+      - src: internal/embed/bge/bert/LICENSE
+        dst: licenses/aikit
+        strip_parent: true
+      - src: internal/embed/bge/bert/NOTICE
+        dst: licenses/aikit
+        strip_parent: true
   - id: pbrain-gpu
     ids:
       - pbrain-cuda-vulkan
@@ -100,6 +106,12 @@ archives:
     files:
       - LICENSE
       - README.md
+      - src: internal/embed/bge/bert/LICENSE
+        dst: licenses/aikit
+        strip_parent: true
+      - src: internal/embed/bge/bert/NOTICE
+        dst: licenses/aikit
+        strip_parent: true
 
 checksum:
   name_template: "{{ .ProjectName }}_{{ .Version }}_checksums.txt"

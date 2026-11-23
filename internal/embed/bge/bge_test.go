@@ -9,9 +9,8 @@ import (
 	"testing"
 	"testing/fstest"
 
-	tokenizer "github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/encoder"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/embed/bge/bert"
 )
 
 func TestBgeBuildsFromBytes(t *testing.T) {
@@ -19,7 +18,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 	registry := embed.NewRegistry(entry)
 	original := loadBERT
 	t.Cleanup(func() { loadBERT = original })
-	loadBERT = func(fs.FS, string) (*encoder.BERT, error) {
+	loadBERT = func(fs.FS, string) (*bert.BERT, error) {
 		t.Fatal("loader called with invalid artifact")
 		return nil, nil
 	}
@@ -63,7 +62,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			a := &embed.Artifact{Model: entry.Model, Files: [][]byte{{1}, {2}, {3}, {4}, {5}}}
 			weights := a.Files[0]
-			loadBERT = func(fsys fs.FS, dir string) (*encoder.BERT, error) {
+			loadBERT = func(fsys fs.FS, dir string) (*bert.BERT, error) {
 				if dir != "." {
 					t.Fatalf("dir = %q", dir)
 				}
@@ -75,7 +74,7 @@ func TestBgeBuildsFromBytes(t *testing.T) {
 				readHandoff(t, fsys, "config.json", 3)
 				readHandoff(t, fsys, "sentence_bert_config.json", 4)
 				read(t, fsys)
-				return &encoder.BERT{}, nil
+				return &bert.BERT{}, nil
 			}
 			if got, err := registry.Open(t.Context(), a, embed.OpenOptions{}); got != nil || err == nil ||
 				!strings.Contains(err.Error(), "each model file exactly once") || a.Files != nil {
@@ -145,7 +144,7 @@ func tokenTestEmbedder(t *testing.T) *embedder {
 		"added_tokens":[{"id":0,"content":"[UNK]"},{"id":1,"content":"[PAD]"},
 			{"id":2,"content":"[CLS]"},{"id":3,"content":"[SEP]"},{"id":4,"content":"[MASK]"}]
 	}`
-	tok, err := tokenizer.LoadTokenizerFromFS(fstest.MapFS{"tokenizer.json": {Data: []byte(data)}}, "tokenizer.json")
+	tok, err := bert.LoadTokenizerFromFS(fstest.MapFS{"tokenizer.json": {Data: []byte(data)}}, "tokenizer.json")
 	if err != nil {
 		t.Fatal(err)
 	}
