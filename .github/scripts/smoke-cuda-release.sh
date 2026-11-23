@@ -11,6 +11,10 @@
 # document on standard output, and sync on the CPU saying that no usable GPU was found: a
 # missing Vulkan is "absent", never "failed".
 set -euo pipefail
+# GoReleaser shows a failed hook's standard output alone, so diagnostics go there too.
+exec 2>&1
+set -E
+trap 'echo "smoke: failed at line $LINENO: $BASH_COMMAND"; for f in devices.json devices.stderr sync.json sync.stderr; do [[ -f $f ]] && { echo "== $f"; cat "$f"; }; done' ERR
 
 mode=${PBRAIN_VERIFY_RELEASE_CUDA:-}
 case "$mode" in
