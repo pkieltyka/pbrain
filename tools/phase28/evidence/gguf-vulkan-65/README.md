@@ -9,6 +9,7 @@ the device stage starts only after #76 releases the queue.
 - `run-65.py` — build, four fresh SQLite syncs and the layout stage.
 - `verify.py` — read-only verification of the complete evidence tree.
 - `fixture-paths.txt` / `fixture.SHA256` — the 32-note frozen workload.
+- `desktop-comm.txt` — the desktop process names that are not foreign work.
 - `../gguf-vulkan-65` receipts are produced only by a run and are not in Git.
 
 ## Review gate
@@ -37,7 +38,7 @@ python3 <goinfer>/scripts/timing_lock.py run --exclusive --label pbrain-65-devic
   python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage qualify --out <out> \
   --commit <reviewed> --goinfer-repo <goinfer> \
   --q8-file <q8 gguf file> --q6-file <q6 gguf file> \
-  --desktop-clients <pid-map> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
+  --desktop-comm <comm-list> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
 
 python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage verify --out <out>
 ```
@@ -51,7 +52,8 @@ needs no lock, model or device.
 thresholds, fixture hashes and binary hashes. `cells/<cell>/` holds the fresh
 brain, SQLite index, `sync.json`, `result.json`, samples, trace and stderr.
 `layout/` holds the per-quant layout receipts. `verification.json` is the
-independent verdict; `evidence.SHA256` pins the tree.
+independent verdict. After a successful verification the same command writes
+`evidence.SHA256`, a sorted hash list of every file except the seal itself.
 
 The runner refuses a dirty worktree, a commit mismatch, a missing exclusive
 lock, a missing validation layer, a recent amdgpu reset, foreign Radeon work, a

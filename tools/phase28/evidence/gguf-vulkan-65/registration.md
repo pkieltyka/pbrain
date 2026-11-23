@@ -42,14 +42,14 @@ python3 <goinfer>/scripts/timing_lock.py run --exclusive --label pbrain-65-devic
   python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage all --out <out> \
   --commit <reviewed> --goinfer-repo <goinfer> \
   --q8-file <q8 gguf file> --q6-file <q6 gguf file> \
-  --desktop-clients <pid-map> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
+  --desktop-comm <comm-list> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
 ```
 
 The runner refuses to start unless the holder's mode is `exclusive` and its
 token is in `GOINFER_TIMING_LOCK`. It waits up to 600 seconds for a quiet
 window: load1 at or below 4.0, at least 8 GiB host available, at least 2 GiB
-Radeon free, and no foreign pbrain or Radeon client. Desktop processes listed in
-the pid map are not foreign work.
+Radeon free, and no foreign pbrain or Radeon client. Desktop processes named in
+`desktop-comm.txt` (or in an optional exact pid map) are not foreign work.
 
 ## Cells
 
@@ -75,8 +75,10 @@ normalized 512 prefix, per quant.
 
 ## Guards
 
-- Launch: load1 at most 4.0; at least 8 GiB host available; at least 2 GiB
-  Radeon free; no foreign pbrain or Radeon client.
+- Launch: the admission snapshot is re-read immediately before spawn; load1 at
+  most 4.0, at least 8 GiB host available, at least 2 GiB Radeon free, and no
+  foreign pbrain or Radeon client. The result records those start readings, not
+  post-run ones.
 - Runtime: 4 GiB attributed/device-delta cap, 512 MiB in-flight child swap cap,
   zero new host pageout, no amdgpu timeout/reset, no Vulkan validation error,
   and the validation layer must load.
@@ -100,7 +102,9 @@ For each quant, CPU and Vulkan must each have a fresh index with:
 - end-to-end wall, peak host RSS and peak Radeon attribution recorded.
 
 Same-device layout receipts must show zero differing vectors for every layout,
-and the layout receipt's own CPU/Vulkan minima must be at least 0.999.
+and the layout receipt's own CPU/Vulkan minima must be at least 0.999. The
+layout process must also record nonzero Radeon attribution samples and peak, not
+only a device-wide delta.
 
 There is no new speed acceptance gate. Report the actual end-to-end wall,
 passages/s and peaks, even below 2× the CPU cell. The descriptive #39 encoder
@@ -113,7 +117,8 @@ observations are context, not an indexing gate.
 and SQLite database, `layout/` with per-quant receipts, and `results.json`.
 `verify.py` re-opens the databases read-only, re-derives the model, index and
 folder identities, and checks every value above. It writes `verification.json`
-and `verification.log`; `evidence.SHA256` covers the final tree.
+and `verification.log`. After a pass, `run-65.py --stage verify` writes
+`evidence.SHA256`, a sorted hash list of every file except the seal itself.
 
 ## Not in scope
 

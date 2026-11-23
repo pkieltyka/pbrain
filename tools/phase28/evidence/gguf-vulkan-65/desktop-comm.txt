@@ -1,0 +1,11 @@
+.Hyprland-wrapp
+Xwayland
+.noctalia-wrapp
+.voxtype-wrappe
+.voxtype-osd-gt
+.xdg-desktop-po
+.spotify-wrappe
+.ghostty-wrappe
+chrome
+electron
+hyprlock

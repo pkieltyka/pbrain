@@ -30,6 +30,8 @@ LOAD_CAP = 4.0  # owner-approved 2026-11-23 for this descriptive sync
 HOST_NEED_MB = 8 * 1024
 ATTRIBUTED_CAP = 4 * GIB
 CHILD_SWAP_CAP = 512 * (1 << 20)
+FIXTURE_LIST_SHA256 = "77bab592f89a8975f17ed31aebb10414c1c940d7f0592395dd693a0a83b81dd1"
+FIXTURE_PATHS_SHA256 = "3726e16e116d7db52fd2da7ce9145a940a3f7ef6ec797e83b0732084b947b892"
 MODELS = {
     "q8": {
         "name": "embeddinggemma-2-q8-0",
@@ -229,9 +231,22 @@ class Checker:
             if commit:
                 self.require(commit in info or "vcs.revision" not in info, f"{name}: build revision")
 
-        expected_fixture = self.read_pins(self.out / "fixture.SHA256") if (self.out / "fixture.SHA256").is_file() else None
-        if expected_fixture is None:
-            self.fail("missing fixture.SHA256 in evidence")
+        list_path = self.out / "fixture.SHA256"
+        paths_path = self.out / "fixture-paths.txt"
+        expected_fixture = None
+        if list_path.is_file() and paths_path.is_file():
+            self.require(self.sha(list_path) == FIXTURE_LIST_SHA256, "fixture list hash")
+            self.require(self.sha(paths_path) == FIXTURE_PATHS_SHA256, "fixture paths hash")
+            expected_fixture = self.read_pins(list_path)
+            paths = [line for line in paths_path.read_text().splitlines() if line]
+            self.require(len(expected_fixture) == ITEMS, f"fixture pins {len(expected_fixture)}")
+            self.require(len(paths) == ITEMS and set(paths) == set(expected_fixture),
+                         "fixture path list and pins disagree")
+            fixture = manifest.get("fixture") or {}
+            self.require(fixture.get("sha256") == FIXTURE_LIST_SHA256, "manifest fixture list")
+            self.require(fixture.get("paths_sha256") == FIXTURE_PATHS_SHA256, "manifest fixture paths")
+        else:
+            self.fail("missing fixture pins in evidence")
 
         data = {}
         for key in MODELS:
@@ -278,6 +293,9 @@ class Checker:
         self.require(layout.get("pageout_delta") == 0, "layout: pageout")
         self.require(not layout.get("swap_void"), "layout: swap void")
         self.require(layout.get("peak_attributed_bytes", 0) <= ATTRIBUTED_CAP, "layout: attributed cap")
+        self.require(layout.get("attributed_samples", 0) > 0, "layout: no attribution")
+        self.require(layout.get("peak_vram_bytes", 0) > 0, "layout: no device peak")
+        self.require(layout.get("peak_attributed_bytes", 0) > 0, "layout: no attributed bytes")
         for key in MODELS:
             receipt = self.read(self.out / "layout" / f"{MODELS[key]['name']}.json")
             self.require(receipt.get("model") == MODELS[key]["name"], f"layout {key}: model")

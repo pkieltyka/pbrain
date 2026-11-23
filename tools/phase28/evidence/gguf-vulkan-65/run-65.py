@@ -141,7 +141,7 @@ def desktop_map(path):
     return {int(pid): name for pid, name in read_json(path).items()}
 
 
-def competing_clients(desktop, ours=None):
+def competing_clients(desktop, allowed_comm=(), ours=None):
     files = ("/dev/dri/by-path/pci-0000:0c:00.0-render", "/dev/dri/by-path/pci-0000:0c:00.0-card")
     result = subprocess.run(["fuser", *files], capture_output=True, text=True)
     if result.returncode not in (0, 1):
@@ -154,7 +154,7 @@ def competing_clients(desktop, ours=None):
             name = (Path("/proc") / str(pid) / "comm").read_text().strip()
         except FileNotFoundError:
             continue
-        if desktop.get(pid) != name:
+        if desktop.get(pid) != name and name not in allowed_comm:
             clients[pid] = name
     return clients
 
@@ -183,10 +183,16 @@ class Runner:
     def __init__(self, args):
         self.args = args
         self.out = Path(args.out).resolve()
-        self.repo = Path(__file__).resolve().parents[3]
+        self.repo = Path(__file__).resolve().parents[4]
         self.script = Path(__file__).resolve().parent
+        if not (self.repo / "go.mod").is_file() or not (
+                self.repo / "internal/semantic/calibrate/testdata/retrieval/brain").is_dir():
+            raise SystemExit(f"cannot resolve the pbrain repository root from {Path(__file__).resolve()}")
         self.goinfer = Path(args.goinfer_repo).resolve()
         self.desktop = desktop_map(args.desktop_clients)
+        self.allowed_comm = set()
+        if args.desktop_comm:
+            self.allowed_comm = {line.strip() for line in Path(args.desktop_comm).read_text().splitlines() if line.strip()}
         self.manifest = None
 
     # ---- shared ---------------------------------------------------------
@@ -250,12 +256,22 @@ class Runner:
             snap = void_rule.snapshot()
             why = void_rule.start_void(snap, HOST_NEED_MB, cap=LOAD_CAP)
             free = vram_total() - vram_used()
-            foreign = pbrain_active() or competing_clients(self.desktop)
+            foreign = pbrain_active() or competing_clients(self.desktop, self.allowed_comm)
             if not why and free >= RADEON_NEED and not foreign:
                 return snap, free
             if time.monotonic() - begun > QUIET_DEADLINE_S:
                 raise SystemExit(f"no quiet window after {QUIET_DEADLINE_S}s: {why or 'foreign work or Radeon fit'}")
             time.sleep(5)
+
+    def admission(self):
+        """The readings a cell starts with, rechecked immediately before spawn."""
+        snap, _ = self.wait_quiet()
+        live = void_rule.snapshot()
+        why = void_rule.start_void(live, HOST_NEED_MB, cap=LOAD_CAP)
+        free = vram_total() - vram_used()
+        if why or free < RADEON_NEED or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
+            raise SystemExit(f"launch refused: {why or 'foreign work or Radeon fit'}")
+        return live, free
 
     def reset_guard(self, cursor):
         return bool(RESET.search(journal("--after-cursor", cursor, "-o", "short-iso")))
@@ -264,7 +280,7 @@ class Runner:
         if prop("vendor") != VENDOR or prop("device") != DEVICE:
             raise SystemExit("the Radeon PCI identity is not 1002:7590")
         snap, free = self.wait_quiet()
-        if pbrain_active() or competing_clients(self.desktop):
+        if pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
             raise SystemExit("preflight saw foreign pbrain or Radeon work")
         cursor = journal_cursor()
         if self.reset_guard(cursor):
@@ -275,6 +291,7 @@ class Runner:
             "vendor": prop("vendor"), "device": prop("device"),
             "pci": BDF, "kernel": os.uname().release,
             "desktop_clients": {str(k): v for k, v in self.desktop.items()},
+            "allowed_comm": sorted(self.allowed_comm),
         })
 
     def inventory(self):
@@ -399,7 +416,7 @@ class Runner:
                     stop = f"{deadline}-second application deadline"
                 elif moment >= next_check:
                     next_check = moment + 500_000_000
-                    if pbrain_active(child.pid) or competing_clients(self.desktop, child.pid):
+                    if pbrain_active(child.pid) or competing_clients(self.desktop, self.allowed_comm, child.pid):
                         stop = "foreign pbrain or Radeon work"
                     elif self.reset_guard(cursor):
                         stop = "amdgpu timeout or reset"
@@ -424,13 +441,13 @@ class Runner:
         cell.mkdir(parents=True)
         brain = self.make_cell(cell, key, device, files, model_file)
         selector = "cpu" if device == "cpu" else PIN_UUID
-        snap, free = self.wait_quiet()
-        pswpout = pageouts()
-        baseline = vram_used()
-        cursor = journal_cursor()
         env = self.cell_env(cell, device)
         cmd = [str(self.out / "bin" / "pbrain"), "--brain", str(brain), "sync", "--device", selector, "--json"]
         (cell / "command.txt").write_text(" ".join(cmd) + "\n")
+        snap, free = self.admission()
+        pswpout = pageouts()
+        baseline = vram_used()
+        cursor = journal_cursor()
         with (cell / "sync.json").open("wb") as stdout, (cell / "sync.stderr").open("wb") as stderr:
             child = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=stderr)
             result = self.sample_loop(child, cell, baseline, pswpout, cursor, CELL_DEADLINE_S)
@@ -444,7 +461,7 @@ class Runner:
             result["stop"] = "Vulkan validation failed"
         elif not LAYER_LOADED.search(stderr_text):
             result["stop"] = "Vulkan validation layer missing"
-        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
+        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
             result["stop"] = "postflight pageout, swap, or foreign work"
         elif device != "cpu" and (not result["attributed_samples"] or not result["peak_vram_bytes"]):
             result["stop"] = "missing Radeon attribution"
@@ -452,7 +469,7 @@ class Runner:
             result["stop"] = f"sync exited {child.returncode}"
         result.update({
             "returncode": child.returncode, "device": device, "selector": selector,
-            "launch_load1": load1(), "launch_available_mb": available_mb(),
+            "launch_load1": snap.get("load1"), "launch_available_mb": snap.get("available_mb"),
             "launch_radeon_free_bytes": free, "pageout_delta": pageouts() - pswpout,
             "swap_void": swap_void,
         })
@@ -479,12 +496,12 @@ class Runner:
             PBRAIN_TEST_GEMMA2_Q8=str(q8_dir), PBRAIN_TEST_GEMMA2_Q6=str(q6_dir),
             PBRAIN_VULKAN_LAYOUT_DIR=str(cell),
         )
-        snap, free = self.wait_quiet()
+        cmd = [str(self.out / "bin" / "gemma2-vulkan.test"),
+               "-test.run", "^TestGemmaVulkanLayouts$", "-test.v", "-test.timeout", "600s"]
+        snap, free = self.admission()
         pswpout = pageouts()
         baseline = vram_used()
         cursor = journal_cursor()
-        cmd = [str(self.out / "bin" / "gemma2-vulkan.test"),
-               "-test.run", "^TestGemmaVulkanLayouts$", "-test.v", "-test.timeout", "600s"]
         with (cell / "stdout.log").open("wb") as stdout, (cell / "stderr.log").open("wb") as stderr:
             child = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=stderr)
             result = self.sample_loop(child, cell, baseline, pswpout, cursor, LAYOUT_DEADLINE_S)
@@ -498,13 +515,15 @@ class Runner:
             result["stop"] = "Vulkan validation failed"
         elif not LAYER_LOADED.search(text):
             result["stop"] = "Vulkan validation layer missing"
-        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
+        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
             result["stop"] = "postflight pageout, swap, or foreign work"
+        elif not result["attributed_samples"] or not result["peak_vram_bytes"]:
+            result["stop"] = "missing Radeon attribution"
         elif child.returncode:
             result["stop"] = f"layout test exited {child.returncode}"
         result.update({"returncode": child.returncode, "pageout_delta": pageouts() - pswpout,
-                       "swap_void": swap_void, "launch_load1": load1(),
-                       "launch_available_mb": available_mb(), "launch_radeon_free_bytes": free})
+                       "swap_void": swap_void, "launch_load1": snap.get("load1"),
+                       "launch_available_mb": snap.get("available_mb"), "launch_radeon_free_bytes": free})
         write_json(cell / "result.json", result)
         print(json.dumps({"cell": "layout", **result}), flush=True)
         return result
@@ -548,6 +567,10 @@ class Runner:
     def stage_verify(self):
         from verify import verify  # same directory
         ok = verify(self.out)
+        if ok:
+            files = sorted(p for p in self.out.rglob("*") if p.is_file() and p.name != "evidence.SHA256")
+            lines = [f"{sha256(p)}  {p.relative_to(self.out).as_posix()}\n" for p in files]
+            (self.out / "evidence.SHA256").write_text("".join(lines))
         raise SystemExit(0 if ok else 1)
 
     def manifest_write(self):
@@ -595,6 +618,7 @@ def main(argv=None):
     p.add_argument("--q8-file", default=None)
     p.add_argument("--q6-file", default=None)
     p.add_argument("--desktop-clients", default=None)
+    p.add_argument("--desktop-comm", default=str(Path(__file__).resolve().parent / "desktop-comm.txt"))
     p.add_argument("--vulkan-loader-dir", default=os.environ.get("VULKAN_LOADER_DIR", ""))
     p.add_argument("--vulkan-layer-dir", default=os.environ.get("VULKAN_LAYER_DIR", ""))
     a = p.parse_args(argv)

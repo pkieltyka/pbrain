@@ -75,7 +75,11 @@ func TestGemmaVulkanLayouts(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				t.Cleanup(func() { _ = x.Close() })
+				t.Cleanup(func() {
+					if err := x.Close(); err != nil {
+						t.Errorf("close %q: %v", device, err)
+					}
+				})
 				return x
 			}
 			embeds := func(x embed.Embedder, docs []string) [][]float32 {
@@ -92,7 +96,9 @@ func TestGemmaVulkanLayouts(t *testing.T) {
 				t.Fatalf("reference is %+v, want cpu", cpu.Info())
 			}
 			want := embeds(cpu, texts)
-			_ = cpu.Close()
+			if err := cpu.Close(); err != nil {
+				t.Fatalf("close CPU: %v", err)
+			}
 
 			gpu := open(card.Persistent, gib)
 			if gpu.Info().Device != card.ID || gpu.Info().Name != card.Name || gpu.(*encoder).Window() != batchInputs {
@@ -153,7 +159,9 @@ func TestGemmaVulkanLayouts(t *testing.T) {
 			back := embeds(gpu, reversed)
 			slices.Reverse(back)
 			check("reversed", back)
-			_ = gpu.Close()
+			if err := gpu.Close(); err != nil {
+				t.Fatalf("close Vulkan: %v", err)
+			}
 
 			const tiny = 1 << 20
 			tinyGPU := open(card.Persistent, tiny)
@@ -164,7 +172,9 @@ func TestGemmaVulkanLayouts(t *testing.T) {
 				}
 			}
 			check("tiny-budget", embeds(tinyGPU, texts))
-			_ = tinyGPU.Close()
+			if err := tinyGPU.Close(); err != nil {
+				t.Fatalf("close 1 MiB Vulkan: %v", err)
+			}
 
 			if receiptDir == "" {
 				return
