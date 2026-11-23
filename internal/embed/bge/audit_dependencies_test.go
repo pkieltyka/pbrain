@@ -42,6 +42,11 @@ func auditTarget(osName, arch string, tags []string) runtimeTarget {
 // Each entry limits the occurrences of a reviewed source site by pin and
 // release target. The platform reads are separate from the #70 violations.
 var reviewedDependencySites = map[runtimePin]map[runtimeSite]runtimeAllowance{
+	{"codeberg.org/readeck/go-readability/v2", "v2.1.3"}: {
+		{"codeberg.org/readeck/go-readability/v2/readability.go", "FromURL", "net/http.Client", "literal"}: {
+			allReleaseTargets, 1, "dormant URL fetch because pbrain uses FromDocument",
+		},
+	},
 	{"github.com/JohannesKaufmann/html-to-markdown/v2", "v2.5.2"}: {
 		{"github.com/JohannesKaufmann/html-to-markdown/v2/converter/ctx.go", "GetDomain", "fmt.Println", ""}:             {allReleaseTargets, 1, "conversion diagnostic through redirected stdout"},
 		{"github.com/JohannesKaufmann/html-to-markdown/v2/converter/ctx.go", "UpdateState (closure)", "fmt.Println", ""}: {allReleaseTargets, 1, "conversion diagnostic through redirected stdout"},

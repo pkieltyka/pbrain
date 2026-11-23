@@ -90,6 +90,7 @@ func (c *Client) open(ctx context.Context, rawURL string, policy requestPolicy) 
 		}
 		req.Header.Set("Accept-Encoding", policy.encoding)
 		tr := &http.Transport{
+			Proxy:             nil,
 			DisableKeepAlives: true, DisableCompression: true,
 			TLSClientConfig:     &tls.Config{RootCAs: c.roots},
 			TLSHandshakeTimeout: policy.idle, ResponseHeaderTimeout: policy.idle,

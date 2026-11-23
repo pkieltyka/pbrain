@@ -176,11 +176,17 @@ func TestRuntimeAuditIncludesNewDependency(t *testing.T) {
 	const module, version = "example.com/new-runtime-dependency", "v1.0.0"
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "env.go"), []byte(`package probe
-import "os"
+import ("os"; h "net/http")
 var setting = os.Getenv("UNREVIEWED_STARTUP")
 var temp = os.TempDir()
 var expanded = os.Expand("$HOME", os.Getenv)
 var mapped = os.Expand("$HOME", func(key string) string { return key })
+var client = &h.Client{}
+var newClient = new(h.Client)
+var transport = h.Transport{}
+var newTransport = new(h.Transport)
+var direct = h.Transport{Proxy: nil}
+var fromEnv = h.Transport{Proxy: h.ProxyFromEnvironment}
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -200,6 +206,12 @@ var mapped = os.Expand("$HOME", func(key string) string { return key })
 		module + `/env.go:3 (setting) uses os.Getenv "UNREVIEWED_STARTUP"`,
 		module + "/env.go:4 (temp) uses os.TempDir",
 		module + "/env.go:5 (expanded) uses os.Getenv <indirect>",
+		module + "/env.go:7 (client) uses net/http.Client literal",
+		module + "/env.go:8 (newClient) uses net/http.Client new",
+		module + "/env.go:9 (transport) uses net/http.Transport literal",
+		module + "/env.go:10 (newTransport) uses net/http.Transport new",
+		module + "/env.go:12 (fromEnv) uses net/http.Transport literal",
+		module + "/env.go:12 (fromEnv) uses net/http.ProxyFromEnvironment",
 	}
 	if len(checked) != 1 || checked[module] != 1 || !slices.Equal(findings, want) {
 		t.Fatalf("scanned %v, found %q, want %q from the new dependency", checked, findings, want)
@@ -269,6 +281,11 @@ func auditRuntimeFile(t *testing.T, filename, label string, report func(int, run
 					}
 					visit(n, stack, p+"."+n.Sel.Name, argument)
 				}
+				if p == "net/http" && (n.Sel.Name == "Client" || n.Sel.Name == "Transport") {
+					if construction := httpConstruction(n, stack); construction != "" {
+						visit(n, stack, p+"."+n.Sel.Name, construction)
+					}
+				}
 			}
 		case *ast.CallExpr:
 			if id, ok := ast.Unparen(n.Fun).(*ast.Ident); ok && (id.Name == "print" || id.Name == "println") {
@@ -285,6 +302,44 @@ func auditRuntimeFile(t *testing.T, filename, label string, report func(int, run
 		}
 		return true
 	})
+}
+
+func httpConstruction(typ *ast.SelectorExpr, stack []ast.Node) string {
+	for i := len(stack) - 1; i >= 0; i-- {
+		switch parent := stack[i].(type) {
+		case *ast.ParenExpr:
+			continue
+		case *ast.CompositeLit:
+			if ast.Unparen(parent.Type) == typ {
+				if typ.Sel.Name == "Transport" && hasExplicitNilProxy(parent.Elts) {
+					return ""
+				}
+				return "literal"
+			}
+		case *ast.CallExpr:
+			if fn, ok := ast.Unparen(parent.Fun).(*ast.Ident); ok && fn.Name == "new" &&
+				len(parent.Args) == 1 && ast.Unparen(parent.Args[0]) == typ {
+				return "new"
+			}
+		}
+		break
+	}
+	return ""
+}
+
+func hasExplicitNilProxy(fields []ast.Expr) bool {
+	for _, field := range fields {
+		entry, ok := field.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		key, named := entry.Key.(*ast.Ident)
+		value, explicit := ast.Unparen(entry.Value).(*ast.Ident)
+		if named && key.Name == "Proxy" && explicit && value.Name == "nil" {
+			return true
+		}
+	}
+	return false
 }
 
 func runtimeArgument(fn ast.Expr, stack []ast.Node) string {
