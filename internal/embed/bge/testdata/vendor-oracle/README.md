@@ -47,3 +47,42 @@ singleton and four-worker calls. The test harness uses
 `PBRAIN_CAPTURE_BGE_ORACLE` to select an output directory when run
 against the pre-port code. That mode writes scratch captures, separate
 from the frozen checked-in files.
+
+## Compatibility and throughput
+
+The #62 candidate matched both architecture oracles on all 113 inputs,
+including singleton and four-worker vector bits. The native amd64 run
+also passed the reference cosine, worker and verified-byte loader tests.
+The emulated arm64 oracle comparison completed in 1,138 seconds. To
+reproduce it, cross-compile the test and run it from the package
+directory with the same model files and CPU assignment.
+
+```sh
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 GOARM64=v8.0 \
+  go test -trimpath -c -o /tmp/pbrain-bge-arm64.test ./internal/embed/bge
+cd internal/embed/bge
+PBRAIN_TEST_BGE_MODEL=/path/to/bge-model GOMAXPROCS=4 \
+  taskset -c 0-3 qemu-aarch64 -cpu max /tmp/pbrain-bge-arm64.test \
+  -test.run '^TestBgeVendorOracle$' -test.v -test.timeout=45m
+```
+
+An existing aikit-built fixture retained both published generations and
+database bytes on sync. The 14 search responses were identical. The
+candidate embedded zero unchanged passages across the 32 shared and two
+personal items. A fresh rebuild with the warmed cache reused all 59 shared
+vectors and embedded the two personal passages.
+
+On the Ryzen 9 7950X with cores 0–3 and `GOMAXPROCS=4`, the benchmark warmed
+each encoder and timed embedding the same 59 documents. Loading and
+verification ran outside the timer. Three alternating matched pairs each
+met the 4% external CPU limit. The earlier series included a load spike
+and was repeated. Rates are passages per second.
+
+| Runtime | Three matched runs | Median | Range |
+|---|---|---:|---:|
+| aikit v1.79.1 | 35.75, 35.57, 35.14 | 35.57 | 35.14–35.75 |
+| Internal BERT | 35.34, 35.35, 35.29 | 35.34 | 35.29–35.35 |
+
+The median fell 0.65% within the overlapping ranges. Each of the six
+release graphs audited 9 Go files in the local encoder/tokenizer and 16
+in its linalg package with zero new exceptions.
