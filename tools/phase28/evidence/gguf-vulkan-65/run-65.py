@@ -398,6 +398,7 @@ class Runner:
         peak_vram = peak_total = peak_delta = peak_swap = peak_rss = 0
         samples = 0
         stop = None
+        detail = None
         with (cell / "samples.jsonl").open("w") as out:
             while child.poll() is None:
                 moment = time.monotonic_ns()
@@ -420,14 +421,19 @@ class Runner:
                                       "swap": swap, "rss": rss}) + "\n")
                 if peak_total >= ATTRIBUTED_CAP or peak_delta >= ATTRIBUTED_CAP or peak_swap > CHILD_SWAP_CAP:
                     stop = "memory cap or child swap"
+                    detail = {"peak_total": peak_total, "peak_delta": peak_delta, "peak_swap": peak_swap}
                 elif pageouts() != pswpout:
                     stop = "host pageout"
+                    detail = {"pswpout": pswpout, "now": pageouts()}
                 elif moment - began >= deadline * 10**9:
                     stop = f"{deadline}-second application deadline"
                 elif moment >= next_check:
                     next_check = moment + 500_000_000
-                    if pbrain_active(child.pid) or competing_clients(self.desktop, child.pid):
+                    active = pbrain_active(child.pid)
+                    clients = competing_clients(self.desktop, child.pid)
+                    if active or clients:
                         stop = "foreign pbrain or Radeon work"
+                        detail = {"pbrain": active, "clients": {str(k): v for k, v in clients.items()}}
                     elif self.reset_guard(cursor):
                         stop = "amdgpu timeout or reset"
                 if stop:
@@ -438,7 +444,7 @@ class Runner:
             child.kill()
         child.wait()
         return {
-            "process_wall_ns": time.monotonic_ns() - began, "stop": stop,
+            "process_wall_ns": time.monotonic_ns() - began, "stop": stop, "stop_detail": detail,
             "attributed_samples": samples, "peak_vram_bytes": peak_vram,
             "peak_attributed_bytes": peak_total, "max_device_vram_delta": peak_delta,
             "peak_swap_bytes": peak_swap, "peak_host_rss_bytes": peak_rss,
@@ -465,18 +471,21 @@ class Runner:
         (cell / "kernel.log").write_text(kernel)
         stderr_text = (cell / "sync.stderr").read_text(errors="replace")
         swap_void = void_rule.end_void(snap, void_rule.snapshot(), env={})
+        sampler_stop, postflight_stop = result.pop("stop"), None
         if self.reset_guard(cursor) or (device != "cpu" and "VK_ERROR_DEVICE_LOST" in stderr_text):
-            result["stop"] = "amdgpu timeout/reset or device loss"
+            postflight_stop = "amdgpu timeout/reset or device loss"
         elif device != "cpu" and VALIDATION.search(stderr_text):
-            result["stop"] = "Vulkan validation failed"
+            postflight_stop = "Vulkan validation failed"
         elif device != "cpu" and not LAYER_LOADED.search(stderr_text):
-            result["stop"] = "Vulkan validation layer missing"
+            postflight_stop = "Vulkan validation layer missing"
         elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
-            result["stop"] = "postflight pageout, swap, or foreign work"
+            postflight_stop = "postflight pageout, swap, or foreign work"
         elif device != "cpu" and (not result["attributed_samples"] or not result["peak_vram_bytes"]):
-            result["stop"] = "missing Radeon attribution"
+            postflight_stop = "missing Radeon attribution"
         elif child.returncode:
-            result["stop"] = f"sync exited {child.returncode}"
+            postflight_stop = f"sync exited {child.returncode}"
+        result["sampler_stop"], result["postflight_stop"] = sampler_stop, postflight_stop
+        result["stop"] = sampler_stop or postflight_stop
         result.update({
             "returncode": child.returncode, "device": device, "selector": selector,
             "launch_load1": snap.get("load1"), "launch_available_mb": snap.get("available_mb"),
@@ -506,6 +515,10 @@ class Runner:
             PBRAIN_TEST_GEMMA2_Q8=str(q8_dir), PBRAIN_TEST_GEMMA2_Q6=str(q6_dir),
             PBRAIN_VULKAN_LAYOUT_DIR=str(cell),
         )
+        package = self.repo / "internal/embed/gemma2"
+        fixture = (package / "../../semantic/calibrate/testdata/retrieval/brain").resolve()
+        if not fixture.is_dir():
+            raise SystemExit(f"layout fixture is missing from the package working directory: {fixture}")
         cmd = [str(self.out / "bin" / "gemma2-vulkan.test"),
                "-test.run", "^TestGemmaVulkanLayouts$", "-test.v", "-test.timeout", "600s"]
         snap, free = self.admission()
@@ -513,24 +526,28 @@ class Runner:
         baseline = vram_used()
         cursor = journal_cursor()
         with (cell / "stdout.log").open("wb") as stdout, (cell / "stderr.log").open("wb") as stderr:
-            child = subprocess.Popen(cmd, env=env, stdout=stdout, stderr=stderr)
+            child = subprocess.Popen(cmd, cwd=package, env=env, stdout=stdout, stderr=stderr)
             result = self.sample_loop(child, cell, baseline, pswpout, cursor, LAYOUT_DEADLINE_S)
         kernel = journal("--after-cursor", cursor, "-o", "short-iso")
         (cell / "kernel.log").write_text(kernel)
         text = (cell / "stdout.log").read_text(errors="replace") + (cell / "stderr.log").read_text(errors="replace")
         swap_void = void_rule.end_void(snap, void_rule.snapshot(), env={})
+        sampler_stop, postflight_stop = result.pop("stop"), None
         if self.reset_guard(cursor) or "VK_ERROR_DEVICE_LOST" in text:
-            result["stop"] = "amdgpu timeout/reset or device loss"
+            postflight_stop = "amdgpu timeout/reset or device loss"
         elif VALIDATION.search(text):
-            result["stop"] = "Vulkan validation failed"
+            postflight_stop = "Vulkan validation failed"
         elif not LAYER_LOADED.search(text):
-            result["stop"] = "Vulkan validation layer missing"
+            postflight_stop = "Vulkan validation layer missing"
         elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
-            result["stop"] = "postflight pageout, swap, or foreign work"
+            postflight_stop = "postflight pageout, swap, or foreign work"
         elif not result["attributed_samples"] or not result["peak_vram_bytes"]:
-            result["stop"] = "missing Radeon attribution"
+            postflight_stop = "missing Radeon attribution"
         elif child.returncode:
-            result["stop"] = f"layout test exited {child.returncode}"
+            postflight_stop = f"layout test exited {child.returncode}"
+        result["sampler_stop"], result["postflight_stop"] = sampler_stop, postflight_stop
+        result["stop"] = sampler_stop or postflight_stop
+        result["cwd"] = str(package)
         result.update({"returncode": child.returncode, "pageout_delta": pageouts() - pswpout,
                        "swap_void": swap_void, "launch_load1": snap.get("load1"),
                        "launch_available_mb": snap.get("available_mb"), "launch_radeon_free_bytes": free})

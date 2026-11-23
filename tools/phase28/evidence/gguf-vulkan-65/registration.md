@@ -69,10 +69,11 @@ Each runs one `pbrain sync --device <selector> --json` over the 32 notes with
 published index; it includes model verification, load and attach, scanning,
 token preparation, cache writes, SQLite commits and manifest publication.
 
-The layout stage runs the prebuilt `gemma2-vulkan.test` with
-`TestGemmaVulkanLayouts`: 59 passages, singleton against packed, 17-input split,
-reversed and 1 MiB-budget layouts, plus CPU/Vulkan cosine at 768 and the
-normalized 512 prefix, per quant.
+The layout stage runs the prebuilt `gemma2-vulkan.test` with its package
+working directory (`internal/embed/gemma2`, checked host-side against the
+retrieval fixture), so the frozen note path resolves. It exercises 59 passages,
+singleton against packed, 17-input split, reversed and 1 MiB-budget layouts,
+plus CPU/Vulkan cosine at 768 and the normalized 512 prefix, per quant.
 
 ## Guards
 

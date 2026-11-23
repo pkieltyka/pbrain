@@ -55,7 +55,8 @@ name. `python3 test-run-65.py` proves that control without a device.
 `<out>/manifest.json` records the commit, Go build flags, exact UUID/alias,
 thresholds, fixture hashes and binary hashes. `cells/<cell>/` holds the fresh
 brain, SQLite index, `sync.json`, `result.json`, samples, trace and stderr.
-`layout/` holds the per-quant layout receipts. `verification.json` is the
+`layout/` holds the per-quant layout receipts; it runs from the gemma2 package
+directory so the frozen note path resolves. `verification.json` is the
 independent verdict. After a successful verification the same command writes
 `evidence.SHA256`, a sorted hash list of every file except the seal itself.
 
