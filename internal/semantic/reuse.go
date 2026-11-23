@@ -1,5 +1,7 @@
 package semantic
 
+import "github.com/pkieltyka/pbrain/internal/trace"
+
 // vectorRef names the first passage resolved for a digest. While that item has
 // not been written, pending holds its vector slot. Afterwards the reference can
 // read that slot's stored row without retaining the item or its vectors.
@@ -14,7 +16,9 @@ type vectorAlias struct {
 }
 
 func (b *builder) cut(w *work, title string, body []byte, queue []queued) ([]queued, error) {
+	cut := trace.Start(b.ctx, "chunk")
 	w.cut(title, body)
+	cut.End()
 	for i, p := range w.ps {
 		slot := queued{w, i}
 		v, found, err := b.reuse(p.Digest, slot)
@@ -35,7 +39,9 @@ func (b *builder) cut(w *work, title string, body []byte, queue []queued) ([]que
 }
 
 func (b *builder) reuse(digest [32]byte, to queued) ([]float32, bool, error) {
+	lookup := trace.Start(b.ctx, "sqlite_lookup")
 	v, found, err := b.x.baseVectorByDigest(b.ctx, digest, to.w.path, b.replace)
+	lookup.End()
 	if err != nil {
 		return nil, false, ctxOr(b.ctx, buildIOErr("the index cannot be read"))
 	}
@@ -50,13 +56,15 @@ func (b *builder) reuse(digest [32]byte, to queued) ([]float32, bool, error) {
 			}
 			return v, true, nil
 		}
+		lookup := trace.Start(b.ctx, "sqlite_lookup")
 		v, err := b.x.vectorAt(b.ctx, first.path, first.ord)
+		lookup.End()
 		if err != nil {
 			return nil, false, ctxOr(b.ctx, buildIOErr("the index cannot be read"))
 		}
 		return v, true, nil
 	}
-	return b.si.cachedVector(digest)
+	return b.si.cachedVector(b.ctx, digest)
 }
 
 func (b *builder) rememberStored(w *work) {

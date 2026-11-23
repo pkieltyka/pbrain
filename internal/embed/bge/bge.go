@@ -14,6 +14,7 @@ import (
 	tokenizer "github.com/pkieltyka/aikit/embed"
 	"github.com/pkieltyka/aikit/encoder"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 const (
@@ -72,7 +73,9 @@ func open(ctx context.Context, a *embed.Artifact, _ embed.OpenOptions) (embed.Em
 	// The caller relinquishes the slices on Open. Only the handoff and, once
 	// read, aikit own the buffers during the load.
 	clear(files)
+	decode := trace.Start(ctx, "model_decode")
 	model, err := loadBERT(h, ".")
+	decode.End()
 	if err != nil {
 		return nil, fmt.Errorf("bge: load model: %w", err)
 	}
@@ -143,11 +146,11 @@ func (e *embedder) Embed(ctx context.Context, role embed.Role, texts []string) (
 	}
 	if workers := min(runtime.GOMAXPROCS(0), maxWorkers, len(texts)); workers > 1 {
 		return embedBatch(ctx, len(texts), workers, func(ctx context.Context, i int) ([]float32, error) {
-			ids := e.tokenIDs(role, texts[i])
+			ids := e.prepare(ctx, role, texts[i])
 			if err := ctx.Err(); err != nil {
 				return nil, err
 			}
-			return e.model.Embed(ids), nil
+			return e.forward(ctx, ids), nil
 		})
 	}
 	vectors := make([][]float32, len(texts))
@@ -155,9 +158,23 @@ func (e *embedder) Embed(ctx context.Context, role embed.Role, texts []string) (
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		vectors[i] = e.model.Embed(e.tokenIDs(role, text))
+		vectors[i] = e.forward(ctx, e.prepare(ctx, role, text))
 	}
 	return vectors, nil
+}
+
+func (e *embedder) prepare(ctx context.Context, role embed.Role, text string) []int32 {
+	span := trace.Start(ctx, "token_prepare")
+	ids := e.tokenIDs(role, text)
+	span.End()
+	return ids
+}
+
+func (e *embedder) forward(ctx context.Context, ids []int32) []float32 {
+	span := trace.Start(ctx, "forward")
+	vector := e.model.Embed(ids)
+	span.EndWith(trace.Fields{Device: "cpu", Inputs: 1, TotalPositions: len(ids), MaxPositions: len(ids)})
+	return vector
 }
 
 // embedBatch gives each worker one input and its output slot at a time. The

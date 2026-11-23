@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 const (
@@ -85,6 +86,8 @@ func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimi
 }
 
 func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float32, error) {
+	prepare := trace.Start(ctx, "token_prepare")
+	defer prepare.End()
 	ids := make([][]int, len(texts))
 	lengths := make([]int, len(texts))
 	for i, text := range texts {
@@ -97,6 +100,7 @@ func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float
 		}
 		lengths[i] = len(ids[i])
 	}
+	prepare.EndWith(trace.Fields{Inputs: len(ids)})
 
 	out := make([][]float32, len(ids))
 	if err := e.embedPrepared(ctx, ids, lengths, out); err != nil {
@@ -113,7 +117,9 @@ func (e *encoder) embedPrepared(ctx context.Context, ids [][]int, lengths []int,
 		n := 1
 		if e.model.Accelerator() != nil {
 			var err error
+			pack := trace.Start(ctx, "pack")
 			n, err = batchSize(ctx, lengths, e.info, e.retryLimit, e.model.BatchMemory)
+			pack.EndWith(trace.Fields{Inputs: n, Failed: err != nil})
 			if err != nil {
 				if cerr := ctx.Err(); cerr != nil {
 					return cerr
@@ -139,7 +145,17 @@ func (e *encoder) embedBatch(ctx context.Context, ids [][]int, lengths []int, ou
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	fields := trace.Fields{Device: e.info.Device, Inputs: len(ids)}
+	if trace.Active(ctx) {
+		for _, n := range lengths {
+			fields.TotalPositions += n
+			fields.MaxPositions = max(fields.MaxPositions, n)
+		}
+	}
+	forward := trace.Start(ctx, "forward")
 	vectors, err := e.model.EmbedIDsBatch(ids)
+	fields.Failed = err != nil
+	forward.EndWith(fields)
 	if cerr := ctx.Err(); cerr != nil {
 		return cerr
 	}

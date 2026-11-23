@@ -3,8 +3,11 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"os/signal"
 	"runtime/debug"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pkieltyka/pbrain/internal/brain"
@@ -12,6 +15,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/query"
 	"github.com/pkieltyka/pbrain/internal/render"
 	"github.com/pkieltyka/pbrain/internal/skill"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 // version can be supplied through -ldflags -X in a release build.
@@ -47,6 +51,22 @@ func RunWith(ctx context.Context, env Env, features Features) (exit int) {
 	}
 	if err := in.captureTime(&env); err != nil {
 		return emitError(env.Stderr, jsonMode, err)
+	}
+	if in.cmd.name == "sync" && !in.boolean("status") && !in.boolean("help") && !in.boolean("version") {
+		if path := env.Getenv("PBRAIN_TRACE"); path != "" {
+			r, err := trace.Open(path)
+			if err != nil {
+				return emitError(env.Stderr, jsonMode, ioFailure("the sync trace cannot be opened"))
+			}
+			var stop func()
+			ctx, stop = signal.NotifyContext(r.Context(ctx), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			total := trace.Start(ctx, trace.Sync)
+			defer func() {
+				total.End()
+				_ = r.Close() // diagnostic writes do not change a sync's outcome
+			}()
+		}
 	}
 	return finish(env, &in, execute(ctx, env, &in, features))
 }
@@ -117,7 +137,9 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 	if env.Files == nil {
 		return outcome{err: ioFailure("file access is unavailable")}
 	}
+	openSpan := trace.Start(ctx, "brain_open")
 	b, err := brain.Open(ctx, bEnv, open)
+	openSpan.End()
 	if err != nil {
 		return outcome{err: err}
 	}

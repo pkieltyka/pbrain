@@ -21,6 +21,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/semantic"
 	"github.com/pkieltyka/pbrain/internal/store"
 	"github.com/pkieltyka/pbrain/internal/sys"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 // The semantic commands (cli.md "Semantic commands and scan notices", semantic.md "What cli does"
@@ -219,6 +220,8 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 			view = brain.PersonalView
 		}
 		scan := func(ctx context.Context) (semantic.SectionInput, error) {
+			scanSpan := trace.Start(ctx, "brain_scan_read")
+			defer scanSpan.End()
 			cat, err := store.Scan(ctx, b, view, store.KeepAll)
 			if err != nil {
 				return semantic.SectionInput{}, err
@@ -230,7 +233,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 			}
 			return inputs([]semantic.SectionDir{d}, cat)[0], nil
 		}
-		res, err := semantic.Build(ctx, opt, d, scan, fetch.New(env.Net), notify, progress)
+		res, err := semantic.Build(trace.WithSection(ctx, sectionName(d.Section)), opt, d, scan, fetch.New(env.Net), notify, progress)
 		if err != nil {
 			return outcome{err: err}
 		}

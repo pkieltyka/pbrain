@@ -8,6 +8,7 @@ import (
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 const q8Name = "embeddinggemma-2-q8-0"
@@ -41,7 +42,9 @@ func openQ8(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embe
 	}
 	prompts := map[string]string{"query": queryPrompt, "document": docPrompt}
 	reader := bytes.NewReader(files[0])
+	decode := trace.Start(ctx, "model_decode")
 	m, err := embeddinggemma2.LoadGGUFEncoderReaderAt(reader, reader.Size(), prompts)
+	decode.End()
 	if err != nil {
 		return nil, err
 	}

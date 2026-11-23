@@ -15,6 +15,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/sys"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 const (
@@ -180,6 +181,7 @@ type builder struct {
 	lastProg time.Time
 	done     int
 	total    int
+	window   int
 }
 
 func (b *builder) close() {
@@ -210,7 +212,9 @@ type queued struct {
 func (b *builder) run() (BuildResult, error) {
 	ctx, files := b.ctx, b.opt.Files
 	fp := IndexFingerprint(b.m)
+	readSpan := trace.Start(ctx, "index_read")
 	x, state := openIndex(ctx, files, b.idx, fp, b.m.Dim, true)
+	readSpan.End()
 	if state != IndexOK {
 		var err error
 		if x, err = newIndex(ctx, fp, b.m.Name, b.m.Dim); err != nil {
@@ -303,7 +307,7 @@ func (b *builder) run() (BuildResult, error) {
 		b.changed = true
 	}
 	if b.changed {
-		if err := b.publish(); err != nil {
+		if err := b.publish(ctx); err != nil {
 			return b.res, err
 		}
 	}
@@ -337,7 +341,9 @@ func (w *work) cut(title string, body []byte) {
 
 // cut cuts w's item and takes every vector found by digest. It returns the passages still to embed.
 func (s *sectionIndex) cut(ctx context.Context, w *work, title string, body []byte) ([]int, error) {
+	cutSpan := trace.Start(ctx, "chunk")
 	w.cut(title, body)
+	cutSpan.End()
 	var missing []int
 	for i, p := range w.ps {
 		v, ok, err := s.reuse(ctx, p.Digest)
@@ -363,14 +369,16 @@ func (s *sectionIndex) reuse(ctx context.Context, digest [32]byte) ([]float32, b
 	if ok {
 		return v, true, nil
 	}
-	return s.cachedVector(digest)
+	return s.cachedVector(ctx, digest)
 }
 
-func (s *sectionIndex) cachedVector(digest [32]byte) ([]float32, bool, error) {
+func (s *sectionIndex) cachedVector(ctx context.Context, digest [32]byte) ([]float32, bool, error) {
 	if !s.cache {
 		return nil, false, nil
 	}
+	lookup := trace.Start(ctx, "cache_lookup")
 	v, ok, err := s.opt.Cache.readVector(s.m.Fingerprint, digest, s.m.Dim)
+	lookup.End()
 	if err != nil {
 		return nil, false, errCacheGit
 	}
@@ -399,12 +407,15 @@ func (s *sectionIndex) embed(ctx context.Context, emb embed.Embedder, texts []st
 }
 
 // keep gives passage i of w its new vector and, for the shared section, writes it to the cache.
-func (s *sectionIndex) keep(w *work, i int, v []float32) error {
+func (s *sectionIndex) keep(ctx context.Context, w *work, i int, v []float32) error {
 	w.vecs[i] = v
 	if !s.cache {
 		return nil
 	}
-	if err := s.opt.Cache.writeVector(s.m.Fingerprint, w.ps[i].Digest, v); err != nil {
+	write := trace.Start(ctx, "cache_write")
+	err := s.opt.Cache.writeVector(s.m.Fingerprint, w.ps[i].Digest, v)
+	write.End()
+	if err != nil {
 		if errors.Is(err, ErrCacheExposed) {
 			return errCacheGit
 		}
@@ -442,7 +453,9 @@ func (b *builder) openEmbedder() error {
 	if device == "" {
 		device = "auto"
 	}
+	open := trace.Start(b.ctx, trace.ModelOpen)
 	emb, err := b.opt.Registry.Open(b.ctx, b.art, embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory})
+	open.EndWith(trace.Fields{Failed: err != nil})
 	b.art = nil
 	if err != nil {
 		var config *errs.Error
@@ -472,7 +485,8 @@ func (b *builder) reportRuntime() {
 
 // flush embeds the queued passages in windows, then stores every pending item in order.
 func (b *builder) flush(queue []queued, pending []*work) error {
-	ctx := b.ctx
+	b.window++
+	ctx := trace.WithWindow(b.ctx, b.window)
 	if len(queue) > 0 {
 		if err := b.openEmbedder(); err != nil {
 			return err
@@ -489,7 +503,7 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		}
 		b.reportRuntime()
 		for i, q := range batch {
-			if err := b.si.keep(q.w, q.i, vs[i]); err != nil {
+			if err := b.si.keep(ctx, q.w, q.i, vs[i]); err != nil {
 				return err
 			}
 		}
@@ -511,7 +525,7 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 		pending[i] = nil
 		b.done++
 		if b.now().Sub(b.lastPub) >= publishEvery {
-			if err := b.publish(); err != nil {
+			if err := b.publish(ctx); err != nil {
 				return err
 			}
 		}
@@ -523,9 +537,11 @@ func (b *builder) flush(queue []queued, pending []*work) error {
 	return nil
 }
 
-func (b *builder) publish() error {
-	if _, err := b.x.publish(b.ctx, b.opt.Files, b.idx, b.opt.Rand); err != nil {
-		return ctxOr(b.ctx, err)
+func (b *builder) publish(ctx context.Context) error {
+	publish := trace.Start(ctx, "publish")
+	defer publish.End()
+	if _, err := b.x.publish(ctx, b.opt.Files, b.idx, b.opt.Rand); err != nil {
+		return ctxOr(ctx, err)
 	}
 	b.lastPub = b.now()
 	return nil
@@ -577,7 +593,7 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 		dir, err := embed.Find(files, m, opt.ModelDir, nil)
 		if err == nil {
 			var a *embed.Artifact
-			if a, err = embed.Verify(files, dir, m); err == nil {
+			if a, err = verifyModel(ctx, files, dir, m); err == nil {
 				return a, nil
 			}
 		}
@@ -604,7 +620,7 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 			return nil, cacheErr(err)
 		}
 		if err == nil {
-			a, verr := embed.Verify(files, dir, m)
+			a, verr := verifyModel(ctx, files, dir, m)
 			if verr == nil {
 				dropSource(opt.Cache, m)
 				return a, nil
@@ -618,6 +634,12 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 		}
 	}
 	return nil, fetchFailedErr()
+}
+
+func verifyModel(ctx context.Context, files sys.Files, dir sys.Dir, m embed.Model) (*embed.Artifact, error) {
+	verify := trace.Start(ctx, "model_verify")
+	defer verify.End()
+	return embed.Verify(files, dir, m)
 }
 
 func modelErr(err error) bool {

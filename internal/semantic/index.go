@@ -20,6 +20,7 @@ import (
 
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/sys"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 // IndexState is what reading a section's index found.
@@ -234,6 +235,8 @@ func readVector(blob []byte, dim int) []float32 {
 // putItem replaces the item at path, with all its passages, in one transaction: an item is in the
 // index with all its old passages or all its new ones, never half.
 func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, check Check, passages []storedPassage) error {
+	write := trace.Start(ctx, "sqlite_write")
+	defer write.End()
 	tx, err := x.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -259,7 +262,11 @@ func (x *indexDB) putItem(ctx context.Context, path string, content [32]byte, ch
 			return err
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	write.End()
+	commit := trace.Start(ctx, "sqlite_commit")
+	err = tx.Commit()
+	commit.End()
+	if err != nil {
 		return err
 	}
 	x.items[path] = storedItem{id: id, check: check}
@@ -430,6 +437,8 @@ func (x *indexDB) scoreItems(ctx context.Context, ids []int64, q []float32, cuto
 
 // serialize returns the database as one file's bytes.
 func (x *indexDB) serialize(ctx context.Context) ([]byte, error) {
+	checkpoint := trace.Start(ctx, "sqlite_checkpoint")
+	defer checkpoint.End()
 	var out []byte
 	err := x.conn.Raw(func(dc any) error {
 		s, ok := dc.(interface{ Serialize() ([]byte, error) })
