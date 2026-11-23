@@ -501,7 +501,8 @@ func TestIgnoreAndDisplayUseLiteralPaths(t *testing.T) {
 func TestReadProjectSettings(t *testing.T) {
 	c, err := decodeProject(nil)
 	if err != nil || c.Search != (Limits{5, 3000}) || c.List != (Limits{20, 2000}) || c.Get.MaxChars != 6000 ||
-		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != DefaultModel {
+		c.Prime.MaxChars != 2000 || c.HasTags || c.Tags != nil || c.Semantic.Model != DefaultModel ||
+		c.Semantic.CUDAPrecision != "fp16" {
 		t.Fatalf("defaults: %+v %v", c, err)
 	}
 	c, err = decodeProject([]byte("search = { limit = 50, max_chars = 9000 }\nlist = { limit = 200 }\nsemantic = { model = \"bge-small-en-v1.5\" }\n[tags]\n"))

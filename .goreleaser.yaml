@@ -56,7 +56,7 @@ builds:
       post:
         - cmd: bash .github/scripts/smoke-cuda-release.sh "{{ .Path }}" "{{ .Target }}"
           output: true
-  # Linux arm64: CUDA alone. The vulkan tag would link nothing there.
+  # Linux arm64 links the same CUDA kernels. Vulkan supports Linux amd64 only.
   - id: pbrain-cuda
     main: ./cmd/pbrain
     binary: pbrain
@@ -68,6 +68,8 @@ builds:
       - arm64
     tags:
       - cuda
+      - eg2_combined
+      - eg2_fp16
     flags:
       - -trimpath
     ldflags:

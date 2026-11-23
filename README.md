@@ -25,13 +25,13 @@ the CPU and sync runs on the CPU. Use the Linux archives ending in
 `_cpu.tar.gz` for a smaller CPU-only binary. `go install` also gives a CPU-only binary.
 The macOS binaries are CPU-only, untested and unsupported for now.
 
-For CUDA support on Linux with `go install`, use
-`go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`. On Linux amd64, in
-releases after v0.2.0, `-tags cuda,vulkan` builds what the standard archive holds.
-To build with CUDA from source on Linux, run `CGO_ENABLED=0 go build -tags cuda ./cmd/pbrain`.
-On Linux amd64, goinfer supports sync of the Google EmbeddingGemma 2
-pack on discrete AMD GPUs through Vulkan. Build with `CGO_ENABLED=0 go build -tags 'cuda vulkan' ./cmd/pbrain`
-to include both GPU backends. The CUDA build loads
+For ordinary CUDA support on Linux with `go install`, use
+`go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`.
+Starting with v0.4.0, the Linux GPU archives also link the fast CUDA kernel.
+To build that variant from source, run
+`CGO_ENABLED=0 go build -tags 'cuda eg2_combined eg2_fp16' ./cmd/pbrain`.
+On Linux amd64, add `vulkan` to those tags to match the standard archive
+and sync the Google EmbeddingGemma 2 pack on discrete AMD GPUs. The CUDA build loads
 `libcuda.so.1` dynamically at runtime. Set `LD_LIBRARY_PATH` if the driver library is outside the
 default loader search path. Vulkan uses the system Vulkan loader and an AMD driver.
 Run `pbrain devices` to see the available devices in automatic selection order.
@@ -50,8 +50,9 @@ Unknown headroom gives a 1 GiB budget. Set `PBRAIN_GPU_MEMORY` in MiB to
 override the batch budget. Leave headroom for model weights and other GPU
 users, including the display if it shares the card. A passage can run alone
 when it exceeds the batch budget. Sync splits a batch on a retry-safe out-of-memory
-error. With automatic selection, a retry-safe failure on one passage moves sync
-to the CPU and prints a notice.
+error. With automatic selection, a retry-safe failure on one passage moves
+an fp32 sync to the CPU and prints a notice. An fp16 sync stops at its
+last saved checkpoint.
 
 ## Quick start
 
@@ -78,7 +79,8 @@ or `pbrain skill list` for its topics.
 Use `pbrain search --semantic 'where is login state kept'` to find related wording.
 Exact hits come first. When the model or index is unavailable, search returns
 the lexical results and a notice. Search never downloads a model or builds a first
-index; with an index, it first adds up to 20 new or changed items itself.
+index. CPU catch-up can cover up to 20 items and 20 passages in an existing index.
+Sections indexed with CUDA fp16 need a sync to cover new or changed items.
 
 **The first index on a machine is a person's step.** Check `pbrain sync --status`,
 then run `pbrain sync` when ready. It downloads the selected model if needed and
@@ -106,11 +108,20 @@ model in `docs/brain/pbrain.toml` and run `pbrain sync` again.
 ```toml
 [semantic]
 model = "embeddinggemma-2"
+# cuda_precision = "fp32"  # keep ordinary CUDA indexing
 ```
 
 Use `model = "embeddinggemma-2-q8-0"` for Unsloth's Q8_0 conversion of
 Google's EmbeddingGemma 2. It syncs on CPU or NVIDIA CUDA and downloads
 a single GGUF file. [Pinned model card and Apache-2.0 license](https://huggingface.co/unsloth/embeddinggemma-2-GGUF/blob/031f0d4b35536f69ab3509d4893c923264fcf253/README.md)
+
+Both Gemma models default to fp16 indexing with a compatible NVIDIA GPU
+(compute capability 8.0 or newer) and the fast kernel linked in. Older CUDA
+cards use fp32 and sync reports the reason. When upgrading, run `pbrain sync`
+to rebuild the index and add `--personal` if you index a personal section.
+You can retain the existing CUDA vectors by setting
+`semantic.cuda_precision = "fp32"` before upgrading. Either precision reuses
+the downloaded model files. Search always runs on the CPU.
 
 Set `model = "none"` in the same section to turn semantic search off.
 
