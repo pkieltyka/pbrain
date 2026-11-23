@@ -9,7 +9,7 @@ the device stage starts only after #76 releases the queue.
 - `run-65.py` — build, four fresh SQLite syncs and the layout stage.
 - `verify.py` — read-only verification of the complete evidence tree.
 - `fixture-paths.txt` / `fixture.SHA256` — the 32-note frozen workload.
-- `desktop-comm.txt` — the desktop process names that are not foreign work.
+- `test-run-65.py` — host control: a new PID with an approved comm is foreign.
 - `../gguf-vulkan-65` receipts are produced only by a run and are not in Git.
 
 ## Review gate
@@ -38,13 +38,17 @@ python3 <goinfer>/scripts/timing_lock.py run --exclusive --label pbrain-65-devic
   python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage qualify --out <out> \
   --commit <reviewed> --goinfer-repo <goinfer> \
   --q8-file <q8 gguf file> --q6-file <q6 gguf file> \
-  --desktop-comm <comm-list> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
+  --desktop-clients <pid-map> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
 
 python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage verify --out <out>
 ```
 
 `--stage all` runs build, qualify and verify in that order. The `verify` stage
 needs no lock, model or device.
+
+The foreign-client check exempts only the exact pid+comm pairs in
+`--desktop-clients`; a new PID is foreign even when its comm matches a desktop
+name. `python3 test-run-65.py` proves that control without a device.
 
 ## Evidence
 

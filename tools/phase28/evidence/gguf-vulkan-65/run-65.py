@@ -141,22 +141,29 @@ def desktop_map(path):
     return {int(pid): name for pid, name in read_json(path).items()}
 
 
-def competing_clients(desktop, allowed_comm=(), ours=None):
+def foreign_clients(pids, comm_of, desktop, ours=None):
+    """PIDs on the render node that are not the exact baseline pid+comm pairs.
+
+    A new PID is foreign even when its comm matches an approved name; only the
+    explicit baseline map is exempt.
+    """
+    return {pid: comm_of[pid] for pid in pids
+            if pid != ours and pid in comm_of and desktop.get(pid) != comm_of[pid]}
+
+
+def competing_clients(desktop, ours=None):
     files = ("/dev/dri/by-path/pci-0000:0c:00.0-render", "/dev/dri/by-path/pci-0000:0c:00.0-card")
     result = subprocess.run(["fuser", *files], capture_output=True, text=True)
     if result.returncode not in (0, 1):
         raise RuntimeError(result.stderr)
-    clients = {}
-    for pid in map(int, result.stdout.split()):
-        if pid == ours:
-            continue
+    pids = [int(pid) for pid in result.stdout.split()]
+    comm_of = {}
+    for pid in pids:
         try:
-            name = (Path("/proc") / str(pid) / "comm").read_text().strip()
+            comm_of[pid] = (Path("/proc") / str(pid) / "comm").read_text().strip()
         except FileNotFoundError:
             continue
-        if desktop.get(pid) != name and name not in allowed_comm:
-            clients[pid] = name
-    return clients
+    return foreign_clients(pids, comm_of, desktop, ours)
 
 
 def journal(*args):
@@ -190,9 +197,6 @@ class Runner:
             raise SystemExit(f"cannot resolve the pbrain repository root from {Path(__file__).resolve()}")
         self.goinfer = Path(args.goinfer_repo).resolve()
         self.desktop = desktop_map(args.desktop_clients)
-        self.allowed_comm = set()
-        if args.desktop_comm:
-            self.allowed_comm = {line.strip() for line in Path(args.desktop_comm).read_text().splitlines() if line.strip()}
         self.manifest = None
 
     # ---- shared ---------------------------------------------------------
@@ -256,7 +260,7 @@ class Runner:
             snap = void_rule.snapshot()
             why = void_rule.start_void(snap, HOST_NEED_MB, cap=LOAD_CAP)
             free = vram_total() - vram_used()
-            foreign = pbrain_active() or competing_clients(self.desktop, self.allowed_comm)
+            foreign = pbrain_active() or competing_clients(self.desktop)
             if not why and free >= RADEON_NEED and not foreign:
                 return snap, free
             if time.monotonic() - begun > QUIET_DEADLINE_S:
@@ -269,7 +273,7 @@ class Runner:
         live = void_rule.snapshot()
         why = void_rule.start_void(live, HOST_NEED_MB, cap=LOAD_CAP)
         free = vram_total() - vram_used()
-        if why or free < RADEON_NEED or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
+        if why or free < RADEON_NEED or pbrain_active() or competing_clients(self.desktop):
             raise SystemExit(f"launch refused: {why or 'foreign work or Radeon fit'}")
         return live, free
 
@@ -280,7 +284,7 @@ class Runner:
         if prop("vendor") != VENDOR or prop("device") != DEVICE:
             raise SystemExit("the Radeon PCI identity is not 1002:7590")
         snap, free = self.wait_quiet()
-        if pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
+        if pbrain_active() or competing_clients(self.desktop):
             raise SystemExit("preflight saw foreign pbrain or Radeon work")
         cursor = journal_cursor()
         if self.reset_guard(cursor):
@@ -291,7 +295,6 @@ class Runner:
             "vendor": prop("vendor"), "device": prop("device"),
             "pci": BDF, "kernel": os.uname().release,
             "desktop_clients": {str(k): v for k, v in self.desktop.items()},
-            "allowed_comm": sorted(self.allowed_comm),
         })
 
     def inventory(self):
@@ -416,7 +419,7 @@ class Runner:
                     stop = f"{deadline}-second application deadline"
                 elif moment >= next_check:
                     next_check = moment + 500_000_000
-                    if pbrain_active(child.pid) or competing_clients(self.desktop, self.allowed_comm, child.pid):
+                    if pbrain_active(child.pid) or competing_clients(self.desktop, child.pid):
                         stop = "foreign pbrain or Radeon work"
                     elif self.reset_guard(cursor):
                         stop = "amdgpu timeout or reset"
@@ -461,7 +464,7 @@ class Runner:
             result["stop"] = "Vulkan validation failed"
         elif not LAYER_LOADED.search(stderr_text):
             result["stop"] = "Vulkan validation layer missing"
-        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
+        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
             result["stop"] = "postflight pageout, swap, or foreign work"
         elif device != "cpu" and (not result["attributed_samples"] or not result["peak_vram_bytes"]):
             result["stop"] = "missing Radeon attribution"
@@ -515,7 +518,7 @@ class Runner:
             result["stop"] = "Vulkan validation failed"
         elif not LAYER_LOADED.search(text):
             result["stop"] = "Vulkan validation layer missing"
-        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop, self.allowed_comm):
+        elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
             result["stop"] = "postflight pageout, swap, or foreign work"
         elif not result["attributed_samples"] or not result["peak_vram_bytes"]:
             result["stop"] = "missing Radeon attribution"
@@ -617,8 +620,8 @@ def main(argv=None):
     p.add_argument("--goinfer-repo", default=os.environ.get("GOINFER_REPO", ""))
     p.add_argument("--q8-file", default=None)
     p.add_argument("--q6-file", default=None)
-    p.add_argument("--desktop-clients", default=None)
-    p.add_argument("--desktop-comm", default=str(Path(__file__).resolve().parent / "desktop-comm.txt"))
+    p.add_argument("--desktop-clients", default=None,
+                   help="exact baseline pid->comm map; only those pairs are exempt")
     p.add_argument("--vulkan-loader-dir", default=os.environ.get("VULKAN_LOADER_DIR", ""))
     p.add_argument("--vulkan-layer-dir", default=os.environ.get("VULKAN_LAYER_DIR", ""))
     a = p.parse_args(argv)

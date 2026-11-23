@@ -42,14 +42,15 @@ python3 <goinfer>/scripts/timing_lock.py run --exclusive --label pbrain-65-devic
   python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage all --out <out> \
   --commit <reviewed> --goinfer-repo <goinfer> \
   --q8-file <q8 gguf file> --q6-file <q6 gguf file> \
-  --desktop-comm <comm-list> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
+  --desktop-clients <pid-map> --vulkan-loader-dir <loader> --vulkan-layer-dir <layers>
 ```
 
 The runner refuses to start unless the holder's mode is `exclusive` and its
 token is in `GOINFER_TIMING_LOCK`. It waits up to 600 seconds for a quiet
 window: load1 at or below 4.0, at least 8 GiB host available, at least 2 GiB
-Radeon free, and no foreign pbrain or Radeon client. Desktop processes named in
-`desktop-comm.txt` (or in an optional exact pid map) are not foreign work.
+Radeon free, and no foreign pbrain or Radeon client. Only the exact pid+comm
+pairs in `--desktop-clients` are exempt; a new PID is foreign even when its comm
+matches a desktop name. The host control `test-run-65.py` pins that rule.
 
 ## Cells
 
