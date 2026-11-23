@@ -16,7 +16,7 @@ const q8File = "embeddinggemma-2-Q8_0.gguf"
 const ggufURL = "https://huggingface.co/unsloth/embeddinggemma-2-GGUF/resolve/031f0d4b35536f69ab3509d4893c923264fcf253/"
 
 var q8Files = []embed.File{
-	file(q8File, ggufURL+q8File, 309855520, "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc"),
+	verityFile(q8File, ggufURL+q8File, 309855520, "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc", "714c9bfa33d80385452f646ed15c1915cb7032e3ff529d862d2aa5fa5d3c32d1"),
 }
 var q8Fingerprint = modelFingerprint(q8Name, q8Files)
 

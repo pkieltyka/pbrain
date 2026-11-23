@@ -16,11 +16,21 @@ const dimension = 768
 const preparation = "gemma2-1"
 
 func file(name, url string, size int64, digest string) embed.File {
-	d, err := hex.DecodeString(digest)
+	return embed.File{Name: name, URL: url, Size: size, SHA256: releaseDigest(name, digest)}
+}
+
+func verityFile(name, url string, size int64, digest, verity string) embed.File {
+	f := file(name, url, size, digest)
+	f.VeritySHA256 = releaseDigest(name, verity)
+	return f
+}
+
+func releaseDigest(name, encoded string) [32]byte {
+	d, err := hex.DecodeString(encoded)
 	if err != nil || len(d) != sha256.Size {
 		panic("gemma2: invalid release digest for " + name)
 	}
-	return embed.File{Name: name, URL: url, Size: size, SHA256: [sha256.Size]byte(d)}
+	return [32]byte(d)
 }
 
 var sourceFiles = []embed.File{
@@ -30,10 +40,10 @@ var sourceFiles = []embed.File{
 	file("config_sentence_transformers.json", sourceURL+"config_sentence_transformers.json", 1565, "031e56a498d33c349ab489a21885bcfe25b4fcba841149dc99e1e90d4a7c28f5"),
 }
 var packFiles = []embed.File{
-	file("tokens.bf16", "", 268435456, "56ebbdbfd706c827f3fae1d97aa39135c7ddc0f1e6d9b12f8565f84bbfbda877"),
-	file("layers.safetensors", "", 273620496, "28a9678df941bf3eb7acca4e27ffd2fba6eef24039374d62148d705fc83b6227"),
-	file("tokenizer.bin", "", 9581663, "45a7e7d5a1e84ad83ef469a8f6aecc3dd15f51b7c4866008e2d770142d96b709"),
-	file("config.json", "", 3442, "65ef03947e006ea2a946fa323c88dd880ad6522d628723e81ddce04c2868db82"),
+	verityFile("tokens.bf16", "", 268435456, "56ebbdbfd706c827f3fae1d97aa39135c7ddc0f1e6d9b12f8565f84bbfbda877", "dac0921910db6362db3544de4a6b1f6196d960a4b373e13ec7d98a9c5faf1891"),
+	verityFile("layers.safetensors", "", 273620496, "28a9678df941bf3eb7acca4e27ffd2fba6eef24039374d62148d705fc83b6227", "3735be2e5c7c58bc82eea55ead0084e4254ea3256655c42be2fa3670ccfd1378"),
+	verityFile("tokenizer.bin", "", 9581663, "45a7e7d5a1e84ad83ef469a8f6aecc3dd15f51b7c4866008e2d770142d96b709", "43efd96ffb21f2f54082ab07c65c36deca41f7f4d1ba77be04a11a8e8d90b8c1"),
+	verityFile("config.json", "", 3442, "65ef03947e006ea2a946fa323c88dd880ad6522d628723e81ddce04c2868db82", "f7172be07f967450c1164cfdbe5f6be3a5fea4ecee664efc31d3a94f521f880c"),
 }
 var fingerprint = modelFingerprint("embeddinggemma-2", packFiles)
 

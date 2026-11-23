@@ -593,7 +593,7 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 		dir, err := embed.Find(files, m, opt.ModelDir, nil)
 		if err == nil {
 			var a *embed.Artifact
-			if a, err = verifyModel(ctx, files, dir, m); err == nil {
+			if a, err = verifyModel(ctx, files, dir, m, false); err == nil {
 				return a, nil
 			}
 		}
@@ -620,8 +620,11 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 			return nil, cacheErr(err)
 		}
 		if err == nil {
-			a, verr := verifyModel(ctx, files, dir, m)
+			a, verr := verifyModel(ctx, files, dir, m, true)
 			if verr == nil {
+				if err := opt.Cache.prepareVerity(ctx, dir, a); err != nil {
+					return nil, ctxOr(ctx, buildIOErr("the model's cache file cannot be prepared"))
+				}
 				dropSource(opt.Cache, m)
 				return a, nil
 			}
@@ -629,16 +632,19 @@ func ensureModel(ctx context.Context, opt Options, m embed.Model, dl embed.Downl
 				return nil, buildIOErr("the model cannot be read")
 			}
 		}
-		if err := removeBad(files, opt.Cache, m.Files, "models/"+embed.FolderName(m)); err != nil {
+		if err := removeBad(files, opt.Cache, m.Files, "models/"+embed.FolderName(m), true); err != nil {
 			return nil, err
 		}
 	}
 	return nil, fetchFailedErr()
 }
 
-func verifyModel(ctx context.Context, files sys.Files, dir sys.Dir, m embed.Model) (*embed.Artifact, error) {
+func verifyModel(ctx context.Context, files sys.Files, dir sys.Dir, m embed.Model, managed bool) (*embed.Artifact, error) {
 	verify := trace.Start(ctx, "model_verify")
 	defer verify.End()
+	if managed {
+		return embed.VerifyManaged(files, dir, m, embed.ManagedStrict)
+	}
 	return embed.Verify(files, dir, m)
 }
 
@@ -665,13 +671,13 @@ func obtain(ctx context.Context, opt Options, m embed.Model, models sys.Dir, dl 
 		return buildIOErr("the model folder cannot be read")
 	}
 	// Files of the wrong size are removed first: Download only fetches names that are missing.
-	if err := removeBad(files, c, m.Files, folder); err != nil {
+	if err := removeBad(files, c, m.Files, folder, true); err != nil {
 		return err
 	}
 	list, into := m.Files, folder
 	if len(m.Source) > 0 {
 		list, into = m.Source, folder+".source"
-		if err := removeBad(files, c, list, into); err != nil {
+		if err := removeBad(files, c, list, into, false); err != nil {
 			return err
 		}
 	}
@@ -707,7 +713,7 @@ func obtain(ctx context.Context, opt Options, m embed.Model, models sys.Dir, dl 
 		}
 		// A source that is not the pinned one is removed and is a failed download; otherwise
 		// the derivation itself did not give the pinned pack.
-		bad, rerr := badFiles(files, got, m.Source)
+		bad, rerr := badFiles(files, got, m.Source, false)
 		if rerr != nil {
 			return buildIOErr("the model's source cannot be read")
 		}
@@ -723,10 +729,16 @@ func obtain(ctx context.Context, opt Options, m embed.Model, models sys.Dir, dl 
 }
 
 // badFiles names the files of list in dir that are present but not the pinned ones.
-func badFiles(files sys.Files, dir sys.Dir, list []embed.File) ([]string, error) {
+func badFiles(files sys.Files, dir sys.Dir, list []embed.File, managed bool) ([]string, error) {
 	var bad []string
+	verify := embed.Verify
+	if managed {
+		verify = func(files sys.Files, dir sys.Dir, m embed.Model) (*embed.Artifact, error) {
+			return embed.VerifyManaged(files, dir, m, embed.ManagedStrict)
+		}
+	}
 	for _, f := range list {
-		_, err := embed.Verify(files, dir, embed.Model{Files: []embed.File{f}})
+		_, err := verify(files, dir, embed.Model{Files: []embed.File{f}})
 		switch {
 		case err == nil, errors.Is(err, embed.ErrAbsent):
 		case errors.Is(err, embed.ErrWrongModel):
@@ -739,7 +751,7 @@ func badFiles(files sys.Files, dir sys.Dir, list []embed.File) ([]string, error)
 }
 
 // removeBad removes the files of list in the cache folder at rel that are not the pinned ones.
-func removeBad(files sys.Files, c *Cache, list []embed.File, rel string) error {
+func removeBad(files sys.Files, c *Cache, list []embed.File, rel string, managed bool) error {
 	dir, err := c.dir(rel, false)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
@@ -747,7 +759,7 @@ func removeBad(files sys.Files, c *Cache, list []embed.File, rel string) error {
 	if err != nil {
 		return cacheErr(err)
 	}
-	bad, err := badFiles(files, dir, list)
+	bad, err := badFiles(files, dir, list, managed)
 	if err != nil {
 		return buildIOErr("the model folder cannot be read")
 	}

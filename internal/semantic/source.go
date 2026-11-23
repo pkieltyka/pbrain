@@ -114,7 +114,13 @@ func (s *Source) check() (sys.Dir, search.NotReady) {
 // runModel verifies the model's files, opens the CPU runtime and embeds the query.
 func (s *Source) runModel(ctx context.Context, dir sys.Dir) {
 	defer close(s.model)
-	a, err := embed.Verify(s.opt.Files, dir, s.m)
+	var a *embed.Artifact
+	var err error
+	if s.opt.ModelDir == nil {
+		a, err = embed.VerifyManaged(s.opt.Files, dir, s.m, embed.ManagedSearch)
+	} else {
+		a, err = embed.Verify(s.opt.Files, dir, s.m)
+	}
 	if err != nil || ctx.Err() != nil {
 		return
 	}
@@ -501,7 +507,7 @@ func Status(ctx context.Context, opt Options, secs []SectionInput) (StatusResult
 		m, res.Supported = opt.Registry.Lookup(opt.ModelName)
 	}
 	if res.Supported && opt.CacheErr == nil {
-		res.ModelPresent = modelPresent(opt, m)
+		res.ModelPresent = modelPresent(ctx, opt, m)
 	}
 	for _, in := range secs {
 		st := SectionStatus{Section: in.Section, Items: len(in.Items), State: IndexNone}
@@ -541,7 +547,7 @@ func sectionState(ctx context.Context, opt Options, m embed.Model, supported boo
 }
 
 // modelPresent is Find and Verify together, at model_path or in the cache.
-func modelPresent(opt Options, m embed.Model) bool {
+func modelPresent(ctx context.Context, opt Options, m embed.Model) bool {
 	dir := opt.ModelDir
 	if dir == nil {
 		if opt.Cache == nil {
@@ -556,6 +562,6 @@ func modelPresent(opt Options, m embed.Model) bool {
 	if _, err := embed.Find(opt.Files, m, dir, nil); err != nil {
 		return false
 	}
-	_, err := embed.Verify(opt.Files, dir, m)
+	_, err := verifyModel(ctx, opt.Files, dir, m, opt.ModelDir == nil)
 	return err == nil
 }
