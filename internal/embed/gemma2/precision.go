@@ -5,13 +5,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"slices"
-	"strings"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
-const goinferRevision = "897943c7a6bba158a74eaa3e2c43b1d11b24c445"
+const goinferRevision = "c0a5159bbff1c2fe5c8624e1399aa7438c820677"
 
 // Both release rows use the same 24-layer text tower. Match the ordinary
 // runtime's upload floor when choosing the first candidate without loading it.
@@ -28,11 +27,11 @@ func fp16Resolver() func(embed.Listing, string) (embed.DeviceInfo, string) {
 	}
 	return func(listing embed.Listing, selector string) (embed.DeviceInfo, string) {
 		linked := slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), embed.CUDAFP16Selector)
-		return selectFP16(listing, selector, linked, cudaCapability)
+		return selectFP16(listing, selector, linked)
 	}
 }
 
-func selectFP16(listing embed.Listing, selector string, linked bool, capability func(embed.DeviceInfo) (int, int, bool)) (embed.DeviceInfo, string) {
+func selectFP16(listing embed.Listing, selector string, linked bool) (embed.DeviceInfo, string) {
 	var device embed.DeviceInfo
 	if selector == "" || selector == "auto" {
 		for _, d := range listing.Sorted() {
@@ -53,17 +52,15 @@ func selectFP16(listing embed.Listing, selector string, linked bool, capability 
 	if !linked {
 		return reason("has no linked fp16 CUDA kernel")
 	}
-	major, minor, ok := capability(device)
-	if !ok {
+	if slices.Contains(device.RunnableSelectors, embed.CUDAFP16Selector) {
+		return device, ""
+	}
+	cc := device.ComputeCapability
+	if cc.Major == 0 {
 		return reason("could not verify compute capability")
 	}
-	if major < 8 {
-		return reason(fmt.Sprintf("supports compute capability %d.%d; fp16 requires 8.0", major, minor))
+	if cc.Major < 8 {
+		return reason(fmt.Sprintf("supports compute capability %d.%d; fp16 requires 8.0", cc.Major, cc.Minor))
 	}
-	return device, ""
-}
-
-func sameCUDAUUID(id, uuid string) bool {
-	token, ok := strings.CutPrefix(id, "cuda:")
-	return ok && token != "" && strings.EqualFold(token, uuid)
+	return reason("does not report a runnable fp16 CUDA selector")
 }

@@ -39,7 +39,12 @@ func attachDevice(model *embeddinggemma2.Encoder, device embed.DeviceInfo, overr
 	}
 	id := device.Selector()
 	acc, err := model.UseDevice(id, selector)
-	if err != nil {
+	switch {
+	case errors.Is(err, embeddinggemma2.ErrUnsupportedSelector):
+		return 0, fmt.Errorf("%w: device %s cannot run selector %q: %w", embed.ErrAccelerator, id, selector, err)
+	case errors.Is(err, embeddinggemma2.ErrNoDevice):
+		return 0, fmt.Errorf("%w: device %s is no longer available: %w", embed.ErrAccelerator, id, err)
+	case err != nil:
 		return 0, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, id, err)
 	}
 	budget, err := attachedBudget(acc, id, override)

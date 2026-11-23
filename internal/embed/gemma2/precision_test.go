@@ -1,70 +1,114 @@
 package gemma2
 
 import (
+	"errors"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
+	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
 func TestFP16CapabilitySelection(t *testing.T) {
 	gpu0 := embed.DeviceInfo{ID: "cuda:0", Persistent: "cuda:GPU-aaa", Backend: "cuda", FreeBytes: 8 << 30, Memory: "live", MemoryKind: "dedicated"}
-	gpu1 := embed.DeviceInfo{ID: "cuda:1", Persistent: "cuda:GPU-bbb", Backend: "cuda", FreeBytes: 12 << 30, Memory: "live", MemoryKind: "dedicated"}
+	gpu0.ComputeCapability.Major = 12
+	gpu0.RunnableSelectors = []string{"cuda", embed.CUDAFP16Selector}
+	gpu1 := gpu0
+	gpu1.ID, gpu1.Persistent, gpu1.FreeBytes = "cuda:1", "cuda:GPU-bbb", 12<<30
 	amd := embed.DeviceInfo{ID: "vulkan:0", Persistent: "vulkan:bbb", Backend: "vulkan"}
-	list := embed.Listing{Devices: []embed.DeviceInfo{gpu0, gpu1, amd}}
+	old := gpu1
+	old.ComputeCapability.Major, old.ComputeCapability.Minor = 7, 5
+	old.RunnableSelectors = []string{"cuda"}
+	unknown := gpu1
+	unknown.ComputeCapability.Major = 0
+	unknown.RunnableSelectors = nil
+	ineligible := gpu1
+	ineligible.RunnableSelectors = nil
+	tooSmall := gpu1
+	tooSmall.FreeBytes = cudaWeightFloor - 1
+	probeErr := map[string]error{"cuda": errors.New("inventory failed")}
 	for _, tc := range []struct {
 		name, selector     string
-		linked, usable     bool
-		major, minor       int
+		devices            []embed.DeviceInfo
+		failed             map[string]error
+		linked             bool
 		wantID, wantReason string
-		wantProbes         int
 	}{
-		{"ranked", "auto", true, true, 8, 0, gpu1.Persistent, "", 1},
-		{"explicit", gpu0.Persistent, true, true, 8, 0, gpu0.Persistent, "", 1},
-		{"old GPU", "auto", true, true, 7, 5, "", "compute capability 7.5", 1},
-		{"unknown UUID or driver", "auto", true, false, 0, 0, "", "could not verify", 1},
-		{"missing kernel", gpu0.ID, false, true, 8, 0, "", "no linked fp16", 0},
-		{"Vulkan", "vulkan", true, true, 8, 0, "", "", 0},
-		{"CPU", "cpu", true, true, 8, 0, "", "", 0},
-		{"missing GPU", "cuda:4", true, true, 8, 0, "", "", 0},
+		{"ranked", "auto", []embed.DeviceInfo{gpu0, gpu1, amd}, nil, true, gpu1.Persistent, ""},
+		{"explicit alias", gpu0.ID, []embed.DeviceInfo{gpu0, gpu1}, nil, true, gpu0.Persistent, ""},
+		{"explicit UUID", gpu0.Persistent, []embed.DeviceInfo{gpu0, gpu1}, nil, true, gpu0.Persistent, ""},
+		{"older ranked GPU", "auto", []embed.DeviceInfo{gpu0, old}, nil, true, "", "compute capability 7.5"},
+		{"unknown capability", "auto", []embed.DeviceInfo{unknown}, probeErr, true, "", "could not verify"},
+		{"capability alone is insufficient", "auto", []embed.DeviceInfo{ineligible}, nil, true, "", "does not report a runnable fp16"},
+		{"missing kernel", gpu0.ID, []embed.DeviceInfo{gpu0}, nil, false, "", "no linked fp16"},
+		{"too little memory", "auto", []embed.DeviceInfo{tooSmall, gpu0}, nil, true, gpu0.Persistent, ""},
+		{"partial inventory", "auto", []embed.DeviceInfo{gpu0}, probeErr, true, gpu0.Persistent, ""},
+		{"failed inventory", "auto", nil, probeErr, true, "", ""},
+		{"Vulkan", "vulkan", []embed.DeviceInfo{gpu0, amd}, nil, true, "", ""},
+		{"CPU", "cpu", []embed.DeviceInfo{gpu0}, nil, true, "", ""},
+		{"missing GPU", "cuda:4", []embed.DeviceInfo{gpu0}, nil, true, "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			calls := 0
-			d, reason := selectFP16(list, tc.selector, tc.linked, func(d embed.DeviceInfo) (int, int, bool) {
-				calls++
-				want := gpu1
-				if tc.selector == gpu0.Persistent {
-					want = gpu0
-				}
-				if d != want {
-					t.Fatalf("probed %+v, want %+v", d, want)
-				}
-				return tc.major, tc.minor, tc.usable
-			})
-			if d.Persistent != tc.wantID || calls != tc.wantProbes || !strings.Contains(reason, tc.wantReason) ||
+			d, reason := selectFP16(embed.Listing{Devices: tc.devices, Failed: tc.failed}, tc.selector, tc.linked)
+			if d.Persistent != tc.wantID || !strings.Contains(reason, tc.wantReason) ||
 				(tc.wantReason == "") != (reason == "") {
-				t.Fatalf("selected %q, %q, %d probes", d.Persistent, reason, calls)
+				t.Fatalf("selected %q, %q", d.Persistent, reason)
 			}
 		})
 	}
-	for _, tc := range []struct {
-		id, uuid string
-		want     bool
-	}{
-		{"cuda:GPU-abcdef", "GPU-ABCDEF", true},
-		{"cuda:GPU-a", "GPU-b", false},
-		{"cuda:MIG-abcdef", "GPU-abcdef", false},
-		{"GPU-abcdef", "GPU-abcdef", false},
-	} {
-		if sameCUDAUUID(tc.id, tc.uuid) != tc.want {
-			t.Errorf("sameCUDAUUID(%q, %q), want %t", tc.id, tc.uuid, tc.want)
+}
+
+// A synthetic inventory exercises goinfer's linked CUDA predicates without
+// calling Devices or opening a driver. The same fixture covers the plain CUDA
+// build (no FP16 factory) and the release CUDA build.
+func TestCUDAInventoryProfileEligibility(t *testing.T) {
+	resolve := fp16Resolver()
+	if !cudaCompiled {
+		if resolve != nil {
+			t.Fatal("CPU build enables CUDA writer resolution")
+		}
+		return
+	}
+	linked := slices.Contains(embeddinggemma2.DeviceSelectors("cuda"), embed.CUDAFP16Selector)
+	for _, cc := range []embeddinggemma2.CUDAComputeCapability{{Major: 7, Minor: 5}, {Major: 12}} {
+		const uuid = "cuda:GPU-01234567-89ab-cdef-0123-456789abcdef"
+		raw := embeddinggemma2.DeviceInfo{
+			Backend: "cuda", ID: uuid, Alias: "cuda:0", TextBatching: true, ComputeCapability: cc,
+		}
+		listing := deviceListing([]embeddinggemma2.DeviceInfo{raw}, nil, false)
+		if len(listing.Devices) != 1 {
+			t.Fatalf("lost the CUDA fixture: %+v", listing)
+		}
+		card := listing.Devices[0]
+		if card.ID != raw.Alias || card.Persistent != uuid || card.ComputeCapability != cc ||
+			!slices.Equal(card.RunnableSelectors, raw.RunnableSelectors()) {
+			t.Fatalf("did not carry the inventory fields: %+v", card)
+		}
+		wantFP16 := linked && cc.Major == 12
+		if slices.Contains(card.RunnableSelectors, embed.CUDAFP16Selector) != wantFP16 {
+			t.Fatalf("CC %d.%d selectors = %v", cc.Major, cc.Minor, card.RunnableSelectors)
+		}
+		selected, reason := resolve(listing, card.ID)
+		if wantFP16 {
+			if selected.Persistent != uuid || reason != "" {
+				t.Fatalf("FP16 selection = %+v, %q", selected, reason)
+			}
+		} else {
+			wantReason := "no linked fp16"
+			if linked {
+				wantReason = "compute capability 7.5"
+			}
+			if selected.Persistent != "" || !strings.Contains(reason, wantReason) {
+				t.Fatalf("FP16 rejection = %+v, %q, want %q", selected, reason, wantReason)
+			}
 		}
 	}
 }
 
 func TestCUDAProfileFingerprints(t *testing.T) {
-	const qualifiedRevision = "897943c7a6bba158a74eaa3e2c43b1d11b24c445"
+	const qualifiedRevision = "c0a5159bbff1c2fe5c8624e1399aa7438c820677"
 	if goinferRevision != qualifiedRevision {
 		t.Fatalf("requalify the fp16 identity for goinfer %s", goinferRevision)
 	}
@@ -77,11 +121,11 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, sum := range map[string]string{
-		"github.com/pkieltyka/goinfer":              "cLTCqfbEOHGK2eSwiUVspxOpilgVUErLuzHu3AAbgkw=",
-		"github.com/pkieltyka/goinfer/backend/cuda": "sJKvWBaFWQBtGyw3f8ZiXiNFjYILvqKZ2dt6kbQanIo=",
+		"github.com/pkieltyka/goinfer":              "oC+ezodV1iEmPMLrNuiKv7TOvFoEOxvrOZXFi9DK5QU=",
+		"github.com/pkieltyka/goinfer/backend/cuda": "kt3kYpCj71OuUB8cW9iezhIlSK5w0dMPoxtfLtSztjM=",
 	} {
-		if !strings.Contains(string(mod), "\t"+path+" v0.6.5\n") ||
-			!strings.Contains(string(sums), path+" v0.6.5 h1:"+sum+"\n") {
+		if !strings.Contains(string(mod), "\t"+path+" v0.6.6\n") ||
+			!strings.Contains(string(sums), path+" v0.6.6 h1:"+sum+"\n") {
 			t.Errorf("requalify the fp16 identity when %s changes", path)
 		}
 	}
@@ -89,14 +133,14 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		row        embed.Model
 		base, fp16 string
 	}{
-		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "59699e22cef7fac07877a0993172a09be79c857777c454a58f2d2ad8312c1686"},
-		{GGUFEntries()[0].Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "a324c317d5433fc2bb667134b7c7de66ae2f6f593956a20f389d643c59c7fd89"},
+		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "41f32611ea67041cdc7e6dc4e94628c0f154fa1cde532b492463033a2fb7cce8"},
+		{GGUFEntries()[0].Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "10998f9ecb29a3398281837e1550dd3aaff9004dc0692cb1388c764f27063a7b"},
 	} {
 		if model.row.Fingerprint != model.base || model.row.CUDAFP16Fingerprint != model.fp16 {
 			t.Errorf("%s has an unexpected identity: %s %s", model.row.Name, model.row.Fingerprint, model.row.CUDAFP16Fingerprint)
 		}
 		updated := model.row
-		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "next revision")
+		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "897943c7a6bba158a74eaa3e2c43b1d11b24c445")
 		if updated.CUDAFP16Fingerprint == model.fp16 || embed.FolderName(updated) != embed.FolderName(model.row) {
 			t.Errorf("%s revision did not isolate vector identity from the file folder", model.row.Name)
 		}

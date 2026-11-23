@@ -15,8 +15,10 @@ type DeviceInfo struct {
 	ID, Backend, Name     string
 	Persistent            string // full selector, such as "cuda:GPU-..."
 	TotalBytes, FreeBytes int64
-	Memory                string // live, estimated or unknown
-	MemoryKind            string // dedicated, shared or unknown
+	Memory                string                     // live, estimated or unknown
+	MemoryKind            string                     // dedicated, shared or unknown
+	ComputeCapability     struct{ Major, Minor int } // CUDA, both zero when unknown
+	RunnableSelectors     []string                   // linked selectors eligible for this row
 }
 
 // Selector returns the persistent selector when the runtime exposes one.

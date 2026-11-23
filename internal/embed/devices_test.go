@@ -3,6 +3,7 @@ package embed_test
 import (
 	"context"
 	"errors"
+	"reflect"
 	"slices"
 	"testing"
 
@@ -84,10 +85,10 @@ func TestRegistryDevices(t *testing.T) {
 	if err := open(e.Model, "vulkan:0"); err != nil {
 		t.Fatalf("a listed matching device was rejected due to a probe failure: %v", err)
 	}
-	if !slices.Equal(reg.Devices(), devices) {
+	if !reflect.DeepEqual(reg.Devices(), devices) {
 		t.Fatal("public inventory changed when a backend's probe failed")
 	}
-	if !slices.Equal(list, before) {
+	if !reflect.DeepEqual(list, before) {
 		t.Fatal("registry reordered the adapter's device list")
 	}
 	calls := len(opts)

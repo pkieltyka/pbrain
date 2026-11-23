@@ -28,7 +28,7 @@ const (
 	cudaModule    = goinferModule + "/backend/cuda"
 	vulkanModule  = goinferModule + "/backend/vulkan"
 	decoderPkg    = goinferModule + "/decoder"
-	auditedPin    = "v0.6.5"
+	auditedPin    = "v0.6.6"
 )
 
 type runtimeSite struct {

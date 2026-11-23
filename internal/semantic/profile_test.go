@@ -31,6 +31,8 @@ func TestIndexProfilesAcrossSyncs(t *testing.T) {
 	probes := 0
 	var opens []embed.OpenOptions
 	fast, wrong := true, false
+	attachFailure := fmt.Errorf("%w: fp16 attach refused", embed.ErrAccelerator)
+	var openErr error
 	e.reg = embed.NewRegistry(embed.Entry{
 		Model: m,
 		Devices: func() embed.Listing {
@@ -41,7 +43,7 @@ func TestIndexProfilesAcrossSyncs(t *testing.T) {
 			if selector != "auto" && selector != card.ID {
 				t.Fatalf("unexpected selector %q", selector)
 			}
-			if len(snapshot.Devices) != 1 || snapshot.Devices[0] != card {
+			if len(snapshot.Devices) != 1 || !reflect.DeepEqual(snapshot.Devices[0], card) {
 				t.Fatal("resolver did not get the current inventory")
 			}
 			if !fast {
@@ -53,6 +55,9 @@ func TestIndexProfilesAcrossSyncs(t *testing.T) {
 			opens = append(opens, opt)
 			if a.Model.Fingerprint != m.Fingerprint {
 				t.Fatal("changed the verified artifact model")
+			}
+			if openErr != nil {
+				return nil, openErr
 			}
 			emb, err := e.kit.Registry.Open(ctx, a, embed.OpenOptions{})
 			if err != nil {
@@ -156,6 +161,13 @@ func TestIndexProfilesAcrossSyncs(t *testing.T) {
 	build(fallback, shared, m.Fingerprint, "fp16", 1, 3)
 	build(opts("fp32"), shared, m.Fingerprint, "", 0, 4)
 	previous := read(shared)
+	fast, openErr = true, attachFailure
+	beforeOpens, beforeCalls := len(opens), e.kit.Calls.Load()
+	if _, err := e.buildWith(t.Context(), opts("fp16"), shared); !errors.Is(err, attachFailure) || errCode(err) != "io" ||
+		read(shared) != previous || len(opens) != beforeOpens+1 || e.kit.Calls.Load() != beforeCalls {
+		t.Fatalf("fp16 attach failure retried or changed the generation: %v", err)
+	}
+	openErr = nil
 	fast, wrong = true, true
 	// Existing fp16 vectors can cover the original notes, but the new one
 	// cannot be collected from an adapter that opens with the base identity.
