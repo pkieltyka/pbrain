@@ -38,12 +38,14 @@ MODELS = {
         "file": "embeddinggemma-2-Q8_0.gguf",
         "size": 309855520,
         "sha": "6f1bd4ac6c5df7444f9cca7ca36cafe6cfa34cd6f49fefb1e0b4be8143aed8bc",
+        "env": "PBRAIN_TEST_GEMMA2_Q8",
     },
     "q6": {
         "name": "embeddinggemma-2-ud-q6-k-xl",
         "file": "embeddinggemma-2-UD-Q6_K_XL.gguf",
         "size": 248812032,
         "sha": "dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3",
+        "env": "PBRAIN_TEST_GEMMA2_Q6",
     },
 }
 DB_NAME = re.compile(r"^[0-9a-f]{16}\.db$")
