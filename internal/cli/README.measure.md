@@ -944,3 +944,65 @@ test and the equivalent CPU fallback smoke under QEMU with arm64 glibc
 2.39. The arm64 checks were CPU-only.
 
 [Raw gate records and commands](../../tools/phase28/evidence/cuda-fp16-61/)
+
+## GGUF on Vulkan device acceptance (#65)
+
+2026-11-23. The accepted device run built pbrain `d6cc3425edbc` with Go 1.27.3,
+`GOWORK=off CGO_ENABLED=0`, Linux amd64 and `-tags vulkan`, against published
+goinfer root and Vulkan v0.6.6 (`c0a5159bb`). The branch adds only a verifier
+fix and this note after that commit. The host was a Ryzen 9 7950X desktop with
+a Radeon RX 9060 XT (RADV GFX1200), Mesa RADV 26.3.1 and the pinned Vulkan
+loader/validation layers. The owner-approved 4.0 load cap applied; every other
+guard was unchanged.
+
+Each quant ran a fresh CPU and Vulkan sync over the frozen 32-note retrieval
+subset, giving 59 passages in one shared section. Each cell had a new brain,
+cache, HOME and trace; four Go scheduler threads; and, for Vulkan, a 1 GiB
+batch workspace. The named persistent selector and its alias were the pinned
+RX 9060 XT. Launch loads were 3.22–3.88. There were no child swap, host pageout,
+timing voids, resets or validation errors.
+
+| Quant / device | Wall s | Passages/s | Peak host RSS MiB | Attributed peak MiB | Device delta MiB |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Q8_0 / CPU | 16.487 | 3.579 | 1,485.2 | — | — |
+| Q8_0 / Vulkan | 6.241 | 9.454 | 1,264.4 | 1,285.0 | 1,243.7 |
+| UD-Q6_K_XL / CPU | 15.958 | 3.697 | 1,807.8 | — | — |
+| UD-Q6_K_XL / Vulkan | 6.180 | 9.548 | 1,173.7 | 1,285.0 | 1,251.9 |
+
+These are descriptive, end-to-end sync observations with tracing on. They are
+not a speed acceptance gate, and no cross-device or cross-machine ratio is
+claimed.
+
+Every accepted cell had 32 items, 59 newly embedded passages, zero reused,
+`PRAGMA quick_check` = `ok`, and finite unit 768-dimensional vectors. Item
+paths and content digests, and passage identity, ordinal, start, stop and
+digest, matched between the CPU and Vulkan cells for each quant. The minimum
+CPU/Vulkan cosine was 0.9999999999975044 for Q8_0 and 0.9999999999961869 for
+UD-Q6_K_XL.
+
+The layout stage used the same 59 passages and took 96.52 s. Packed, reversed,
+17-input-split and 1 MiB-budget layouts each differed from the Vulkan singleton
+vectors in 0 of 59 passages for both quant. Its CPU/Vulkan minima were
+0.9999999999975040 / 0.9999999999974988 (Q8_0) and 0.9999999999961872 /
+0.9999999999963046 (UD-Q6_K_XL) at 768 dimensions and the normalized 512-prefix.
+It sampled 6,596 Radeon attribution readings, with a 1,330.4 MiB attributed
+peak and 1,294.8 MiB device delta.
+
+The accepted evidence seal is
+`c0145f00b2a91752435c1e3ba2d04c8e6970f615294fe9e1951119fbd480d4ce` over 804
+files; its manifest is
+`3a196c34bc1b1155dcabf874a2af6cec1654715f65357e04dd7a2df669712a05` and its
+verification record is
+`374684c3e88f9bb484c9e053dcd4d9ccc2bc20bce15cf2eb8149c2384601d0d2`. The
+`pbrain` binary is
+`64a905ff91bb4f6ad8bf681d36337bbdfa27839de5d837a716e248d79bc2f396`; the
+layout test binary is
+`dc4d27c912c363bb4d9772f181f828f5cb48bb33d13b0878f2b8f61e09fd9ff8`. The
+Q8_0 and UD-Q6_K_XL file pins are `6f1bd4ac…` (309,855,520 B) and `dc84f042…`
+(248,812,032 B); the frozen fixture list is `77bab592…` and its path list
+`3726e16e…`.
+
+Q8_0 keeps its existing CUDA fp16 identity. UD-Q6_K_XL is an opt-in row with no
+fp16 profile; the default model, the CPU search path and the CUDA fp16 behavior
+are unchanged. Raw indexes, databases and scratch binaries remain private and
+are not part of the repository.
