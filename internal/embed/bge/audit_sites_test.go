@@ -20,6 +20,10 @@ var dormantRuntimeSites = map[runtimeSite]string{
 	{decoderPkg + "/knobs.go", "(*knobSet).lookup", "os.LookupEnv", "name"}:                                         "decoder options without a snapshot",
 	{decoderPkg + "/knobs.go", "loadKnob", "os.Getenv", "name"}:                                                     "decoder load option fallback",
 	{decoderPkg + "/normnoise.go", "applyNormULPNoiseDiag", "os.Getenv", `"GOINFER_NORM_ULP_NOISE"`}:                "decoder residency diagnostics",
+	{decoderPkg + "/assets.go", "assetRoot", "os.Getwd", ""}:                                                        "decoder asset-test harness",
+	{decoderPkg + "/assets.go", "modelsRoot", "os.UserHomeDir", ""}:                                                 "decoder asset-test harness",
+	{decoderPkg + "/selftest_gpu.go", "probeFixture", "os.MkdirTemp", ""}:                                           "decoder GPU self-test fixture",
+	{cudaModule + "/pack_stream.go", "pageableStackSources (closure)", "os.CreateTemp", ""}:                         "decoder expert-weight mapping after checking an explicit directory",
 }
 
 // The logging functions use the command's redirected os.Stderr at call

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
@@ -99,10 +100,24 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 		}
 		t.Fatal(err)
 	}
+	checked, findings := reviewRuntimeGraph(t, bytes.NewReader(out), auditTarget(osName, arch, tags))
+	for _, finding := range findings {
+		t.Error(finding)
+	}
+	if checked[aikitModule] == 0 || checked[goinferModule] == 0 ||
+		(slices.Contains(tags, "cuda") != (checked[cudaModule] > 0)) ||
+		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) {
+		t.Fatalf("incomplete runtime graph for tags %v: %v", tags, checked)
+	}
+	t.Logf("audited %v with release tags %v", checked, tags)
+}
+
+func reviewRuntimeGraph(t *testing.T, graph io.Reader, target runtimeTarget) (map[string]int, []string) {
+	t.Helper()
+	var findings []string
 	seen := map[runtimeSite]int{}
-	knownStartup := slices.Contains(tags, "cuda") && len(knownStartupViolations) > 0
-	target := auditTarget(osName, arch, tags)
-	checked := scanRuntimeGraph(t, bytes.NewReader(out), func(pin runtimePin, line int, site runtimeSite) {
+	knownStartup := target&cudaReleases != 0 && len(knownStartupViolations) > 0
+	checked := scanRuntimeGraph(t, graph, func(pin runtimePin, line int, site runtimeSite) {
 		limit := 0
 		if rule := reviewedDependencySites[pin][site]; rule.targets&target != 0 {
 			limit = rule.count
@@ -116,25 +131,21 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 			seen[site]++
 			return
 		}
-		t.Errorf("%s:%d (%s) uses %s %s", site.file, line, site.scope, site.symbol, site.argument)
+		use := strings.TrimSpace(site.symbol + " " + site.argument)
+		findings = append(findings, fmt.Sprintf("%s:%d (%s) uses %s", site.file, line, site.scope, use))
 	})
-	if checked[aikitModule] == 0 || checked[goinferModule] == 0 ||
-		(slices.Contains(tags, "cuda") != (checked[cudaModule] > 0)) ||
-		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) {
-		t.Fatalf("incomplete runtime graph for tags %v: %v", tags, checked)
-	}
-	t.Logf("audited %v with release tags %v", checked, tags)
 	if knownStartup {
 		for site := range knownStartupViolations {
 			if seen[site] == 0 {
-				t.Errorf("known startup violation no longer matched: %+v (goinfer #70)", site)
+				findings = append(findings, fmt.Sprintf("known startup violation no longer matched: %+v (goinfer #70)", site))
 			}
 		}
 		if seen[startupHelperRead] == 0 {
-			t.Error("known startup helper no longer reads the environment (goinfer #70)")
+			findings = append(findings, "known startup helper no longer reads the environment (goinfer #70)")
 		}
 		t.Logf("tracking %d known startup reads from goinfer #70", len(knownStartupViolations))
 	}
+	return checked, findings
 }
 
 func scanRuntimeGraph(t *testing.T, graph io.Reader, report func(runtimePin, int, runtimeSite)) map[string]int {
@@ -167,6 +178,9 @@ func TestRuntimeAuditIncludesNewDependency(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "env.go"), []byte(`package probe
 import "os"
 var setting = os.Getenv("UNREVIEWED_STARTUP")
+var temp = os.TempDir()
+var expanded = os.Expand("$HOME", os.Getenv)
+var mapped = os.Expand("$HOME", func(key string) string { return key })
 `), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -181,16 +195,14 @@ var setting = os.Getenv("UNREVIEWED_STARTUP")
 			t.Fatal(err)
 		}
 	}
-	var sites []runtimeSite
-	checked := scanRuntimeGraph(t, &graph, func(pin runtimePin, line int, site runtimeSite) {
-		if pin != (runtimePin{module, version}) || line != 3 {
-			t.Errorf("unexpected site at %v line %d: %+v", pin, line, site)
-		}
-		sites = append(sites, site)
-	})
-	want := runtimeSite{module + "/env.go", "setting", "os.Getenv", `"UNREVIEWED_STARTUP"`}
-	if len(checked) != 1 || checked[module] != 1 || !slices.Equal(sites, []runtimeSite{want}) {
-		t.Fatalf("scanned %v, found %+v, want %+v from the new dependency", checked, sites, want)
+	checked, findings := reviewRuntimeGraph(t, &graph, linuxAMD64CPU)
+	want := []string{
+		module + `/env.go:3 (setting) uses os.Getenv "UNREVIEWED_STARTUP"`,
+		module + "/env.go:4 (temp) uses os.TempDir",
+		module + "/env.go:5 (expanded) uses os.Getenv <indirect>",
+	}
+	if len(checked) != 1 || checked[module] != 1 || !slices.Equal(findings, want) {
+		t.Fatalf("scanned %v, found %q, want %q from the new dependency", checked, findings, want)
 	}
 }
 
@@ -202,7 +214,20 @@ func auditRuntimeFile(t *testing.T, filename, label string, report func(int, run
 		t.Fatal(err)
 	}
 	forbidden := map[string]map[string]bool{
-		"os":                    {"Getenv": true, "LookupEnv": true, "Environ": true, "ExpandEnv": true, "Stdout": true, "Stderr": true},
+		"os": {
+			"Getenv": true, "LookupEnv": true, "Environ": true, "ExpandEnv": true,
+			"TempDir": true, "UserHomeDir": true, "UserConfigDir": true, "UserCacheDir": true, "Getwd": true,
+			"CreateTemp": true, "MkdirTemp": true, "StartProcess": true,
+			"Stdout": true, "Stderr": true,
+		},
+		// Account fallback can read USER/HOME. Command constructors and
+		// LookPath can read PATH; Cmd and StartProcess can inherit Env.
+		"os/user": {"Current": true, "Lookup": true, "LookupId": true},
+		"os/exec": {"Command": true, "CommandContext": true, "LookPath": true, "Cmd": true},
+		"net/http": {
+			"ProxyFromEnvironment": true, "DefaultTransport": true, "DefaultClient": true,
+			"Get": true, "Head": true, "Post": true, "PostForm": true,
+		},
 		"syscall":               {"Getenv": true, "Environ": true},
 		"golang.org/x/sys/unix": {"Getenv": true, "Environ": true},
 		"fmt":                   {"Print": true, "Println": true, "Printf": true},

@@ -70,6 +70,11 @@ var reviewedDependencySites = map[runtimePin]map[runtimeSite]runtimeAllowance{
 		{"golang.org/x/sys/unix/env_unix.go", "Getenv", "syscall.Getenv", "key"}:      {allReleaseTargets, 1, "dormant syscall wrapper with no linked caller"},
 	},
 	{"modernc.org/libc", "v1.80.1"}: {
+		{"modernc.org/libc/libc.go", "Start", "os.Getwd", ""}:                          {darwinRelease, 1, "dormant C executable startup"},
+		{"modernc.org/libc/libc_darwin.go", "Xsystem", "os/exec.Command", ""}:          {darwinRelease, 1, "dormant C shell with PATH lookup and inherited environment"},
+		{"modernc.org/libc/libc_darwin.go", "Xgetlogin_r", "os/user.Current", ""}:      {darwinRelease, 1, "dormant C login lookup outside the in-memory SQLite path"},
+		{"modernc.org/libc/libc_musl.go", "Xsystem", "os/exec.Command", ""}:            {linuxReleases, 1, "dormant C shell with PATH lookup and inherited environment"},
+		{"modernc.org/libc/libc_unix.go", "Xtmpfile", "os.CreateTemp", ""}:             {darwinRelease, 1, "dormant file-backed temporary storage outside the in-memory SQLite path"},
 		{"modernc.org/libc/builtin.go", "X__builtin_unreachable", "os.Stderr", ""}:     {linuxReleases, 2, "fatal C diagnostic through the current Go stderr"},
 		{"modernc.org/libc/etc.go", "todo", "os.Stdout", ""}:                           {darwinRelease, 2, "C trace and unimplemented-operation diagnostics through the current Go stdout"},
 		{"modernc.org/libc/etc.go", "trc", "os.Stdout", ""}:                            {darwinRelease, 2, "C trace and unimplemented-operation diagnostics through the current Go stdout"},
