@@ -3,6 +3,13 @@ package bge
 // The CLI does not enter goinfer's resident decoder, vision, or KV snapshot
 // paths. These reviewed source sites are accepted once each on auditedPin.
 var dormantRuntimeSites = map[runtimeSite]string{
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_DELTANET_TIMING"`}:                     "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_DECODE_TIMING"`}:                       "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_FAKEQUANT"`}:                           "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_FAKEQUANT_ACT"`}:                       "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_FAKEQUANT_EXPERTS"`}:                   "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_W4A8_SPLITHALF"`}:                      "decoder first-use settings",
+	{decoderPkg + "/cpu_gateup_fused.go", "envBoolDefault", "os.Getenv", "name"}:                                    "decoder first-use boolean settings",
 	{cudaModule + "/graphs_safe.go", "(*cudaResident).graphsTenancySafe", "os.Getenv", `"CUDA_MPS_PIPE_DIRECTORY"`}: "resident decoder graph tenancy",
 	{cudaModule + "/graphs_safe.go", "(*cudaResident).admitGraphs", "os.Getenv", `"GOINFER_CUDA_GRAPHS_UNSAFE"`}:    "resident decoder graph admission",
 	{cudaModule + "/resident_build.go", "(*buildState).newResident", "os.Getenv", `"GOINFER_G4_CAPTURE"`}:           "resident decoder capture",
@@ -34,24 +41,5 @@ var allowedRuntimeOutput = map[runtimeSite]string{
 	{decoderPkg + "/kvsnap.go", "stderrKV", "os.Stderr", ""}:                         "decoder KV snapshots only",
 }
 
-// These reads run before pbrain's main in the CUDA release archives. They
-// violate the environment contract. Require the exact inventory on v0.6.4
-// until the tagged fix for https://github.com/pkieltyka/goinfer/issues/70.
-var knownStartupViolations = map[runtimeSite]struct{}{
-	{decoderPkg + "/deltanet.go", "deltaNetTiming", "os.Getenv", `"GOINFER_DELTANET_TIMING"`}:                       {},
-	{decoderPkg + "/fakequant.go", "fakeQuantScheme", "os.Getenv", `"GOINFER_FAKEQUANT"`}:                           {},
-	{decoderPkg + "/fakequant.go", "fakeQuantF32Act", "os.Getenv", `"GOINFER_FAKEQUANT_ACT"`}:                       {},
-	{decoderPkg + "/fakequant.go", "fakeQuantExpertsOnly", "os.Getenv", `"GOINFER_FAKEQUANT_EXPERTS"`}:              {},
-	{decoderPkg + "/model.go", "decodeTiming", "os.Getenv", `"GOINFER_DECODE_TIMING"`}:                              {},
-	{decoderPkg + "/weightmat.go", "w4a8SplitHalfRepackEnabled", "os.Getenv", `"GOINFER_W4A8_SPLITHALF"`}:           {},
-	{decoderPkg + "/cpu_gateup_fused.go", "cpuFusedGateUp", "decoder.envBoolDefault", `"GOINFER_CPU_FUSED_GATEUP"`}: {},
-	{decoderPkg + "/weightmat.go", "w4a8BatchEnabled", "decoder.envBoolDefault", `"GOINFER_W4A8_BATCH"`}:            {},
-}
-
-// The two envBoolDefault callers above each execute this same source site.
-var startupHelperRead = runtimeSite{decoderPkg + "/cpu_gateup_fused.go", "envBoolDefault", "os.Getenv", "name"}
-
-func isKnownStartupSite(site runtimeSite) bool {
-	_, known := knownStartupViolations[site]
-	return known || site == startupHelperRead
-}
+// goinfer #70 moved the v0.6.4 startup reads to first decoder use.
+var knownStartupViolations = map[runtimeSite]struct{}{}

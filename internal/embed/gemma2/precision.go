@@ -11,7 +11,7 @@ import (
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
-const goinferRevision = "ab2721995e027c8ce6630396c922916cb2357a1d"
+const goinferRevision = "897943c7a6bba158a74eaa3e2c43b1d11b24c445"
 
 // Both release rows use the same 24-layer text tower. Match the ordinary
 // runtime's upload floor when choosing the first candidate without loading it.
