@@ -61,8 +61,9 @@ All code is under `internal/` except `cmd/pbrain/main.go`, which builds the proc
 |---|---|---|
 | `cli` | Command table, flag parsing, global flags, exit codes, the error and notice streams. One file per command; each command is glue between the packages below. | all |
 | `check` | Builds the findings of `pbrain check` from items, skipped files and a graph. | `graph`, `item`, `secretscan` |
-| `semantic` | Passages, the per-section vector index, the per-user vector cache and its placement test, the incremental build, its status, and the scores a search asks for. | `search`, `embed`, `outline`, `item`, `gitx`, `sys`, `errs` |
+| `semantic` | Passages, the per-section vector index, the per-user vector cache and its placement test, the incremental build, its status, and the scores a search asks for. | `search`, `embed`, `outline`, `item`, `gitx`, `sys`, `errs`, `trace` |
 | `embed` | The `Embedder` seam, the table of supported models, and finding, downloading and verifying a model. It downloads through an interface that `importer/fetch` satisfies. One sub-package per model, holding its adapter, imported only where the registry is built. | `sys`, `errs` |
+| `embed/bge`, `embed/gemma2` | The runtime adapters measure model loading, token preparation and forward calls when tracing is enabled. | `embed`, `trace` (also `sys`, `errs` for `embed/bge`) |
 | `embed/embedtest` | The test registry of the semantic test plan: small models with fixed vectors, their pinned bytes and a fake downloader. Imported by tests only. | `embed`, `errs` |
 | `importer` | File and link imports, body cleaning, HTML to Markdown. Sub-package `importer/fetch` is the public-fetch client. | `item`, `errs` |
 | `search` | Matching, match classes, ranking, the time window, per-clause counts, passage choice, and the merge of semantic results. Declares the `Corpus` it reads and the `Semantic` source it may ask. | `graph`, `item`, `query`, `outline`, `errs` |
@@ -78,6 +79,7 @@ All code is under `internal/` except `cmd/pbrain/main.go`, which builds the proc
 | `secretscan` | The four patterns. | none |
 | `skill` | The embedded skill text. | none |
 | `errs` | Error codes, notices, exit codes. | none |
+| `trace` | Monotonic timing and append-only JSON Lines for an invocation of `pbrain sync` with `PBRAIN_TRACE` set. | none |
 | `sys` | The seams to the outside: file locking and link-free file operations on open folder handles. Replaceable in tests. | none |
 
 Two packages stand outside the list. `semantic/calibrate` is the calibration tool of section 8.7, a command of its own that imports `cli` and the packages below it. `buildcheck` holds the build's own checks as tests (no replace or exclude directive in `go.mod`, the import rule of this table, the release configuration) and imports nothing of pbrain's.

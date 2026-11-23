@@ -55,11 +55,11 @@ within a sample.
 
 The replay uses the saved TSV grouping and calls only goinfer and the Go
 standard library. It times each `EmbedIDsBatch` call after attaching the
-device. Upstream can copy `goinfer-slice/main.go` into a scratch module with
+device. Upstream can copy `testdata/goinfer-slice.go` into a scratch module with
 the same goinfer root and CUDA module pins. Build with the regular CUDA tag.
 
 ```sh
-CGO_ENABLED=0 go build -tags cuda -o /tmp/goinfer-slice ./tools/sync-trace/goinfer-slice
+CGO_ENABLED=0 go build -tags cuda -o /tmp/goinfer-slice ./tools/sync-trace/testdata/goinfer-slice.go
 gpu=$(nvidia-smi -i 0 --query-gpu=uuid --format=csv,noheader)
 export GOMAXPROCS=32 CUDA_VISIBLE_DEVICES="$gpu" PBRAIN_ALLOW_GEMMA2=1
 # On pax, expose the driver library to dynamically loaded CUDA.

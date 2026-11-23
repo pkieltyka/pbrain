@@ -99,11 +99,11 @@ var allowed = map[string][]string{
 	"internal/cli":                nil,                                                          // may import every package
 	"cmd/pbrain":                  {"cli", "gitx", "sys", "embed", "embed/bge", "embed/gemma2"}, // process adapter in cli.md §1; the release registry (architecture 3: model sub-packages are imported where the registry is built)
 	"internal/check":              {"graph", "item", "secretscan"},
-	"internal/semantic":           {"search", "embed", "outline", "item", "gitx", "sys", "errs"},
+	"internal/semantic":           {"search", "embed", "outline", "item", "gitx", "sys", "errs", "trace"},
 	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "embed/gemma2", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
 	"internal/embed":              {"sys", "errs"},
-	"internal/embed/bge":          {"embed", "sys", "errs"},
-	"internal/embed/gemma2":       {"embed"},
+	"internal/embed/bge":          {"embed", "sys", "errs", "trace"},
+	"internal/embed/gemma2":       {"embed", "trace"},
 	"internal/embed/embedtest":    {"embed", "errs"}, // semantic.md "Test plan": the test registry
 	"internal/importer":           {"item", "errs", "importer/fetch"},
 	"internal/importer/fetch":     {"errs"},
@@ -120,6 +120,7 @@ var allowed = map[string][]string{
 	"internal/secretscan":         nil,
 	"internal/skill":              nil,
 	"internal/errs":               nil,
+	"internal/trace":              nil,
 	"internal/sys":                nil,
 	"internal/buildcheck":         nil,
 }
