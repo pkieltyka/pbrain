@@ -6,11 +6,10 @@ require (
 	codeberg.org/readeck/go-readability/v2 v2.1.3
 	github.com/BurntSushi/toml v1.6.0
 	github.com/JohannesKaufmann/html-to-markdown/v2 v2.5.2
-	github.com/eitamring/gocudrv v0.3.2
 	github.com/pkieltyka/aikit v1.79.1
-	github.com/pkieltyka/goinfer v0.6.5
-	github.com/pkieltyka/goinfer/backend/cuda v0.6.5
-	github.com/pkieltyka/goinfer/backend/vulkan v0.6.5
+	github.com/pkieltyka/goinfer v0.6.6
+	github.com/pkieltyka/goinfer/backend/cuda v0.6.6
+	github.com/pkieltyka/goinfer/backend/vulkan v0.6.6
 	github.com/rogpeppe/go-internal v1.16.0
 	github.com/spf13/pflag v1.1.0
 	go.yaml.in/yaml/v3 v3.0.6
@@ -24,6 +23,7 @@ require (
 	github.com/andybalholm/cascadia v1.3.4 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/ebitengine/purego v0.10.1 // indirect
+	github.com/eitamring/gocudrv v0.3.2 // indirect
 	github.com/go-shiori/dom v0.0.0-20230515143342-73569d674e1c // indirect
 	github.com/gogs/chardet v0.0.0-20211120154057-b7413eaefb8f // indirect
 	github.com/google/uuid v1.6.0 // indirect

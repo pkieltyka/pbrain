@@ -119,6 +119,7 @@ func deviceListing(devices []embeddinggemma2.DeviceInfo, failures []embeddinggem
 			ID: device.Alias, Persistent: device.ID, Backend: device.Backend, Name: device.Name,
 			TotalBytes: device.Memory.TotalBytes, FreeBytes: device.Memory.AvailableBytes,
 			Memory: device.Memory.Basis.String(), MemoryKind: memoryKind,
+			ComputeCapability: device.ComputeCapability, RunnableSelectors: device.RunnableSelectors(),
 		})
 	}
 	for _, failure := range failures {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
@@ -81,6 +82,44 @@ func TestDeviceSelection(t *testing.T) {
 			if info != test.want || !errors.Is(err, test.wantErr) || probed != test.probe || attached != test.attach ||
 				(test.order != nil && !slices.Equal(order, test.order)) {
 				t.Fatalf("runtime = (%+v, %v), probe=%t attach=%t order=%v", info, err, probed, attached, order)
+			}
+		})
+	}
+}
+
+func TestPinnedSelectorAttachErrors(t *testing.T) {
+	device := embed.DeviceInfo{ID: "testgpu:0", Persistent: "testgpu:chosen-uuid", Backend: "testgpu"}
+	other := embed.DeviceInfo{ID: device.ID, Persistent: "testgpu:other-uuid", Backend: "testgpu"}
+	for _, tc := range []struct {
+		cause error
+		other error
+		text  string
+	}{
+		{embeddinggemma2.ErrUnsupportedSelector, embeddinggemma2.ErrNoDevice, `cannot run selector "testgpu-fp16"`},
+		{embeddinggemma2.ErrNoDevice, embeddinggemma2.ErrUnsupportedSelector, "is no longer available"},
+	} {
+		t.Run(tc.text, func(t *testing.T) {
+			_, model := tinyEncoderForTest(t)
+			const selector = "testgpu-fp16"
+			attempts := 0
+			embeddinggemma2.RegisterDeviceAccelerator(selector, device.Backend,
+				func(_ *embeddinggemma2.Model, token string) (embeddinggemma2.Accelerator, error) {
+					attempts++
+					if token != "chosen-uuid" {
+						t.Fatalf("attach did not use the selected UUID: %q", token)
+					}
+					return nil, tc.cause
+				})
+			info, err := chooseRuntime(t.Context(), device.Persistent, 0, true, func() embed.Listing {
+				return embed.Listing{Devices: []embed.DeviceInfo{other, device}}
+			}, func(d embed.DeviceInfo) error {
+				_, err := attachDevice(model, d, 0, selector)
+				return err
+			})
+			if info != (embed.RunInfo{}) || attempts != 1 || model.Accelerator() != nil ||
+				!errors.Is(err, embed.ErrAccelerator) || !errors.Is(err, tc.cause) || errors.Is(err, tc.other) ||
+				!strings.Contains(err.Error(), tc.text) || !strings.Contains(err.Error(), device.Persistent) {
+				t.Fatalf("pinned attach = %+v, %v; %d attempts", info, err, attempts)
 			}
 		})
 	}
@@ -232,7 +271,7 @@ func TestAttachedBudget(t *testing.T) {
 				if _, err := chooseRuntime(t.Context(), "auto", 0, true, func() embed.Listing {
 					return embed.Listing{Devices: []embed.DeviceInfo{device, {ID: "testgpu:1"}}}
 				}, func(d embed.DeviceInfo) error {
-					if d != device {
+					if d.Selector() != device.Selector() {
 						t.Fatal("attempted another device while cleanup was pending")
 					}
 					return cleanup
