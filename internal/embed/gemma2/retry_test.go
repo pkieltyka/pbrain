@@ -2,13 +2,18 @@ package gemma2
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 type retryAccel struct {
@@ -87,7 +92,16 @@ func TestGemmaOOMSplit(t *testing.T) {
 		return nil
 	}
 	out := make([][]float32, len(ids))
-	if err := e.embedPrepared(t.Context(), ids, lengths, out); err != nil {
+	path := filepath.Join(t.TempDir(), "trace.jsonl")
+	recording, err := trace.Open(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer recording.Close()
+	if err := e.embedPrepared(recording.Context(t.Context()), ids, lengths, out); err != nil {
+		t.Fatal(err)
+	}
+	if err := recording.Close(); err != nil {
 		t.Fatal(err)
 	}
 	groups := [][][]int{ids, ids[:2], ids[2:4], ids[2:3], ids[3:4], ids[4:]}
@@ -98,6 +112,16 @@ func TestGemmaOOMSplit(t *testing.T) {
 		if !slices.EqualFunc(fake.attempts[i], want, slices.Equal) {
 			t.Fatalf("attempt %d = %v, want %v", i, fake.attempts[i], want)
 		}
+	}
+	if got := tracedForwards(t, path); !slices.Equal(got, []trace.Fields{
+		{Device: "cuda:0", Inputs: 5, TotalPositions: 18, MaxPositions: 5, Failed: true},
+		{Device: "cuda:0", Inputs: 2, TotalPositions: 7, MaxPositions: 4},
+		{Device: "cuda:0", Inputs: 2, TotalPositions: 9, MaxPositions: 5, Failed: true},
+		{Device: "cuda:0", Inputs: 1, TotalPositions: 5, MaxPositions: 5},
+		{Device: "cuda:0", Inputs: 1, TotalPositions: 4, MaxPositions: 4},
+		{Device: "cuda:0", Inputs: 1, TotalPositions: 2, MaxPositions: 2},
+	}) {
+		t.Fatalf("forward trace did not record actual attempts: %+v", got)
 	}
 	for i, want := range single {
 		if !sameVectorBits(out[i], want) {
@@ -116,6 +140,28 @@ func TestGemmaOOMSplit(t *testing.T) {
 	if len(fake.attempts) != 2 || len(fake.attempts[0]) != 2 || len(fake.attempts[1]) != 1 {
 		t.Fatalf("next window did not retain the reduced cap: %v", fake.attempts)
 	}
+}
+
+func tracedForwards(t *testing.T, path string) []trace.Fields {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields []trace.Fields
+	for line := range strings.SplitSeq(strings.TrimSpace(string(raw)), "\n") {
+		var event struct {
+			Span string
+			trace.Fields
+		}
+		if err := json.Unmarshal([]byte(line), &event); err != nil {
+			t.Fatal(err)
+		}
+		if event.Span == "forward" {
+			fields = append(fields, event.Fields)
+		}
+	}
+	return fields
 }
 
 func TestGemmaOOMTerminalAndCPUFallback(t *testing.T) {

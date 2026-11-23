@@ -300,7 +300,7 @@ items:
 			if eerr != nil {
 				break items
 			}
-			if kerr := part.si.keep(w, i, vs[0]); kerr != nil {
+			if kerr := part.si.keep(ctx, w, i, vs[0]); kerr != nil {
 				if kerr == errCacheGit {
 					return true, nil
 				}

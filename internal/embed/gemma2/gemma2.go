@@ -10,6 +10,7 @@ import (
 	"github.com/pkieltyka/goinfer/embeddinggemma2"
 	"github.com/pkieltyka/goinfer/tokenizer"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
 const maxTokens = 2048
@@ -84,6 +85,8 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	if len(files) != 4 {
 		return nil, errors.New("gemma2: expected four verified pack files")
 	}
+	decode := trace.Start(ctx, "model_decode")
+	defer decode.End()
 	var conf configuration
 	if err := json.Unmarshal(files[3], &conf); err != nil {
 		return nil, err
@@ -111,6 +114,7 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 		return nil, err
 	}
 	m, err := embeddinggemma2.NewEncoder(model, tok, conf.Prompts)
+	decode.End()
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +140,9 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 		if err != nil {
 			return err
 		}
+		attach := trace.Start(ctx, trace.DeviceAttach)
 		budget, err = attachDevice(candidate, device, opt.MemoryBudget)
+		attach.EndWith(trace.Fields{Device: device.ID, Failed: err != nil})
 		if err != nil {
 			return err
 		}
@@ -214,7 +220,9 @@ func (e *encoder) Embed(ctx context.Context, role embed.Role, texts []string) ([
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
+		prepare := trace.Start(ctx, "token_prepare")
 		ids, err := e.tokenIDs(role, text)
+		prepare.EndWith(trace.Fields{Inputs: 1, Failed: err != nil})
 		if err != nil {
 			return nil, err
 		}
@@ -231,7 +239,7 @@ func (e *encoder) embedIDs(ctx context.Context, ids []int) ([]float32, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	v, err := e.model.EmbedIDs(ids)
+	v, err := e.forwardSingle(ctx, ids)
 	if cerr := ctx.Err(); cerr != nil {
 		return nil, cerr
 	}
@@ -251,11 +259,20 @@ func (e *encoder) embedIDs(ctx context.Context, ids []int) ([]float32, error) {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		v, err = e.model.EmbedIDs(ids)
+		v, err = e.forwardSingle(ctx, ids)
 		if cerr := ctx.Err(); cerr != nil {
 			return nil, cerr
 		}
 	}
+	return v, err
+}
+
+func (e *encoder) forwardSingle(ctx context.Context, ids []int) ([]float32, error) {
+	forward := trace.Start(ctx, "forward")
+	v, err := e.model.EmbedIDs(ids)
+	forward.EndWith(trace.Fields{
+		Device: e.info.Device, Inputs: 1, TotalPositions: len(ids), MaxPositions: len(ids), Failed: err != nil,
+	})
 	return v, err
 }
 
