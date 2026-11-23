@@ -692,20 +692,20 @@ JSON: `{"model": "bge-small-en-v1.5", "model_present": true, "sections": [{"sect
 Lists what `pbrain sync` could embed on, on this machine, with this pbrain: each GPU it can use, in the order `auto` would try them, then the processor. It needs no brain, opens no model and changes nothing.
 
 ```
-cuda:0    NVIDIA RTX PRO 6000   97887 MiB, 97249 free
-vulkan:0  AMD Radeon RX 9060 XT  16304 MiB, 14000 free
-cpu       32 threads
+cuda:0  NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition  97249 MiB, 96690 free
+vulkan:0  AMD Radeon RX 9060 XT (RADV GFX1200)  16304 MiB, 2980 free
+cpu  4 threads
 ```
 
 A GPU's alias gives its backend and index, such as `cuda:0`. The index can change with device visibility. JSON also carries its driver identifier in `persistent`, such as `cuda:GPU-<uuid>` or `vulkan:<uuid>`. `--device` takes either. The line shows the name, total and free memory when known. CUDA provides live free bytes. Vulkan can provide estimated headroom. Nothing is marked as chosen because the project's model determines which devices can be used. A sync names the device it uses in a notice.
 
-Example JSON with illustrative memory figures:
+Example JSON with the same memory figures:
 
 ```json
 {"devices":[
-  {"id":"cuda:0","backend":"cuda","name":"NVIDIA RTX PRO 6000","persistent":"cuda:GPU-<uuid>","total_bytes":102641958912,"free_bytes":101972967424,"memory":"live","memory_kind":"dedicated"},
-  {"id":"vulkan:0","backend":"vulkan","name":"AMD Radeon RX 9060 XT","persistent":"vulkan:<uuid>","total_bytes":17095983104,"free_bytes":14680064000,"memory":"estimated","memory_kind":"dedicated"},
-  {"id":"cpu","backend":"cpu","threads":32}
+  {"id":"cuda:0","backend":"cuda","name":"NVIDIA RTX PRO 6000 Blackwell Max-Q Workstation Edition","persistent":"cuda:GPU-<uuid>","total_bytes":101973491712,"free_bytes":101386944512,"memory":"live","memory_kind":"dedicated"},
+  {"id":"vulkan:0","backend":"vulkan","name":"AMD Radeon RX 9060 XT (RADV GFX1200)","persistent":"vulkan:<uuid>","total_bytes":17095983104,"free_bytes":3124969472,"memory":"estimated","memory_kind":"dedicated"},
+  {"id":"cpu","backend":"cpu","threads":4}
 ]}
 ```
 
