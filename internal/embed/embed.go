@@ -74,10 +74,11 @@ type Windowed interface {
 }
 
 type File struct {
-	Name   string // file name inside the model folder
-	URL    string // https, pinned in the release
-	SHA256 [32]byte
-	Size   int64
+	Name         string // file name inside the model folder
+	URL          string // https, pinned in the release
+	SHA256       [32]byte
+	Size         int64
+	VeritySHA256 [32]byte // fs-verity v1 digest, or zero for SHA-only verification
 }
 
 type Model struct {
@@ -90,8 +91,8 @@ type Model struct {
 	Fingerprint string // lower-case hex SHA-256; see "Fingerprints"
 }
 
-// Artifact is a model read into private memory, once, and found to be the pinned one by
-// hashing those very bytes. Only Verify makes one.
+// Artifact is a model read into private memory and authenticated against its
+// release pins by Verify or VerifyManaged.
 type Artifact struct {
 	Model Model
 	Files [][]byte // each file's bytes, in the order of Model.Files
@@ -281,7 +282,26 @@ func present(files sys.Files, dir sys.Dir, list []File) error {
 // concurrently, one worker per processor.
 // Errors: ErrAbsent, ErrWrongModel (a size or digest that is not the pinned one), or a file-system error.
 func Verify(files sys.Files, dir sys.Dir, m Model) (*Artifact, error) {
-	data, err := readPinned(files, dir, m.Files)
+	return verify(files, dir, m, strict)
+}
+
+type ManagedMode uint8
+
+const (
+	strict ManagedMode = iota
+	ManagedStrict
+	ManagedSearch
+)
+
+// VerifyManaged checks the release pins on a model in the managed cache.
+// ManagedSearch can use authentication by the kernel on the same fd it reads.
+// ManagedStrict always compares the SHA-256 of the bytes it will return.
+func VerifyManaged(files sys.Files, dir sys.Dir, m Model, mode ManagedMode) (*Artifact, error) {
+	return verify(files, dir, m, mode)
+}
+
+func verify(files sys.Files, dir sys.Dir, m Model, mode ManagedMode) (*Artifact, error) {
+	data, err := readPinned(files, dir, m.Files, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -290,7 +310,7 @@ func Verify(files sys.Files, dir sys.Dir, m Model) (*Artifact, error) {
 
 // readPinned reads each file of list from dir and checks its size and digest, with at most one
 // worker per processor. The first error in table order is returned.
-func readPinned(files sys.Files, dir sys.Dir, list []File) ([][]byte, error) {
+func readPinned(files sys.Files, dir sys.Dir, list []File, mode ManagedMode) ([][]byte, error) {
 	out := make([][]byte, len(list))
 	errl := make([]error, len(list))
 	next := make(chan int)
@@ -298,7 +318,7 @@ func readPinned(files sys.Files, dir sys.Dir, list []File) ([][]byte, error) {
 	for range min(runtime.GOMAXPROCS(0), len(list)) {
 		wg.Go(func() {
 			for i := range next {
-				out[i], errl[i] = readOne(files, dir, list[i])
+				out[i], errl[i] = readOne(files, dir, list[i], mode)
 			}
 		})
 	}
@@ -317,8 +337,8 @@ func readPinned(files sys.Files, dir sys.Dir, list []File) ([][]byte, error) {
 
 // readOne reads exactly f.Size bytes of f.Name, after the open file's own size agrees, refuses a
 // byte more, and compares the SHA-256 of the bytes it holds.
-func readOne(files sys.Files, dir sys.Dir, f File) ([]byte, error) {
-	if f.Size < 0 {
+func readOne(files sys.Files, dir sys.Dir, f File, mode ManagedMode) ([]byte, error) {
+	if f.Size < 0 || f.Size >= int64(int(^uint(0)>>1)) || f.SHA256 == [32]byte{} {
 		return nil, wrong(f.Name)
 	}
 	r, err := files.OpenRegular(dir, f.Name)
@@ -336,8 +356,26 @@ func readOne(files sys.Files, dir sys.Dir, f File) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	if info.Size != f.Size {
+	if !info.Mode.IsRegular() || info.Size != f.Size {
 		return nil, wrong(f.Name)
+	}
+	var sealed bool
+	if mode != strict && f.VeritySHA256 != [32]byte{} {
+		if v, ok := files.(sys.Verity); ok {
+			sum, err := v.MeasureVerity(r)
+			switch {
+			case err == nil:
+				if sum != f.VeritySHA256 {
+					return nil, wrong(f.Name)
+				}
+				sealed = true
+			case errors.Is(err, sys.ErrVerityProfile):
+				return nil, wrong(f.Name)
+			case errors.Is(err, sys.ErrVerityUnsealed), errors.Is(err, sys.ErrVerityUnavailable):
+			default:
+				return nil, err
+			}
+		}
 	}
 	data := make([]byte, f.Size+1)
 	n, err := io.ReadFull(r, data)
@@ -348,7 +386,7 @@ func readOne(files sys.Files, dir sys.Dir, f File) ([]byte, error) {
 		return nil, wrong(f.Name)
 	}
 	data = data[:n:n]
-	if sha256.Sum256(data) != f.SHA256 {
+	if !(sealed && mode == ManagedSearch) && sha256.Sum256(data) != f.SHA256 {
 		return nil, wrong(f.Name)
 	}
 	return data, nil
@@ -450,7 +488,7 @@ func Pack(files sys.Files, reg Registry, m Model, sourceDir, packDir sys.Dir) er
 	if len(m.Source) == 0 {
 		return fmt.Errorf("embed: %q is not derived", m.Name)
 	}
-	source, err := readPinned(files, sourceDir, m.Source)
+	source, err := readPinned(files, sourceDir, m.Source, strict)
 	if err != nil {
 		return err
 	}

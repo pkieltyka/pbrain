@@ -72,6 +72,13 @@ type Files interface {
 	TryLock(dir Dir, name string) (io.Closer, error)
 }
 
+// Verity is an optional Files capability for managed model files. Sealing
+// consumes the temp writer and measures the same inode on a read-only handle.
+type Verity interface {
+	MeasureVerity(RegularFile) ([32]byte, error)
+	SealTempVerity(Dir, string, io.WriteCloser) ([32]byte, error)
+}
+
 // ReadCeiling is Dir.Read's hard limit. Larger trusted files, such as a model, go through
 // OpenRegular and the caller's own streaming and digest checks.
 const ReadCeiling = 5 << 20
@@ -89,6 +96,12 @@ var (
 	ErrTooLarge = errors.New("sys: the file is too large")
 	// ErrForeign: a Dir that this Files did not open.
 	ErrForeign = errors.New("sys: a folder handle from another implementation")
+	// ErrVerityUnavailable means the filesystem or kernel cannot use this profile.
+	ErrVerityUnavailable = errors.New("sys: fs-verity is unavailable")
+	// ErrVerityUnsealed means a supported filesystem reported no digest for the open file.
+	ErrVerityUnsealed = errors.New("sys: file is not sealed with fs-verity")
+	// ErrVerityProfile means a sealed file carries a different digest algorithm or size.
+	ErrVerityProfile = errors.New("sys: unsupported fs-verity digest profile")
 )
 
 // Native returns the operating system's Files.

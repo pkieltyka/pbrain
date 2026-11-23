@@ -23,8 +23,9 @@ type Cache struct {
 	files sys.Files
 	path  string
 
-	mu   sync.Mutex
-	dirs map[string]sys.Dir // tested folders by their path below the root; "" is the root
+	mu     sync.Mutex
+	dirs   map[string]sys.Dir // tested folders by their path below the root; "" is the root
+	verity map[uint64]bool    // fs-verity preparation probes, by destination device
 }
 
 var castagnoli = crc32.MakeTable(crc32.Castagnoli)
