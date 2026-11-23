@@ -28,7 +28,7 @@ const (
 	cudaModule    = goinferModule + "/backend/cuda"
 	vulkanModule  = goinferModule + "/backend/vulkan"
 	decoderPkg    = goinferModule + "/decoder"
-	auditedPin    = "v0.6.4"
+	auditedPin    = "v0.6.5"
 )
 
 type runtimeSite struct {
@@ -100,7 +100,7 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 		}
 		t.Fatal(err)
 	}
-	checked, findings := reviewRuntimeGraph(t, bytes.NewReader(out), auditTarget(osName, arch, tags))
+	checked, findings := reviewRuntimeGraph(t, bytes.NewReader(out), auditTarget(osName, arch, tags), knownStartupViolations)
 	for _, finding := range findings {
 		t.Error(finding)
 	}
@@ -112,19 +112,20 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 	t.Logf("audited %v with release tags %v", checked, tags)
 }
 
-func reviewRuntimeGraph(t *testing.T, graph io.Reader, target runtimeTarget) (map[string]int, []string) {
+func reviewRuntimeGraph(t *testing.T, graph io.Reader, target runtimeTarget, startupSites map[runtimeSite]struct{}) (map[string]int, []string) {
 	t.Helper()
 	var findings []string
 	seen := map[runtimeSite]int{}
-	knownStartup := target&cudaReleases != 0 && len(knownStartupViolations) > 0
+	knownStartup := target&cudaReleases != 0 && len(startupSites) > 0
 	checked := scanRuntimeGraph(t, graph, func(pin runtimePin, line int, site runtimeSite) {
 		limit := 0
 		if rule := reviewedDependencySites[pin][site]; rule.targets&target != 0 {
 			limit = rule.count
 		}
+		_, startup := startupSites[site]
 		if pin.version == auditedPin && (pin.module == goinferModule || pin.module == cudaModule) &&
 			(dormantRuntimeSites[site] != "" || allowedRuntimeOutput[site] != "" ||
-				(knownStartup && isKnownStartupSite(site))) {
+				(knownStartup && startup)) {
 			limit = 1
 		}
 		if seen[site] < limit {
@@ -135,15 +136,12 @@ func reviewRuntimeGraph(t *testing.T, graph io.Reader, target runtimeTarget) (ma
 		findings = append(findings, fmt.Sprintf("%s:%d (%s) uses %s", site.file, line, site.scope, use))
 	})
 	if knownStartup {
-		for site := range knownStartupViolations {
+		for site := range startupSites {
 			if seen[site] == 0 {
 				findings = append(findings, fmt.Sprintf("known startup violation no longer matched: %+v (goinfer #70)", site))
 			}
 		}
-		if seen[startupHelperRead] == 0 {
-			findings = append(findings, "known startup helper no longer reads the environment (goinfer #70)")
-		}
-		t.Logf("tracking %d known startup reads from goinfer #70", len(knownStartupViolations))
+		t.Logf("tracking %d known startup sites from goinfer #70", len(startupSites))
 	}
 	return checked, findings
 }
@@ -201,7 +199,7 @@ var fromEnv = h.Transport{Proxy: h.ProxyFromEnvironment}
 			t.Fatal(err)
 		}
 	}
-	checked, findings := reviewRuntimeGraph(t, &graph, linuxAMD64CPU)
+	checked, findings := reviewRuntimeGraph(t, &graph, linuxAMD64CPU, nil)
 	want := []string{
 		module + `/env.go:3 (setting) uses os.Getenv "UNREVIEWED_STARTUP"`,
 		module + "/env.go:4 (temp) uses os.TempDir",
@@ -215,6 +213,16 @@ var fromEnv = h.Transport{Proxy: h.ProxyFromEnvironment}
 	}
 	if len(checked) != 1 || checked[module] != 1 || !slices.Equal(findings, want) {
 		t.Fatalf("scanned %v, found %q, want %q from the new dependency", checked, findings, want)
+	}
+}
+
+func TestRuntimeAuditRejectsStaleStartupException(t *testing.T) {
+	// Simulate restoring one of the startup exceptions cleared by goinfer #70.
+	old := runtimeSite{decoderPkg + "/deltanet.go", "deltaNetTiming", "os.Getenv", `"GOINFER_DELTANET_TIMING"`}
+	_, findings := reviewRuntimeGraph(t, strings.NewReader(""), linuxAMD64GPU, map[runtimeSite]struct{}{old: {}})
+	if len(findings) != 1 || !strings.Contains(findings[0], "known startup violation no longer matched") ||
+		!strings.Contains(findings[0], old.argument) {
+		t.Fatalf("missing startup exception produced %q", findings)
 	}
 }
 
@@ -290,14 +298,6 @@ func auditRuntimeFile(t *testing.T, filename, label string, report func(int, run
 		case *ast.CallExpr:
 			if id, ok := ast.Unparen(n.Fun).(*ast.Ident); ok && (id.Name == "print" || id.Name == "println") {
 				visit(id, stack, "builtin."+id.Name, "")
-			}
-		case *ast.Ident:
-			// Count both callers of the one known indirect startup read.
-			// An additional caller or an escaped reference needs review too.
-			if len(knownStartupViolations) > 0 && path.Dir(label) == decoderPkg && n.Name == "envBoolDefault" {
-				if decl, ok := stack[len(stack)-1].(*ast.FuncDecl); !ok || decl.Name != n {
-					visit(n, stack, "decoder.envBoolDefault", runtimeArgument(n, stack))
-				}
 			}
 		}
 		return true

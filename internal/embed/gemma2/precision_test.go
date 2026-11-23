@@ -64,7 +64,7 @@ func TestFP16CapabilitySelection(t *testing.T) {
 }
 
 func TestCUDAProfileFingerprints(t *testing.T) {
-	const qualifiedRevision = "ab2721995e027c8ce6630396c922916cb2357a1d"
+	const qualifiedRevision = "897943c7a6bba158a74eaa3e2c43b1d11b24c445"
 	if goinferRevision != qualifiedRevision {
 		t.Fatalf("requalify the fp16 identity for goinfer %s", goinferRevision)
 	}
@@ -77,11 +77,11 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, sum := range map[string]string{
-		"github.com/pkieltyka/goinfer":              "F+4LkrNn+3anZ1Tnu50c9P+appkzPotNMgLdwIAyyz8=",
-		"github.com/pkieltyka/goinfer/backend/cuda": "UF04BC7VFadfobByXcawl0yrN2pd6glWenoU/mqSPKE=",
+		"github.com/pkieltyka/goinfer":              "cLTCqfbEOHGK2eSwiUVspxOpilgVUErLuzHu3AAbgkw=",
+		"github.com/pkieltyka/goinfer/backend/cuda": "sJKvWBaFWQBtGyw3f8ZiXiNFjYILvqKZ2dt6kbQanIo=",
 	} {
-		if !strings.Contains(string(mod), "\t"+path+" v0.6.4\n") ||
-			!strings.Contains(string(sums), path+" v0.6.4 h1:"+sum+"\n") {
+		if !strings.Contains(string(mod), "\t"+path+" v0.6.5\n") ||
+			!strings.Contains(string(sums), path+" v0.6.5 h1:"+sum+"\n") {
 			t.Errorf("requalify the fp16 identity when %s changes", path)
 		}
 	}
@@ -89,8 +89,8 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		row        embed.Model
 		base, fp16 string
 	}{
-		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "ba03f2cd6b89b8fa81c7987c4e734c95b2f65c7145f084e0ebed08d4fdc5acfe"},
-		{GGUFEntries()[0].Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "afc6b39aaec02e8de3408e6e0c1ff6f2ff9b262b56cc865122b5b81ad202f19f"},
+		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "59699e22cef7fac07877a0993172a09be79c857777c454a58f2d2ad8312c1686"},
+		{GGUFEntries()[0].Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "a324c317d5433fc2bb667134b7c7de66ae2f6f593956a20f389d643c59c7fd89"},
 	} {
 		if model.row.Fingerprint != model.base || model.row.CUDAFP16Fingerprint != model.fp16 {
 			t.Errorf("%s has an unexpected identity: %s %s", model.row.Name, model.row.Fingerprint, model.row.CUDAFP16Fingerprint)
