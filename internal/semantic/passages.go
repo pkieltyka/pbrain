@@ -76,7 +76,11 @@ func ContentCheck(title string, body []byte) Check {
 
 // IndexFingerprint is the lower-case hex SHA-256 of "pbrain-index\n" + ChunkerVersion + "\n" + m.Fingerprint.
 func IndexFingerprint(m embed.Model) string {
-	d := sha256.Sum256([]byte("pbrain-index\n" + ChunkerVersion + "\n" + m.Fingerprint))
+	return indexFingerprint(m.Fingerprint)
+}
+
+func indexFingerprint(vectorFingerprint string) string {
+	d := sha256.Sum256([]byte("pbrain-index\n" + ChunkerVersion + "\n" + vectorFingerprint))
 	return hex.EncodeToString(d[:])
 }
 

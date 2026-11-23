@@ -61,5 +61,6 @@ func modelFingerprint(name string, files []embed.File) string {
 // Entry returns the release model with its cutoff from the frozen retrieval fixture.
 func Entry() embed.Entry {
 	return embed.Entry{Model: embed.Model{Name: "embeddinggemma-2", Runtime: "goinfer", Dim: dimension, Cutoff: 0.72, Fingerprint: fingerprint,
-		Files: slices.Clone(packFiles), Source: slices.Clone(sourceFiles)}, Open: open, Devices: listDevices, Derive: derive}
+		CUDAFP16Fingerprint: fp16Fingerprint(fingerprint, goinferRevision),
+		Files:               slices.Clone(packFiles), Source: slices.Clone(sourceFiles)}, Open: open, Devices: listDevices, ResolveFP16: fp16Resolver(), Derive: derive}
 }

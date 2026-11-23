@@ -19,6 +19,8 @@ import (
 // DefaultModel is the release model used when pbrain.toml omits semantic.model.
 const DefaultModel = "bge-small-en-v1.5"
 
+const defaultCUDAPrecision = "fp32"
+
 // The defaults and flag ranges of spec 6.1.
 const (
 	defaultSearchLimit, maxSearchLimit = 5, 50
@@ -51,7 +53,8 @@ type projectWire struct {
 	Get      *charsWire  `toml:"get"`
 	Prime    *charsWire  `toml:"prime"`
 	Semantic *struct {
-		Model *string `toml:"model"`
+		Model         *string `toml:"model"`
+		CUDAPrecision *string `toml:"cuda_precision"`
 	} `toml:"semantic"`
 	Tags map[string]string `toml:"tags"`
 }
@@ -98,6 +101,15 @@ func decodeProject(data []byte) (Config, error) {
 		}
 	}
 	c.Semantic.Model = DefaultModel
+	c.Semantic.CUDAPrecision = defaultCUDAPrecision
+	if w.Semantic != nil && w.Semantic.CUDAPrecision != nil {
+		switch precision := *w.Semantic.CUDAPrecision; precision {
+		case "fp16", "fp32":
+			c.Semantic.CUDAPrecision = precision
+		default:
+			return Config{}, invalidConfig("pbrain.toml: semantic.cuda_precision must be fp16 or fp32")
+		}
+	}
 	if w.Semantic != nil && w.Semantic.Model != nil {
 		switch model := *w.Semantic.Model; model {
 		case "":

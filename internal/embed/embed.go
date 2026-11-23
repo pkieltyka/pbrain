@@ -33,6 +33,7 @@ const (
 type OpenOptions struct {
 	Device       string // "" or "cpu" for the CPU, "auto" for automatic selection
 	MemoryBudget int64  // bytes for a device batch
+	Writer       WriteProfile
 }
 
 // Fallback describes why a model with an accelerator path runs on the CPU.
@@ -82,13 +83,14 @@ type File struct {
 }
 
 type Model struct {
-	Name        string
-	Runtime     string
-	Files       []File // what the adapter is given, each pinned by digest
-	Source      []File // the published files a pack is derived from; empty when Files are downloaded as they are
-	Dim         int
-	Cutoff      float32
-	Fingerprint string // lower-case hex SHA-256; see "Fingerprints"
+	Name                string
+	Runtime             string
+	Files               []File // what the adapter is given, each pinned by digest
+	Source              []File // the published files a pack is derived from; empty when Files are downloaded as they are
+	Dim                 int
+	Cutoff              float32
+	Fingerprint         string // lower-case hex SHA-256; see "Fingerprints"
+	CUDAFP16Fingerprint string // optional vector identity for the qualified CUDA selector
 }
 
 // Artifact is a model read into private memory and authenticated against its
@@ -104,6 +106,8 @@ type Entry struct {
 	Open  func(ctx context.Context, a *Artifact, o OpenOptions) (Embedder, error)
 	// Devices lists the adapter's usable GPUs without opening a model. Nil means CPU only.
 	Devices func() Listing
+	// ResolveFP16 chooses the qualified card, or explains a precision downgrade.
+	ResolveFP16 func(Listing, string) (DeviceInfo, string)
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)
@@ -177,7 +181,12 @@ func (r *registry) Open(ctx context.Context, a *Artifact, o OpenOptions) (Embedd
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		o.Device, err = namedDevice(e, o.Device)
+		listing := o.Writer.Inventory
+		if listing == nil {
+			snapshot := e.Devices()
+			listing = &snapshot
+		}
+		o.Device, err = namedDevice(*listing, o.Device)
 		if err != nil {
 			return nil, err
 		}

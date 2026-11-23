@@ -33,10 +33,9 @@ type attachCleanupError struct {
 func (e *attachCleanupError) Error() string { return e.err.Error() }
 func (e *attachCleanupError) Unwrap() error { return e.err }
 
-func attachDevice(model *embeddinggemma2.Encoder, device embed.DeviceInfo, override int64) (int64, error) {
-	selector := device.Backend
-	if selector == "cuda" {
-		selector = cudaSelector
+func attachDevice(model *embeddinggemma2.Encoder, device embed.DeviceInfo, override int64, selector string) (int64, error) {
+	if selector == "" {
+		selector = device.Backend
 	}
 	id := device.Selector()
 	acc, err := model.UseDevice(id, selector)
@@ -131,17 +130,29 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	if allowVulkan {
 		compiled, list = cudaCompiled || vulkanCompiled, listDevices
 	}
+	writer := opt.Writer
+	if writer.Inventory != nil {
+		list = func() embed.Listing { return *writer.Inventory }
+	}
+	selector := opt.Device
+	if writer.Selector != "" {
+		if writer.Selector != embed.CUDAFP16Selector || writer.DeviceID == "" || writer.Inventory == nil ||
+			writer.Fingerprint != fp16Fingerprint(fp, goinferRevision) {
+			return nil, fmt.Errorf("%w: invalid resolved CUDA writer", embed.ErrAccelerator)
+		}
+		selector, fp = writer.DeviceID, writer.Fingerprint
+	}
 	// The three float32 feed-forward matrices per layer are a lower bound on CUDA's upload.
 	weightFloor := 3 * 4 * int64(cfg.Layers) * int64(cfg.Hidden) * int64(cfg.Intermediate)
 	var attached *embeddinggemma2.Encoder
 	var budget int64
-	info, err := chooseRuntime(ctx, opt.Device, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
+	info, err := chooseRuntime(ctx, selector, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
 		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
 			return err
 		}
 		attach := trace.Start(ctx, trace.DeviceAttach)
-		budget, err = attachDevice(candidate, device, opt.MemoryBudget)
+		budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
 		attach.EndWith(trace.Fields{Device: device.ID, Failed: err != nil})
 		if err != nil {
 			return err
@@ -167,7 +178,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	if attached != nil {
 		e.model = attached
 		e.info.Budget = budget
-		if opt.Device == "auto" {
+		if selector == "auto" {
 			e.cpu = m
 		}
 	}

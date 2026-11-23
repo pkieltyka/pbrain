@@ -58,15 +58,23 @@ func (r *registry) Devices() []DeviceInfo {
 	return append(devices, DeviceInfo{ID: "cpu", Backend: "cpu"})
 }
 
+func (l Listing) Match(selector string) (DeviceInfo, bool) {
+	for _, d := range l.Sorted() {
+		if selector == d.Backend || selector == d.ID || selector == d.Persistent {
+			return d, true
+		}
+	}
+	return DeviceInfo{}, false
+}
+
 // namedDevice resolves a device selector only among devices that can run this model.
-func namedDevice(e Entry, selector string) (string, error) {
-	listing := e.Devices()
+func namedDevice(listing Listing, selector string) (string, error) {
+	if d, ok := listing.Match(selector); ok {
+		return d.Selector(), nil
+	}
 	devices := listing.Sorted()
 	ids := make([]string, 0, len(devices)+1)
 	for _, d := range devices {
-		if selector == d.Backend || selector == d.ID || selector == d.Persistent {
-			return d.Selector(), nil
-		}
 		ids = append(ids, d.ID)
 	}
 	backend, _, _ := strings.Cut(selector, ":")

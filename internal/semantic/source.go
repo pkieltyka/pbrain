@@ -42,6 +42,7 @@ type openedIndex struct {
 	dir     sys.Dir // index/, nil when the section has none
 	x       *indexDB
 	state   IndexState
+	fp16    bool
 }
 
 // Start needs no scan and never fails. It runs the cheap checks and, when they pass, begins
@@ -96,7 +97,6 @@ func (s *Source) check() (sys.Dir, search.NotReady) {
 	if _, err := embed.Find(opt.Files, m, modelDir, nil); err != nil {
 		return nil, search.ModelAbsent
 	}
-	fp := IndexFingerprint(m)
 	for _, d := range s.dirs {
 		idx, err := indexDir(d.Dir, false)
 		if err != nil {
@@ -104,7 +104,7 @@ func (s *Source) check() (sys.Dir, search.NotReady) {
 		}
 		man, state := readManifest(opt.Files, idx)
 		idx.Close()
-		if state == IndexOK && man.Fingerprint == fp && man.Dim == m.Dim {
+		if state == IndexOK && manifestProfile(man, m, opt.CUDAPrecision) != "" {
 			return modelDir, 0
 		}
 	}
@@ -139,12 +139,17 @@ func (s *Source) runModel(ctx context.Context, dir sys.Dir) {
 // runIndexes reads each section's index, without the full row check of a build.
 func (s *Source) runIndexes(ctx context.Context) {
 	defer close(s.indexes)
-	fp := IndexFingerprint(s.m)
+	matches := func(m manifest) bool {
+		return manifestProfile(m, s.m, s.opt.CUDAPrecision) != ""
+	}
 	for _, d := range s.dirs {
 		o := openedIndex{section: d.Section, state: IndexNone}
 		if idx, err := indexDir(d.Dir, false); err == nil {
 			o.dir = idx
-			o.x, o.state = openIndex(ctx, s.opt.Files, idx, fp, s.m.Dim, false)
+			o.x, o.state = openExpectedIndex(ctx, s.opt.Files, idx, matches, false)
+			if o.state == IndexOK {
+				o.fp16 = manifestProfile(o.x.from, s.m, s.opt.CUDAPrecision) == s.m.CUDAFP16Fingerprint
+			}
 		}
 		s.opened = append(s.opened, o)
 	}
@@ -193,7 +198,7 @@ func (s *Source) CatchUp(ctx context.Context) error {
 	total := 0
 	for _, in := range secs {
 		o := s.usable(in.Section)
-		if o == nil {
+		if o == nil || o.fp16 {
 			continue
 		}
 		part := &catchUp{o: o}
@@ -226,7 +231,8 @@ func (s *Source) CatchUp(ctx context.Context) error {
 	cache := s.opt.Cache != nil && s.opt.Cache.exists()
 	embeds := 0
 	for _, part := range parts {
-		part.si = &sectionIndex{opt: s.opt, m: s.m, sec: part.o.section, x: part.o.x, cache: cache && part.o.section == item.Shared}
+		part.si = &sectionIndex{opt: s.opt, m: s.m, vectorFingerprint: s.m.Fingerprint, sec: part.o.section, x: part.o.x,
+			cache: cache && part.o.section == item.Shared}
 		for _, c := range part.items {
 			w := newWork(c.rel, c.title, c.body, c.check)
 			missing, err := part.si.cut(ctx, w, c.title, c.body)
@@ -532,7 +538,9 @@ func sectionState(ctx context.Context, opt Options, m embed.Model, supported boo
 		}
 		return IndexStale, 0
 	}
-	x, state := openIndex(ctx, opt.Files, idx, IndexFingerprint(m), m.Dim, true)
+	x, state := openExpectedIndex(ctx, opt.Files, idx, func(man manifest) bool {
+		return manifestProfile(man, m, opt.CUDAPrecision) != ""
+	}, true)
 	if state != IndexOK {
 		return state, 0
 	}
