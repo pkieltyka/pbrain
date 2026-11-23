@@ -101,16 +101,8 @@ func vulkanAbsent(err error) bool {
 	if strings.Contains(message, "open libvulkan.so.1:") {
 		return true
 	}
-	_, result, found := strings.Cut(message, "create instance: VkResult ")
-	if !found {
-		return false
-	}
-	fields := strings.Fields(result)
-	if len(fields) == 0 {
-		return false
-	}
-	code, err := strconv.Atoi(fields[0])
-	if err != nil {
+	code, ok := createInstanceResult(message)
+	if !ok {
 		return false
 	}
 	switch code {
@@ -118,4 +110,24 @@ func vulkanAbsent(err error) bool {
 		return true
 	}
 	return false
+}
+
+// createInstanceResult reads the VkResult of a failed vkCreateInstance from the pinned module's
+// message, which gives it either as "VkResult -9" or by name as "VK_ERROR_INCOMPATIBLE_DRIVER (-9)".
+func createInstanceResult(message string) (int, bool) {
+	_, result, found := strings.Cut(message, "create instance: ")
+	if !found {
+		return 0, false
+	}
+	fields := strings.Fields(result)
+	switch {
+	case len(fields) >= 2 && fields[0] == "VkResult":
+		code, err := strconv.Atoi(fields[1])
+		return code, err == nil
+	case len(fields) >= 2 && strings.HasPrefix(fields[0], "VK_") &&
+		strings.HasPrefix(fields[1], "(") && strings.HasSuffix(fields[1], ")"):
+		code, err := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(fields[1], "("), ")"))
+		return code, err == nil
+	}
+	return 0, false
 }
