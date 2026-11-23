@@ -1,6 +1,14 @@
 # #50 · CUDA batch admission and recovery on goinfer v0.6.3
 
-**Decision.** After #51 merges on v0.6.2, pin the goinfer root, CUDA and Vulkan modules to v0.6.3 together. Use the attached encoder’s estimate to admit CUDA batches above 8,192 aggregate positions. Keep Vulkan within the envelope qualified by #49. Adopt unified discovery and attachment now. Keep pbrain responsible for model eligibility, automatic ordering, fallback and notices. [goinfer v0.6.3 release and verification](https://github.com/pkieltyka/goinfer/releases/tag/v0.6.3)
+## Outcome
+
+**Keep the 8,192 aggregate-position cap on both CUDA and Vulkan.** On the matched 200-passage RTX PRO 6000 slice, lifting the CUDA cap raised throughput from 13.51 to 13.77 passages/s (+1.9%) and peak device memory from 2,130 to 7,188 MiB (+5,058 MiB). The operator judged the gain too small for that memory cost on a shared card and declined the cap increase in #50.
+
+For #56, apply the cap first. Use `BatchMemory` to shorten a CUDA batch when its additional peak exceeds the workspace budget. Retain certified OOM split-retry and `Devices`/`UseDevice`. This decision supersedes the larger-batch admission, test and spec changes proposed below. On the revised head, rerun CUDA byte identity including a forced split, then time the default-budget 200-passage slice and measure peak device memory against the 2,130 MiB pin-only reference. A peak close to that reference is expected and still needs verification. Follow with the planned storage and bounded Radeon checks.
+
+## Original proposal
+
+After #51 merges on v0.6.2, pin the goinfer root, CUDA and Vulkan modules to v0.6.3 together. Use the attached encoder’s estimate to admit CUDA batches above 8,192 aggregate positions. Keep Vulkan within the envelope qualified by #49. Adopt unified discovery and attachment now. Keep pbrain responsible for model eligibility, automatic ordering, fallback and notices. [goinfer v0.6.3 release and verification](https://github.com/pkieltyka/goinfer/releases/tag/v0.6.3)
 
 ## 1. Establish the pin and the control
 
