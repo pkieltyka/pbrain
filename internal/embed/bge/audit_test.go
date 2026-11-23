@@ -34,6 +34,25 @@ type runtimeSite struct {
 	file, scope, symbol, argument string
 }
 
+type runtimePin struct{ module, version string }
+
+type runtimeAllowance struct {
+	targets runtimeTarget
+	count   int
+	reason  string
+}
+
+type runtimeModule struct {
+	Path, Version string
+	Main          bool
+}
+
+type runtimePackage struct {
+	Dir, ImportPath string
+	GoFiles         []string
+	Module          *runtimeModule
+}
+
 func TestRuntimeEnvAndOutput(t *testing.T) {
 	root := filepath.Join("..", "..", "..")
 	release, err := os.ReadFile(filepath.Join(root, ".goreleaser.yaml"))
@@ -80,42 +99,25 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 		}
 		t.Fatal(err)
 	}
-	list := json.NewDecoder(bytes.NewReader(out))
-	checked := map[string]int{}
-	seen := map[runtimeSite]bool{}
+	seen := map[runtimeSite]int{}
 	knownStartup := slices.Contains(tags, "cuda") && len(knownStartupViolations) > 0
-	for {
-		var pkg struct {
-			Dir, ImportPath string
-			GoFiles         []string
-			Module          *struct{ Path, Version string }
+	target := auditTarget(osName, arch, tags)
+	checked := scanRuntimeGraph(t, bytes.NewReader(out), func(pin runtimePin, line int, site runtimeSite) {
+		limit := 0
+		if rule := reviewedDependencySites[pin][site]; rule.targets&target != 0 {
+			limit = rule.count
 		}
-		if err := list.Decode(&pkg); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			t.Fatal(err)
+		if pin.version == auditedPin && (pin.module == goinferModule || pin.module == cudaModule) &&
+			(dormantRuntimeSites[site] != "" || allowedRuntimeOutput[site] != "" ||
+				(knownStartup && isKnownStartupSite(site))) {
+			limit = 1
 		}
-		if pkg.Module == nil {
-			continue
+		if seen[site] < limit {
+			seen[site]++
+			return
 		}
-		module := pkg.Module.Path
-		if module != aikitModule && module != goinferModule && !strings.HasPrefix(module, goinferModule+"/backend/") {
-			continue
-		}
-		for _, name := range pkg.GoFiles {
-			auditRuntimeFile(t, filepath.Join(pkg.Dir, name), pkg.ImportPath+"/"+name, func(line int, site runtimeSite) {
-				pinned := pkg.Module.Version == auditedPin
-				reviewed := dormantRuntimeSites[site] != "" || allowedRuntimeOutput[site] != ""
-				startup := knownStartup && isKnownStartupSite(site)
-				if pinned && (reviewed || startup) && !seen[site] {
-					seen[site] = true // each recorded source site is allowed one occurrence per build
-					return
-				}
-				t.Errorf("%s:%d (%s) uses %s %s", site.file, line, site.scope, site.symbol, site.argument)
-			})
-			checked[module]++
-		}
-	}
+		t.Errorf("%s:%d (%s) uses %s %s", site.file, line, site.scope, site.symbol, site.argument)
+	})
 	if checked[aikitModule] == 0 || checked[goinferModule] == 0 ||
 		(slices.Contains(tags, "cuda") != (checked[cudaModule] > 0)) ||
 		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) {
@@ -124,14 +126,71 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 	t.Logf("audited %v with release tags %v", checked, tags)
 	if knownStartup {
 		for site := range knownStartupViolations {
-			if !seen[site] {
+			if seen[site] == 0 {
 				t.Errorf("known startup violation no longer matched: %+v (goinfer #70)", site)
 			}
 		}
-		if !seen[startupHelperRead] {
+		if seen[startupHelperRead] == 0 {
 			t.Error("known startup helper no longer reads the environment (goinfer #70)")
 		}
 		t.Logf("tracking %d known startup reads from goinfer #70", len(knownStartupViolations))
+	}
+}
+
+func scanRuntimeGraph(t *testing.T, graph io.Reader, report func(runtimePin, int, runtimeSite)) map[string]int {
+	t.Helper()
+	list := json.NewDecoder(graph)
+	checked := map[string]int{}
+	for {
+		var pkg runtimePackage
+		if err := list.Decode(&pkg); errors.Is(err, io.EOF) {
+			return checked
+		} else if err != nil {
+			t.Fatal(err)
+		}
+		if pkg.Module == nil || pkg.Module.Main {
+			continue
+		}
+		pin := runtimePin{pkg.Module.Path, pkg.Module.Version}
+		for _, name := range pkg.GoFiles {
+			auditRuntimeFile(t, filepath.Join(pkg.Dir, name), pkg.ImportPath+"/"+name, func(line int, site runtimeSite) {
+				report(pin, line, site)
+			})
+			checked[pin.module]++
+		}
+	}
+}
+
+func TestRuntimeAuditIncludesNewDependency(t *testing.T) {
+	const module, version = "example.com/new-runtime-dependency", "v1.0.0"
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "env.go"), []byte(`package probe
+import "os"
+var setting = os.Getenv("UNREVIEWED_STARTUP")
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var graph bytes.Buffer
+	enc := json.NewEncoder(&graph)
+	for _, pkg := range []runtimePackage{
+		{ImportPath: "os", GoFiles: []string{"not-present.go"}},
+		{ImportPath: "pbrain", Module: &runtimeModule{Path: "pbrain", Main: true}, GoFiles: []string{"not-present.go"}},
+		{Dir: dir, ImportPath: module, GoFiles: []string{"env.go"}, Module: &runtimeModule{Path: module, Version: version}},
+	} {
+		if err := enc.Encode(pkg); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var sites []runtimeSite
+	checked := scanRuntimeGraph(t, &graph, func(pin runtimePin, line int, site runtimeSite) {
+		if pin != (runtimePin{module, version}) || line != 3 {
+			t.Errorf("unexpected site at %v line %d: %+v", pin, line, site)
+		}
+		sites = append(sites, site)
+	})
+	want := runtimeSite{module + "/env.go", "setting", "os.Getenv", `"UNREVIEWED_STARTUP"`}
+	if len(checked) != 1 || checked[module] != 1 || !slices.Equal(sites, []runtimeSite{want}) {
+		t.Fatalf("scanned %v, found %+v, want %+v from the new dependency", checked, sites, want)
 	}
 }
 
