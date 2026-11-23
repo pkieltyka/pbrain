@@ -225,7 +225,9 @@ cross-backend case reuses a CPU index and adds one note on Vulkan.
 Correctness gates come first; only then one traced diagnostic sync per model.
 Timing uses the repository timing lock, one heavy workload at a time, warm
 files, a fresh brain/index/cache, explicit `GOMAXPROCS` and CPU affinity, and no
-other GPU client. Report wall time, committed passages/s, peak host RSS, sampled
+other GPU client. The owner approved a 4.0 load cap for this descriptive sync on
+2026-11-23; every other guard is unchanged, and attempts refused under the
+earlier 1.0 cap stay refused. Report wall time, committed passages/s, peak host RSS, sampled
 device memory, child swap, host pageout, launch load, and the exact binary and
 module hashes.
 
