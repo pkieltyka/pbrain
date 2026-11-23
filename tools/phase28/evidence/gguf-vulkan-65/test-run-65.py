@@ -22,7 +22,9 @@ def main():
     assert run65.foreign_clients([100], {100: "chrome"}, {100: "chrome"}, ours=100) == {}
     assert run65.foreign_clients([100], {100: "chrome"}, {}) == {100: "chrome"}
     assert run65.foreign_clients([100, 999], {100: "chrome"}, {100: "chrome"}) == {}
-    print("PASS host control: only exact baseline pid+comm pairs are exempt; a new PID with the same comm is foreign")
+    assert run65.drm_totals({"a": [1, 2, 3], "b": [10, 20, 30]}) == [11, 22, 33]
+    assert run65.drm_totals({}) is None
+    print("PASS host control: exact pid+comm exemptions and DRM aggregation")
 
 
 if __name__ == "__main__":

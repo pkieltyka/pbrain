@@ -65,6 +65,13 @@ LAYER_LOADED = re.compile(r"Insert instance layer .*VK_LAYER_KHRONOS_validation"
 CLIENT_KEYS = ("drm-memory-vram", "drm-memory-gtt", "drm-memory-cpu")
 
 
+def drm_totals(memory):
+    """Sum vram, gtt and cpu across the process's DRM clients, or None."""
+    if not memory:
+        return None
+    return [sum(v[i] for v in memory.values()) for i in range(len(CLIENT_KEYS))]
+
+
 def now():
     return dt.datetime.now(dt.timezone.utc).isoformat()
 
@@ -405,10 +412,10 @@ class Runner:
                 peak_delta = max(peak_delta, delta)
                 peak_swap = max(peak_swap, swap)
                 peak_rss = max(peak_rss, rss)
-                if memory:
+                if totals := drm_totals(memory):
                     samples += 1
-                    peak_vram = max(peak_vram, memory[0])
-                    peak_total = max(peak_total, sum(memory))
+                    peak_vram = max(peak_vram, totals[0])
+                    peak_total = max(peak_total, sum(totals))
                 out.write(json.dumps({"t_ns": moment - began, "bytes": memory, "system_vram_delta": delta,
                                       "swap": swap, "rss": rss}) + "\n")
                 if peak_total >= ATTRIBUTED_CAP or peak_delta >= ATTRIBUTED_CAP or peak_swap > CHILD_SWAP_CAP:
@@ -458,11 +465,11 @@ class Runner:
         (cell / "kernel.log").write_text(kernel)
         stderr_text = (cell / "sync.stderr").read_text(errors="replace")
         swap_void = void_rule.end_void(snap, void_rule.snapshot(), env={})
-        if self.reset_guard(cursor) or "VK_ERROR_DEVICE_LOST" in stderr_text:
+        if self.reset_guard(cursor) or (device != "cpu" and "VK_ERROR_DEVICE_LOST" in stderr_text):
             result["stop"] = "amdgpu timeout/reset or device loss"
-        elif VALIDATION.search(stderr_text):
+        elif device != "cpu" and VALIDATION.search(stderr_text):
             result["stop"] = "Vulkan validation failed"
-        elif not LAYER_LOADED.search(stderr_text):
+        elif device != "cpu" and not LAYER_LOADED.search(stderr_text):
             result["stop"] = "Vulkan validation layer missing"
         elif pageouts() != pswpout or swap_void or pbrain_active() or competing_clients(self.desktop):
             result["stop"] = "postflight pageout, swap, or foreign work"
