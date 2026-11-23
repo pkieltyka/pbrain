@@ -195,7 +195,7 @@ func TestUnifiedDeviceListing(t *testing.T) {
 	}
 	q8 := deviceListing(raw, failures, false)
 	if len(q8.Devices) != 2 || len(q8.Failed) != 1 || !errors.Is(q8.Failed["cuda"], closeFailure) {
-		t.Fatalf("Q8 listing includes an ineligible backend: %+v", q8)
+		t.Fatalf("CUDA-only listing includes an ineligible backend: %+v", q8)
 	}
 	if err := failedProbe("cuda", fmt.Errorf("%w: missing library", embeddinggemma2.ErrBackendUnavailable)); err != nil {
 		t.Fatalf("missing CUDA driver: %v", err)

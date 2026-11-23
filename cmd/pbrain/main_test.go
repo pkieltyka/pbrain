@@ -19,7 +19,7 @@ func TestReleaseModelSelection(t *testing.T) {
 	if _, ok := models.Lookup(brain.DefaultModel); !ok {
 		t.Fatalf("release registry lacks the default %q", brain.DefaultModel)
 	}
-	if names := models.Names(); !slices.Equal(names, []string{"bge-small-en-v1.5", "embeddinggemma-2", "embeddinggemma-2-q8-0"}) {
+	if names := models.Names(); !slices.Equal(names, []string{"bge-small-en-v1.5", "embeddinggemma-2", "embeddinggemma-2-q8-0", "embeddinggemma-2-ud-q6-k-xl"}) {
 		t.Fatalf("unexpected release models: %v", names)
 	}
 	root := t.TempDir()
@@ -29,7 +29,7 @@ func TestReleaseModelSelection(t *testing.T) {
 		{"", "bge-small-en-v1.5, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2"`, "embeddinggemma-2, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2-q8-0"`, "embeddinggemma-2-q8-0, not on this machine", absent},
-		{`semantic.model = "embeddinggemma-2-ud-q6-k-xl"`, "embeddinggemma-2-ud-q6-k-xl, not supported by this pbrain", "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"},
+		{`semantic.model = "embeddinggemma-2-ud-q6-k-xl"`, "embeddinggemma-2-ud-q6-k-xl, not on this machine", absent},
 		{`semantic.model = "bge-small-en-v1.5"`, "bge-small-en-v1.5, not on this machine", absent},
 		{`semantic.model = "none"`, "none", `semantic search is off: pbrain.toml sets model = "none"`},
 		{`semantic.model = "None"`, "None, not supported by this pbrain", "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"},

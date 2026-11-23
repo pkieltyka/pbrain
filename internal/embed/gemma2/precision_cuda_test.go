@@ -27,7 +27,7 @@ func TestGemmaFP16ByteLayouts(t *testing.T) {
 	for _, tc := range []struct {
 		row  embed.Entry
 		pack string
-	}{{Entry(), "PBRAIN_TEST_GEMMA2_PACK"}, {GGUFEntries()[0], q8Fixture}} {
+	}{{Entry(), "PBRAIN_TEST_GEMMA2_PACK"}, {testGGUFEntry(t, q8Name), q8Fixture}} {
 		t.Run(tc.row.Model.Name, func(t *testing.T) {
 			folder := fixtureDir(t, tc.pack)
 			ctx := t.Context()

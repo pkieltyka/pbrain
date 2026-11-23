@@ -14,7 +14,7 @@ func TestGemmaQ8CUDAByteLayouts(t *testing.T) {
 	if len(listCUDADevices().Devices) == 0 {
 		t.Skip("no usable CUDA device")
 	}
-	entry := GGUFEntries()[0]
+	entry := testGGUFEntry(t, q8Name)
 	reg := embed.NewRegistry(entry)
 	x, err := reg.Open(t.Context(), verified(t, pack, entry.Model), embed.OpenOptions{Device: "cuda:0"})
 	if err != nil {

@@ -10,9 +10,10 @@ import (
 
 func TestModelVerityPins(t *testing.T) {
 	paths := map[string]string{
-		"bge-small-en-v1.5":     "PBRAIN_TEST_BGE_MODEL",
-		"embeddinggemma-2":      "PBRAIN_TEST_GEMMA2_PACK",
-		"embeddinggemma-2-q8-0": "PBRAIN_TEST_GEMMA2_Q8",
+		"bge-small-en-v1.5":           "PBRAIN_TEST_BGE_MODEL",
+		"embeddinggemma-2":            "PBRAIN_TEST_GEMMA2_PACK",
+		"embeddinggemma-2-q8-0":       "PBRAIN_TEST_GEMMA2_Q8",
+		"embeddinggemma-2-ud-q6-k-xl": "PBRAIN_TEST_GEMMA2_Q6",
 	}
 	checkBytes := os.Getenv("PBRAIN_TEST_MODEL_VERITY") == "1"
 	reg := releaseModels()

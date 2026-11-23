@@ -113,7 +113,7 @@ func TestGemmaCUDAForcedSplitSameBytes(t *testing.T) {
 		pack  string
 	}{
 		{Entry(), "PBRAIN_TEST_GEMMA2_PACK"},
-		{GGUFEntries()[0], q8Fixture},
+		{testGGUFEntry(t, q8Name), q8Fixture},
 	} {
 		t.Run(test.entry.Model.Name, func(t *testing.T) {
 			folder := fixtureDir(t, test.pack)

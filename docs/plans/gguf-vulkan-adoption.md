@@ -1,13 +1,15 @@
 # Adopt EmbeddingGemma 2 GGUF on Vulkan
 
 The owner approved enabling both Q8_0 and UD-Q6_K_XL on Vulkan, including the Q6
-manifest; no separate admission prompt is needed. Implementation stays on hold
-until #76 reports its measured result in sequence, unless the operator releases
-it earlier. This step only drafts the plan. It reconciles pbrain's actual index
-and reuse rules with the cross-backend tolerance evidence, and states how the
-existing default model, CUDA fp16 and strict named-device behavior are preserved.
+manifest; no separate admission prompt is needed. The host implementation is
+approved while #76 runs in hardware qualification; the device tests and
+publication wait for the Vulkan prototype disposition. This document reconciles
+pbrain's actual index and reuse rules with the cross-backend tolerance evidence,
+and states how the existing default model, CUDA fp16 and strict named-device
+behavior are preserved.
 There is no speed acceptance gate: measure and report the actual sync, even below
-2×. No code, build, model load or device run, and no default change.
+2×. The host code and tests are implemented under the shared timing lock; no
+model load, device run, publication or default change.
 
 Start point: pbrain `master` `8a7b603` (merge #64, per-device CUDA selector
 eligibility) with goinfer root, CUDA and Vulkan at v0.6.6,
@@ -75,8 +77,9 @@ the existing recipe:
 | Index fingerprint | `8c964b1108dc4e42f65ea44837ce518911dc462ccb57d8fe1eba862a7e98bfa7` |
 | Cache folder | `embeddinggemma-2-ud-q6-k-xl-22e1f6123853c8cb` |
 
-Do not add a `CUDAFP16Fingerprint` to either GGUF row. Q6 becomes an opt-in row,
-not a default, and the 0.72 cutoff is not refitted by this lane.
+Q8 keeps its existing `CUDAFP16Fingerprint`; Q6 gets none, because no fp16 CUDA
+profile has been qualified for it. Q6 becomes an opt-in row, not a default, and
+the 0.72 cutoff is not refitted by this lane.
 
 ## 4. Capability, identity and fingerprint
 
@@ -198,8 +201,8 @@ comparison database. The manifest, DB name and size must match the row.
   `namedDevice` still errors for unknown selectors; an attach failure does not
   fall back.
 
-**Vulkan device tests** (`linux && amd64 && vulkan`, gated by
-`PBRAIN_TEST_GEMMA2_Q8` or `PBRAIN_TEST_GEMMA2_Q6` and
+**Vulkan device tests, deferred until the prototype disposal** (`linux && amd64
+&& vulkan`, gated by `PBRAIN_TEST_GEMMA2_Q8` or `PBRAIN_TEST_GEMMA2_Q6` and
 `PBRAIN_TEST_VULKAN_DEVICE`, with `PBRAIN_GPU_MEMORY=1024` for the 1 GiB budget):
 
 - A sibling of `TestGemmaQ8CUDAByteLayouts`: singleton, packed, reversed and
@@ -233,7 +236,7 @@ context only. Do not take a CUDA, llama.cpp or cross-machine ratio without that
 harness. Sync speed is the only claim: search opens the CPU in every build, so
 rule 3 and the 600 ms gate do not change.
 
-## 10. Minimal change list, only after #76
+## 10. Minimal change list
 
 1. `internal/embed/gemma2/gguf.go`: give Q8 `listDevices` and
    `newRuntime(..., true)` under the Vulkan tag; add the Q6 row.
@@ -267,7 +270,7 @@ from this repository.
 
 ## 12. What this step does not do
 
-No code, build, model load or device run. No default, selector or release-row
-change. No tag, push or tracker write. Implementation waits for #76's measured
-result in sequence unless the operator releases it earlier. The pbrain issue is
-opened by @pm when the operator starts this lane.
+No model load or device run. No default, selector or release-row change. No tag,
+push or tracker write. The host implementation lands while #76 runs; the device
+tests and publication wait for its measured result in sequence. The pbrain
+issue is opened by @pm when the operator starts that phase.

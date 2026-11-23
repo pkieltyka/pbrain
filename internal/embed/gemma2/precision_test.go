@@ -134,7 +134,7 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		base, fp16 string
 	}{
 		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "41f32611ea67041cdc7e6dc4e94628c0f154fa1cde532b492463033a2fb7cce8"},
-		{GGUFEntries()[0].Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "10998f9ecb29a3398281837e1550dd3aaff9004dc0692cb1388c764f27063a7b"},
+		{testGGUFEntry(t, q8Name).Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "10998f9ecb29a3398281837e1550dd3aaff9004dc0692cb1388c764f27063a7b"},
 	} {
 		if model.row.Fingerprint != model.base || model.row.CUDAFP16Fingerprint != model.fp16 {
 			t.Errorf("%s has an unexpected identity: %s %s", model.row.Name, model.row.Fingerprint, model.row.CUDAFP16Fingerprint)

@@ -12,7 +12,7 @@ const q8Fixture = "PBRAIN_TEST_GEMMA2_Q8"
 
 func TestGemmaQ8Preparation(t *testing.T) {
 	pack := fixtureDir(t, q8Fixture)
-	entry := GGUFEntries()[0]
+	entry := testGGUFEntry(t, q8Name)
 	reg := embed.NewRegistry(entry)
 	x, err := reg.Open(t.Context(), verified(t, pack, entry.Model), embed.OpenOptions{})
 	if err != nil {
@@ -49,7 +49,7 @@ func TestGemmaQ8Preparation(t *testing.T) {
 
 func BenchmarkGemmaQ8FirstQuery(b *testing.B) {
 	d := fixtureDir(b, q8Fixture)
-	entry := GGUFEntries()[0]
+	entry := testGGUFEntry(b, q8Name)
 	reg := embed.NewRegistry(entry)
 	for b.Loop() {
 		x, err := reg.Open(b.Context(), verified(b, d, entry.Model), embed.OpenOptions{})
