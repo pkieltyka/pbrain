@@ -13,6 +13,7 @@ import (
 	"math"
 	mrand "math/rand/v2"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -143,6 +144,7 @@ func published(t *testing.T, f indexFolder, items, per int) (manifest, map[strin
 		t.Fatal(err)
 	}
 	defer x.Close()
+	assertMemoryTempStore(t, x)
 	want := fill(t, x, mrand.New(mrand.NewPCG(1, 2)), items, per)
 	m, err := x.publish(ctx, sys.Native(), f.dir, rand.Reader)
 	if err != nil {
@@ -170,6 +172,15 @@ func TestIndexRoundTrip(t *testing.T) {
 		x, state := openIndex(ctx, sys.Native(), f.dir, "fp-a", testDim, full)
 		if state != IndexOK {
 			t.Fatalf("full=%v: %v", full, state)
+		}
+		assertMemoryTempStore(t, x)
+		var sorted string
+		err := x.conn.QueryRowContext(ctx, `
+WITH inputs(n) AS (VALUES (3), (1), (2))
+SELECT group_concat(n, '') FROM (SELECT n FROM inputs ORDER BY n)
+`).Scan(&sorted)
+		if err != nil || sorted != "123" {
+			t.Fatalf("SQLite temporary sort = %q, %v", sorted, err)
 		}
 		if len(x.items) != len(want) || x.model != "test-model" {
 			t.Fatalf("%d items, model %q", len(x.items), x.model)
@@ -219,6 +230,39 @@ func TestIndexRoundTrip(t *testing.T) {
 		t.Fatal("the removed item is still there")
 	}
 	y.Close()
+}
+
+func assertMemoryTempStore(t *testing.T, x *indexDB) {
+	t.Helper()
+	const memory = 2
+	var mode int
+	err := x.conn.QueryRowContext(t.Context(), "PRAGMA temp_store").Scan(&mode)
+	if err != nil || mode != memory {
+		t.Fatalf("SQLite temp_store = %d, %v, want MEMORY (%d)", mode, err, memory)
+	}
+	var journal string
+	err = x.conn.QueryRowContext(t.Context(), "PRAGMA journal_mode").Scan(&journal)
+	if err != nil || journal != "memory" {
+		t.Fatalf("SQLite journal_mode = %q, %v, want memory", journal, err)
+	}
+}
+
+func TestIndexMemoryWithTempEnvironment(t *testing.T) {
+	// SQLite's Linux C ABI snapshots the environment during package init.
+	// Use a fresh process so both sentinels are present at that point.
+	sqliteTemp, processTemp := t.TempDir(), t.TempDir()
+	executable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.CommandContext(t.Context(), executable, "-test.run", "^TestIndexRoundTrip$")
+	cmd.Env = append(cmd.Environ(), "SQLITE_TMPDIR="+sqliteTemp, "TMPDIR="+processTemp)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("SQLite round trip with temporary directory settings: %v\n%s", err, output)
+	}
+	if entries, err := os.ReadDir(sqliteTemp); err != nil || len(entries) != 0 {
+		t.Fatalf("SQLite temporary file directory contains %v, %v", entries, err)
+	}
 }
 
 func manifestWith(t *testing.T, m manifest, change map[string]any) []byte {

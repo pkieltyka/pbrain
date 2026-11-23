@@ -161,6 +161,9 @@ func TestEnvironmentIsBoundToTheTree(t *testing.T) {
 		t.Fatal("git add")
 	}
 	other := t.TempDir()
+	// The child must receive the runner's environment even when the
+	// process environment would select another index.
+	t.Setenv("GIT_INDEX_FILE", filepath.Join(other, "empty-index"))
 	hostile := NewRunner(g, append(base,
 		"GIT_INDEX_FILE="+filepath.Join(other, "empty-index"),
 		"GIT_DIR="+filepath.Join(other, ".git"),
