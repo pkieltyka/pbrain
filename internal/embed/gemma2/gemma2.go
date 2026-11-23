@@ -15,11 +15,64 @@ import (
 const maxTokens = 2048
 
 type encoder struct {
-	model     *embeddinggemma2.Encoder
-	tokenizer *tokenizer.Tokenizer
-	bos, eos  int
-	info      embed.RunInfo
-	fp        string
+	model      *embeddinggemma2.Encoder
+	cpu        *embeddinggemma2.Encoder // reserved for an auto-selected accelerator
+	tokenizer  *tokenizer.Tokenizer
+	bos, eos   int
+	info       embed.RunInfo
+	fp         string
+	retryLimit *int // maximum aggregate positions after a recoverable OOM
+}
+
+type attachCleanupError struct {
+	err error
+	acc embeddinggemma2.Accelerator
+}
+
+func (e *attachCleanupError) Error() string { return e.err.Error() }
+func (e *attachCleanupError) Unwrap() error { return e.err }
+
+func attachDevice(model *embeddinggemma2.Encoder, device embed.DeviceInfo, override int64) (int64, error) {
+	selector := device.Backend
+	if selector == "cuda" {
+		selector = cudaSelector
+	}
+	id := device.Selector()
+	acc, err := model.UseDevice(id, selector)
+	if err != nil {
+		return 0, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, id, err)
+	}
+	budget, err := attachedBudget(acc, id, override)
+	if err == nil {
+		return budget, nil
+	}
+	if closeErr := acc.Close(); closeErr != nil {
+		return 0, &attachCleanupError{
+			err: errors.Join(err, fmt.Errorf("close %s: %w", id, closeErr)),
+			acc: acc,
+		}
+	}
+	return 0, err
+}
+
+func attachedBudget(acc embeddinggemma2.Accelerator, id string, override int64) (int64, error) {
+	var actual string
+	if reporter, ok := acc.(embeddinggemma2.AttachedDeviceReporter); ok {
+		actual = reporter.AttachedDevice().ID
+	}
+	if actual != id {
+		return 0, fmt.Errorf("%w: attached device %q for %q", embed.ErrAccelerator, actual, id)
+	}
+	var memory embed.DeviceInfo
+	if reporter, ok := acc.(embeddinggemma2.DeviceMemoryReporter); ok {
+		reading, err := reporter.DeviceMemory()
+		if err != nil {
+			return 0, fmt.Errorf("%w: read memory of %s: %w", embed.ErrAccelerator, id, err)
+		}
+		memory.Memory = reading.Basis.String()
+		memory.FreeBytes = reading.AvailableBytes
+	}
+	return memoryBudget(memory, override), nil
 }
 
 func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
@@ -76,39 +129,42 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	}
 	// The three float32 feed-forward matrices per layer are a lower bound on CUDA's upload.
 	weightFloor := 3 * 4 * int64(cfg.Layers) * int64(cfg.Hidden) * int64(cfg.Intermediate)
+	var attached *embeddinggemma2.Encoder
+	var budget int64
 	info, err := chooseRuntime(ctx, opt.Device, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
-		if device.Backend != "vulkan" {
-			return attachAccelerator(m)
-		}
-		// Do not replace the CPU encoder until the returned UUID is verified.
 		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
 			return err
 		}
-		if err := attachVulkan(candidate, device.Selector()); err != nil {
-			if acc := candidate.Accelerator(); acc != nil {
-				return errors.Join(err, acc.Close())
-			}
+		budget, err = attachDevice(candidate, device, opt.MemoryBudget)
+		if err != nil {
 			return err
 		}
-		m = candidate
+		attached = candidate
 		return nil
 	})
 	if err != nil {
-		return nil, err
-	}
-	if info.Device != "cpu" && ctx.Err() == nil {
-		var memory embed.DeviceInfo
-		if strings.HasPrefix(info.Device, "cuda:") {
-			if devices := cudaDevices(); len(devices) > 0 {
-				memory = devices[0]
+		var cleanup *attachCleanupError
+		if errors.As(err, &cleanup) {
+			// The failed candidate cannot be used or replaced until its handle
+			// has been released. Retain the original failure even if cleanup
+			// succeeds on the second attempt.
+			if closeErr := cleanup.acc.Close(); closeErr != nil {
+				return nil, errors.Join(err, closeErr)
 			}
 		}
-		info.Budget = memoryBudget(memory, opt.MemoryBudget)
+		return nil, err
 	}
 	bos, _ := tok.TokenID("<bos>")
 	eos, _ := tok.TokenID("<eos>") // NewEncoder requires both.
 	e := &encoder{model: m, tokenizer: tok, bos: bos, eos: eos, info: info, fp: fp}
+	if attached != nil {
+		e.model = attached
+		e.info.Budget = budget
+		if opt.Device == "auto" {
+			e.cpu = m
+		}
+	}
 	if err := ctx.Err(); err != nil {
 		_ = e.Close()
 		return nil, err
@@ -121,7 +177,7 @@ func (e *encoder) Fingerprint() string { return e.fp }
 func (e *encoder) Info() embed.RunInfo { return e.info }
 
 func (e *encoder) Window() int {
-	if e.model != nil && e.model.Accelerator() != nil {
+	if e.model != nil && (e.model.Accelerator() != nil || e.cpu != nil) {
 		return batchInputs
 	}
 	return 0
@@ -129,14 +185,13 @@ func (e *encoder) Window() int {
 
 func (e *encoder) Close() error {
 	if e.model != nil {
-		if acc := e.model.Accelerator(); acc != nil {
-			if err := acc.Close(); err != nil {
-				// Retain handles on failed drain so a retry can close the accelerator cleanly.
-				return fmt.Errorf("%w: close %s: %w", embed.ErrAccelerator, acc.Name(), err)
-			}
+		if err := e.closeAccelerator(); err != nil {
+			// Retain handles on failed drain so a retry can close the accelerator cleanly.
+			return err
 		}
 	}
 	e.model = nil
+	e.cpu = nil
 	e.tokenizer = nil
 	return nil
 }
@@ -181,9 +236,42 @@ func (e *encoder) embedIDs(ctx context.Context, ids []int) ([]float32, error) {
 		return nil, cerr
 	}
 	if err != nil && e.model.Accelerator() != nil {
-		return nil, forwardError("forward", err)
+		if e.cpu == nil || !retryableForward(err) {
+			return nil, forwardError("forward", err)
+		}
+		closeErr := e.closeAccelerator()
+		if closeErr != nil {
+			if cerr := ctx.Err(); cerr != nil {
+				return nil, cerr
+			}
+			return nil, forwardError("forward", errors.Join(err, closeErr))
+		}
+		e.model = e.cpu
+		e.info = embed.RunInfo{Device: "cpu", Fallback: embed.FallbackMemory}
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		v, err = e.model.EmbedIDs(ids)
+		if cerr := ctx.Err(); cerr != nil {
+			return nil, cerr
+		}
 	}
 	return v, err
+}
+
+func retryableForward(err error) bool {
+	return !errors.Is(err, embeddinggemma2.ErrDeviceLost) && errors.Is(err, embeddinggemma2.ErrBatchOutOfMemory)
+}
+
+func (e *encoder) closeAccelerator() error {
+	acc := e.model.Accelerator()
+	if acc == nil {
+		return nil
+	}
+	if err := acc.Close(); err != nil {
+		return fmt.Errorf("%w: close %s: %w", embed.ErrAccelerator, acc.Name(), err)
+	}
+	return nil
 }
 
 func forwardError(stage string, err error) error {

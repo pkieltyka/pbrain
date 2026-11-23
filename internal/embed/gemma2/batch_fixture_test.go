@@ -4,22 +4,14 @@ package gemma2
 
 import (
 	"io/fs"
-	"math"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 
 	"github.com/pkieltyka/pbrain/internal/item"
 	"github.com/pkieltyka/pbrain/internal/semantic"
 )
-
-func sameVectorBits(a, b []float32) bool {
-	return slices.EqualFunc(a, b, func(a, b float32) bool {
-		return math.Float32bits(a) == math.Float32bits(b)
-	})
-}
 
 // batchFixture uses the 32 notes from the Phase 28 parity fixture.
 func batchFixture(t *testing.T) []string {

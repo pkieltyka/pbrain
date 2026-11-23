@@ -730,3 +730,80 @@ installed one file with the expected SHA-256. Q8_0 uses CPU for search
 and supports CPU and CUDA for sync.
 
 [Commands and raw gate evidence](../../tools/phase28/evidence/gguf-51/)
+
+## goinfer v0.6.3 device and batch qualification (#56)
+
+2026-11-22 on pax with a Ryzen 9 7950X, 124.9 GiB RAM, Linux 7.3.4 and
+Go 1.27.3. The root, CUDA and Vulkan modules all resolve to goinfer
+`050fdffba776`. The candidate was `b09762d`, the pin-only control
+`2e599bd`, and the exploratory uncapped build `81fa599`.
+
+The RTX PRO 6000 Blackwell Max-Q matched slice used 200 saved passages
+with 100,066 positions. The timer covered preparation and embedding
+with a verified Google pack already open. Each default-budget series
+ran three alternating pairs with `GOMAXPROCS=32`, a 6 GiB batch budget,
+and 100 ms device samples.
+
+| CUDA slice | Passages/s, median (range) | Forwards | Largest positions | Sampled device peak |
+| --- | ---: | ---: | ---: | ---: |
+| Initial pin-only control | 13.512 (13.509–13.588) | 13 | 8,106 | 2,130 MiB |
+| Uncapped trial | 13.769 (13.762–13.770) | 3 | 47,436 | 7,188 MiB |
+| Pin-only control for the capped rerun | 13.505 (13.503–13.509) | 13 | 8,106 | 2,130 MiB |
+| Capped candidate | 13.503 (13.499–13.505) | 13 | 8,106 | 2,130 MiB |
+
+The uncapped trial gained 1.9% and used 5,058 MiB more device memory.
+The operator retained the 8,192-position aggregate cap for both GPUs
+and waived the paired full CUDA syncs. `BatchMemory` can shorten a
+capped group. The capped slice reported up to 1,098,090,784 additional
+workspace bytes and 547,139,584 resident weight bytes. Device samples
+also include context and driver memory. Peak host RSS was 1,873 MiB
+for the capped candidate and 1,869 MiB for its matched control. The
+1 GiB control reproduced #49 at 13.48 passages/s versus 13.46.
+All slice vector bytes matched across both series and both overrides.
+
+On CUDA, both the Google and the Q8_0 packs gave all 59 singleton
+vectors byte for byte in the default 7,712 + 1,559 layout. A forced
+retry-safe failure on the first group replaced it with groups of 3,669,
+3,711 and 332 positions, followed by the original 1,559 on the same device.
+Every vector remained identical. The direct CPU/CUDA minimum cosine
+on 59 passages was 0.999999999998540 for Google and 0.999999999998416
+for Q8_0. Both satisfied the same-file reference gate on CPU and CUDA.
+
+From independently copied cold and seeded initial states, real CUDA
+syncs of the reuse fixture kept the same counts, cache paths and
+payloads, ordered rows, and database bytes for both sections across
+the 1 MiB, default and forced-retry layouts. The fixture exercised
+duplicate passages, competing base rows, a shared-cache-only hit and
+a personal-only passage whose digest stayed out of the shared cache.
+
+Q8_0 CPU rule 3 on v0.6.3 used four physical cores and five fresh
+processes with warm files. Verification, load, one query and close
+took 597.1, 587.8, 592.8, 599.0 and 583.9 ms. The median was 592.8 ms
+and all five were below 600 ms. Peak host RSS was 1,032.1 MiB.
+
+On the Radeon RX 9060 XT with Mesa 26.3.1, all 59 singleton vectors
+matched the 1 GiB, reversed and 1 MiB Vulkan layouts by bits. The
+CPU/Radeon minimum cosine was 0.99999999999841. At `GOMAXPROCS=32`,
+the 200-passage slice measured 4.054 passages/s on Radeon and
+1.880 on CPU. All 200 matched at cosine 0.999 or higher, with a
+minimum of 0.999999999995588 and zero cross-device bit matches.
+The Radeon slice peaked at 1,282 MiB of sampled attributable VRAM.
+
+The four-core Radeon partial sync used a 1 GiB workspace and ran for
+656.5 seconds before the operator's SIGINT. It left 241 items and
+2,357 passages in a checkpoint that passed SQLite's `quick_check`.
+Peak sampled VRAM attributable to the run was 1,308 MiB, below the
+4 GiB total-process cap. The AMD driver logged a nonzero VM-memory
+counter on shutdown in the slice and partial sync. The guard observed
+no device loss or ring reset.
+The CPU verification sampled 500 of the first 2,098 checkpointed
+passages in path and ordinal order without replacement, with seed 56.
+All 500 passed cosine 0.999, with a minimum of 0.999999999963812 and
+zero cross-device bit matches.
+
+After the v0.3.1 parser fix was merged into the branch, a dual-tag
+binary with CUDA masked and a Vulkan loader with no available ICD
+listed only the CPU. A one-note sync used CPU with the
+`cpu_fallback` reason “no usable GPU was found”.
+
+[Commands and raw gate evidence](../../tools/phase28/evidence/goinfer-56/)

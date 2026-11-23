@@ -66,6 +66,10 @@ func chooseRuntime(ctx context.Context, selector string, weightFloor int64, comp
 			continue
 		}
 		if err := attach(device); err != nil {
+			var cleanup *attachCleanupError
+			if errors.As(err, &cleanup) {
+				return embed.RunInfo{}, err
+			}
 			cpu.Fallback = embed.FallbackFailed
 			continue
 		}
@@ -75,26 +79,100 @@ func chooseRuntime(ctx context.Context, selector string, weightFloor int64, comp
 }
 
 func listCUDADevices() embed.Listing {
-	return embed.Listing{Devices: cudaDevices()}
+	return probeDevices(false)
 }
 
 func listDevices() embed.Listing {
-	listing := listCUDADevices()
-	devices, err := vulkanDevices()
-	if err != nil {
-		if !vulkanAbsent(err) {
-			listing.Failed = map[string]error{"vulkan": err}
-		}
-		return listing
+	return probeDevices(true)
+}
+
+func probeDevices(allowVulkan bool) embed.Listing {
+	devices, failures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
+	return deviceListing(devices, failures, allowVulkan)
+}
+
+func deviceListing(devices []embeddinggemma2.DeviceInfo, failures []embeddinggemma2.ProbeFailure, allowVulkan bool) embed.Listing {
+	allowed := func(backend string) bool { return backend == "cuda" || allowVulkan && backend == "vulkan" }
+	ids := make(map[string]int, len(devices))
+	aliases := make(map[string]int, len(devices))
+	for _, device := range devices {
+		ids[strings.ToLower(device.ID)]++
+		aliases[device.Alias]++
 	}
-	listing.Devices = append(listing.Devices, devices...)
+	var listing embed.Listing
+	for _, device := range devices {
+		prefix := device.Backend + ":"
+		if !allowed(device.Backend) || !device.TextBatching ||
+			!strings.HasPrefix(device.ID, prefix) || !strings.HasPrefix(device.Alias, prefix) ||
+			device.ID == prefix || device.Alias == prefix ||
+			ids[strings.ToLower(device.ID)] != 1 || aliases[device.Alias] != 1 {
+			continue
+		}
+		memoryKind := "unknown"
+		switch device.MemoryKind {
+		case embeddinggemma2.MemoryDedicated:
+			memoryKind = "dedicated"
+		case embeddinggemma2.MemoryShared:
+			memoryKind = "shared"
+		}
+		listing.Devices = append(listing.Devices, embed.DeviceInfo{
+			ID: device.Alias, Persistent: device.ID, Backend: device.Backend, Name: device.Name,
+			TotalBytes: device.Memory.TotalBytes, FreeBytes: device.Memory.AvailableBytes,
+			Memory: device.Memory.Basis.String(), MemoryKind: memoryKind,
+		})
+	}
+	for _, failure := range failures {
+		if !allowed(failure.Backend) {
+			continue
+		}
+		if err := failedProbe(failure.Backend, failure.Err); err != nil {
+			if listing.Failed == nil {
+				listing.Failed = make(map[string]error)
+			}
+			listing.Failed[failure.Backend] = errors.Join(listing.Failed[failure.Backend], err)
+		}
+	}
 	return listing
+}
+
+// failedProbe discards absent components of joined inventory errors. A typed
+// classification from fmt.Errorf can wrap a category and its cause together;
+// keep that pair together rather than treating the native cause as a failure.
+func failedProbe(backend string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if multi, ok := err.(interface{ Unwrap() []error }); ok {
+		children := multi.Unwrap()
+		messages := make([]string, len(children))
+		for i, child := range children {
+			messages[i] = child.Error()
+		}
+		if err.Error() == strings.Join(messages, "\n") {
+			var failed []error
+			for _, child := range children {
+				failed = append(failed, failedProbe(backend, child))
+			}
+			return errors.Join(failed...)
+		}
+	}
+	// CUDA's per-device failures are contextualized with the device ID, even
+	// when the driver reports no device during a memory or cleanup operation.
+	if backend == "cuda" && strings.HasPrefix(err.Error(), "cuda:") {
+		return err
+	}
+	if errors.Is(err, embeddinggemma2.ErrNoDevice) ||
+		backend == "cuda" && errors.Is(err, embeddinggemma2.ErrBackendUnavailable) ||
+		backend == "vulkan" && vulkanAbsent(err) {
+		return nil
+	}
+	return err
 }
 
 // The currently pinned Vulkan module uses one sentinel for absent and broken
 // discovery. Its error messages distinguish these cases until the API does.
 func vulkanAbsent(err error) bool {
-	if !errors.Is(err, embeddinggemma2.ErrDeviceUnavailable) {
+	if !errors.Is(err, embeddinggemma2.ErrBackendUnavailable) {
 		return false
 	}
 	message := err.Error()

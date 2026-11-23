@@ -11,7 +11,7 @@ import (
 
 func TestGemmaQ8CUDAByteLayouts(t *testing.T) {
 	pack := fixtureDir(t, q8Fixture)
-	if len(cudaDevices()) == 0 {
+	if len(listCUDADevices().Devices) == 0 {
 		t.Skip("no usable CUDA device")
 	}
 	entry := GGUFEntries()[0]
