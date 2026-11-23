@@ -807,3 +807,45 @@ listed only the CPU. A one-note sync used CPU with the
 `cpu_fallback` reason “no usable GPU was found”.
 
 [Commands and raw gate evidence](../../tools/phase28/evidence/goinfer-56/)
+
+
+## Managed model verification on Linux (#59)
+
+On pax (Ryzen 9 7950X, Linux 7.3.5, btrfs), source `4e949dc` and
+baseline `d8384b1` used the same Go 1.27.3 untagged build with cgo disabled.
+Each model used a two-note ready brain built by normal sync. The candidate
+sealed fresh cache inodes while reusing that index. The original cache stayed
+unsealed for the baseline and candidate fallback arms. Model data was warm
+in the filesystem cache. Before each model series, two five-second host
+samples were at most 4% busy and listed no NVIDIA compute process.
+
+Rule 3 sums model verification, CPU open, one query and close on the
+production `search --semantic` path. Each cell lists five fresh processes in
+run order, pinned to CPUs 0–3 with `GOMAXPROCS=4`. The raw control times the
+existing adapter benchmark with ordinary `Verify`.
+
+| Model | Arm | Rule 3 samples (ms) | Median (ms) | Range (ms) | Verify median (ms) | CLI wall median (ms) |
+|---|---|---|---:|---:|---:|---:|
+| bge-small | Baseline | 119.1, 111.0, 112.7, 111.9, 113.5 | 112.7 | 111.0–119.1 | 93.1 | 130.1 |
+| bge-small | Sealed | 63.7, 65.0, 61.3, 61.1, 61.2 | 61.3 | 61.1–65.0 | 41.9 | 79.3 |
+| bge-small | Unsealed fallback | 112.0, 112.4, 111.9, 111.6, 111.1 | 111.9 | 111.1–112.4 | 92.7 | 129.6 |
+| bge-small | Raw Verify benchmark | 115.9, 111.1, 111.5, 114.4, 112.4 | 112.4 | 111.1–115.9 | — | — |
+| Google pack | Baseline | 346.2, 342.9, 350.5, 341.7, 342.2 | 342.9 | 341.7–350.5 | 196.0 | 434.1 |
+| Google pack | Sealed | 241.7, 239.3, 241.8, 241.3, 239.8 | 241.3 | 239.3–241.8 | 92.7 | 331.9 |
+| Google pack | Unsealed fallback | 343.2, 340.1, 340.0, 348.4, 346.3 | 343.2 | 340.0–348.4 | 194.4 | 435.0 |
+| Google pack | Raw Verify benchmark | 344.9, 343.3, 346.7, 347.6, 342.5 | 344.9 | 342.5–347.6 | — | — |
+| Q8_0 | Baseline | 566.3, 552.6, 539.8, 552.5, 551.9 | 552.5 | 539.8–566.3 | 213.5 | 634.1 |
+| Q8_0 | Sealed | 437.8, 437.2, 459.7, 434.2, 424.9 | 437.2 | 424.9–459.7 | 93.6 | 520.3 |
+| Q8_0 | Unsealed fallback | 560.2, 548.0, 565.3, 553.7, 543.7 | 553.7 | 543.7–565.3 | 210.3 | 637.7 |
+| Q8_0 | Raw Verify benchmark | 592.3, 558.1, 559.9, 553.6, 557.2 | 558.1 | 553.6–592.3 | — | — |
+
+Q8_0 saved 115.4 ms versus the matched baseline and finished under 600 ms in
+all five sealed runs. Its verification stage still took 93.6 ms for the
+authenticated read and private copy. The sealed runs recorded one kernel
+digest hit per file on every invocation (5 for bge-small, 4 for the Google
+pack, 1 for Q8_0). Neither strict arm recorded hits. The query-vector hashes,
+ranked output and notices matched byte-for-byte across all three production
+arms for each model. The ordinary path still checks full SHA-256 for
+unsealed caches and external `model_path` files.
+
+[Raw records and measurement driver](../../tools/phase28/evidence/model-verity-59/)
