@@ -10,7 +10,13 @@
   and 3.02 to 2.56 seconds, respectively. Sampled GPU peaks stayed at
   2,130 MiB on 219 passages and 2,094 MiB on 59. The Google and Q8_0 fp16
   controls stayed within 1% of their previous wall times. All compared
-  vectors were bit-identical. [Benchmark matrix](../../internal/cli/README.measure.md#goinfer-v067-cuda-sync-66)
+  vectors were bit-identical.
+
+  With model verification and loading included, bge-small on four CPU
+  cores took 19.52 seconds for 219 passages (11.22 passages/s) and 1.81
+  seconds for 59 passages (32.54 passages/s). On the 219-passage fixture,
+  the tested Gemma CUDA syncs were 2.85× to 3.27× faster than bge-small.
+  On the 59-passage fixture, bge-small finished first. [Benchmark matrix](../../internal/cli/README.measure.md#goinfer-v067-cuda-sync-66)
 
 - **Rebuild CUDA fp16 indexes after upgrading from v0.4.4.** The Google
   pack and Q8_0 fp16 fingerprints include the pinned goinfer revision.
