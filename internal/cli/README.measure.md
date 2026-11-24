@@ -1006,3 +1006,72 @@ Q8_0 keeps its existing CUDA fp16 identity. UD-Q6_K_XL is an opt-in row with no
 fp16 profile; the default model, the CPU search path and the CUDA fp16 behavior
 are unchanged. Raw indexes, databases and scratch binaries remain private and
 are not part of the repository.
+
+## goinfer v0.6.7 CUDA sync (#66)
+
+On pax (Ryzen 9 7950X, RTX PRO 6000 Blackwell Max-Q, compute capability 12.0,
+driver 595.112.07), we compared pbrain `d48cf1c` against `9c2b2a0`. The
+builds differed in the goinfer v0.6.6/v0.6.7 pins and the required fp16
+revision constant. Both used Go 1.27.3, `CGO_ENABLED=0`, `-trimpath` and the
+Linux amd64 release tags `cuda,vulkan,eg2_combined,eg2_fp16`. All three
+v0.6.7 modules came from the public proxy with checksum database verification
+at `c26c69ed44717d86cf2218370054d5e89886b694`.
+
+Each trial ran a complete `pbrain sync` with a fresh SQLite index and vector
+cache and four physical cores (CPUs 0–3, `GOMAXPROCS=4`). The CUDA cases
+used one RTX UUID and the default 6 GiB batch budget. The locally available
+pinned files were verified and loaded inside the timer. Two matched pairs
+per case ran in opposite version order under the exclusive timing lock.
+Before each sync, two consecutive five-second samples showed at most 4%
+host CPU busy and no NVIDIA compute process. Each sync had a 115-second
+timeout with a five-second grace period. Tracing recorded one model open
+per sync and one device attach per CUDA sync. The bge-small CPU control
+ran afterward under the same timing and host checks. GPU memory is the
+highest device-wide sample across both trials, sampled every 100 ms.
+Wall times and rates are medians.
+
+The larger fixture was the #61 slice of 22 notes and 219 passages
+(digested path SHA-256 `bbf4f8235b28a52979fe0121e1c8ed58e8a45904095649bfeea8d81bba04c117`).
+On Gemma it used 110,157 prepared positions in 14 calls. The 32-note #65/#22
+fixture gave 59 passages and 9,271 positions in two Gemma calls. The longest
+input in every Gemma call was at least 128 tokens. Gemma token counts and
+batch shapes matched between versions.
+
+| Passages | Model / device mode | Wall s, v0.6.6 → v0.6.7 | Passages/s, v0.6.6 → v0.6.7 | Peak GPU MiB, v0.6.6 → v0.6.7 | Exact vectors in each pair |
+| ---: | --- | ---: | ---: | ---: | ---: |
+| 219 | UD-Q6_K_XL / fp32 | 18.52 → 6.86 | 11.82 → 31.93 | 2,130 → 2,130 | 219/219 |
+| 219 | Q8_0 / fp32 | 18.39 → 6.79 | 11.91 → 32.27 | 2,130 → 2,130 | 219/219 |
+| 219 | Google pack / fp16 | 6.00 → 5.96 | 36.49 → 36.72 | 1,782 → 1,782 | 219/219 |
+| 219 | Q8_0 / fp16 | 6.27 → 6.29 | 34.91 → 34.80 | 1,782 → 1,782 | 219/219 |
+| 219 | bge-small / CPU | 19.31 → 19.52 | 11.34 → 11.22 | — | 219/219 |
+| 59 | UD-Q6_K_XL / fp32 | 2.99 → 2.49 | 19.75 → 23.74 | 2,094 → 2,094 | 59/59 |
+| 59 | Q8_0 / fp32 | 3.02 → 2.56 | 19.52 → 23.07 | 2,094 → 2,094 | 59/59 |
+| 59 | Google pack / fp16 | 3.69 → 3.68 | 15.97 → 16.04 | 1,754 → 1,754 | 59/59 |
+| 59 | Q8_0 / fp16 | 4.03 → 4.02 | 14.64 → 14.69 | 1,754 → 1,754 | 59/59 |
+| 59 | bge-small / CPU | 1.82 → 1.81 | 32.49 → 32.54 | — | 59/59 |
+
+On the 219-passage slice, ordinary CUDA sync was 2.70× faster for Q6
+and 2.71× for Q8_0. Traced forward time fell by factors of 3.55 and 3.59.
+On 59 passages the corresponding wall speedups were 1.20× and 1.18×.
+The fp16 wall medians changed by less than 1% on both fixtures. The
+goinfer report measures inference under different shapes, while the wall
+times here include verification, attachment, stores and publication.
+[Goinfer inference measurements](https://github.com/pkieltyka/goinfer/blob/v0.6.7/docs/measurements/gguf-transposed-attention-2026-11-24.md)
+
+With the v0.6.7 build, the Gemma CUDA cases ran at 31.93–36.72 passages/s
+on the 219-passage fixture, 2.85–3.27× the rate of bge-small on four CPU
+cores. On 59 passages, bge-small reached 32.54 passages/s and finished
+ahead of the Gemma CUDA cases at 14.69–23.74 passages/s.
+
+All 2,780 compared vector blobs matched bit for bit across the two
+versions. Read-only SQLite `quick_check` and the ordered path, ordinal,
+boundary and digest comparisons passed in every cell. The ordinary CUDA
+indexes kept their fingerprints. Only the Google and Q8_0 CUDA fp16
+fingerprints changed.
+
+For the upgrade check, the candidate opened copies of the 59-passage
+v0.6.6 indexes with their warmed vector caches. Both ordinary CUDA indexes
+remained current and sync embedded zero passages. Both fp16 indexes reported
+stale and sync embedded all 59 passages under their new fingerprints with
+zero reuse. All four results matched their fresh v0.6.7 controls by vector
+bytes.
