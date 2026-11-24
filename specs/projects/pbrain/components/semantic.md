@@ -772,7 +772,9 @@ The attached accelerator's `DeviceMemoryReporter` supplies a fresh reading after
 
 ### Our libraries
 
-The Gemma adapter uses the goinfer fork at `github.com/pkieltyka/goinfer`. pbrain pins its root, CUDA and Vulkan modules at v0.6.6 (`c0a5159bbff1`). CUDA links under the `cuda` tag. Vulkan links under the `vulkan` tag on Linux amd64. All three module copies match the tagged source and `go.sum`. The preceding pins and their measured gates are recorded in architecture §8.7.
+The Gemma adapter uses the goinfer fork at `github.com/pkieltyka/goinfer`. pbrain pins its root, CUDA and Vulkan modules at v0.6.7 (`c26c69ed4471`). CUDA links under the `cuda` tag. Vulkan links under the `vulkan` tag on Linux amd64. The public proxy identifies all three module copies with that tagged commit and the checksum database authenticates their sums. The preceding pins and their measured gates are recorded in architecture §8.7.
+
+The ordinary CUDA selector in v0.6.7 uses transposed attention for eligible batches with a longest prepared input of at least 128 tokens. The #66 sync comparison matched Q6 and Q8_0 ordinary CUDA output bits against v0.6.6 on two fixtures. The base model and index fingerprints are unchanged. The Google and Q8_0 CUDA fp16 profile fingerprints include the new goinfer revision, so their fp16 indexes rebuild once on sync. [Qualification](../../../../internal/cli/README.measure.md#goinfer-v067-cuda-sync-66)
 
 Issue #62 ports the BGE encoder, WordPiece tokenizer and required FP32 kernels from aikit v1.79.1 (`0bbc048828e3e546fcf280659d9d9f4ef694936d`) into `internal/embed/bge/bert`. The module graph excludes aikit. The port's `UPSTREAM.md` maps the files to their source and the release archives carry its original MIT license and notice.
 
