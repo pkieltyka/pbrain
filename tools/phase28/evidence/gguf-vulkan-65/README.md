@@ -44,7 +44,8 @@ python3 tools/phase28/evidence/gguf-vulkan-65/run-65.py --stage verify --out <ou
 ```
 
 `--stage all` runs build, qualify and verify in that order. The `verify` stage
-needs no lock, model or device.
+needs no `--goinfer-repo`, lock, model or device; build and qualify require
+`--goinfer-repo`.
 
 The foreign-client check exempts only the exact pid+comm pairs in
 `--desktop-clients`; a new PID is foreign even when its comm matches a desktop

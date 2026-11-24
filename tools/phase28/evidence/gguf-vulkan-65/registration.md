@@ -121,6 +121,8 @@ and SQLite database, `layout/` with per-quant receipts, and `results.json`.
 folder identities, and checks every value above. It writes `verification.json`
 and `verification.log`. After a pass, `run-65.py --stage verify` writes
 `evidence.SHA256`, a sorted hash list of every file except the seal itself.
+Verification needs no goinfer repo, lock, model or device; build and qualify do
+require `--goinfer-repo`.
 
 ## Not in scope
 

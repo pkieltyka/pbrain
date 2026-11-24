@@ -11,6 +11,9 @@ from pathlib import Path
 spec = importlib.util.spec_from_file_location("run65", Path(__file__).with_name("run-65.py"))
 run65 = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(run65)
+spec = importlib.util.spec_from_file_location("verify65", Path(__file__).with_name("verify.py"))
+verify65 = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(verify65)
 
 
 def main():
@@ -24,7 +27,12 @@ def main():
     assert run65.foreign_clients([100, 999], {100: "chrome"}, {100: "chrome"}) == {}
     assert run65.drm_totals({"a": [1, 2, 3], "b": [10, 20, 30]}) == [11, 22, 33]
     assert run65.drm_totals({}) is None
-    print("PASS host control: exact pid+comm exemptions and DRM aggregation")
+
+    index = Path("/tmp/pbrain-index")
+    assert verify65.safe_db_path(index, "0123456789abcdef.db") == index / "0123456789abcdef.db"
+    for bad in ("../outside.db", "/tmp/outside.db", "0123456789abcdef.db/../x", "", "ABCDEF0123456789.db"):
+        assert verify65.safe_db_path(index, bad) is None, bad
+    print("PASS host control: exact pid+comm exemptions, DRM aggregation and DB basename confinement")
 
 
 if __name__ == "__main__":

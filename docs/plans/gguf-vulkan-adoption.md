@@ -158,7 +158,12 @@ Consequences, which the tests must state rather than assume:
 
 ## 7. Fresh SQLite path
 
-Use a fresh brain with no prior index or cache:
+Use a fresh brain with no prior index or cache, configured for the quant under
+test: `pbrain.toml` sets `[semantic] model = "<embeddinggemma-2-q8-0 or
+embeddinggemma-2-ud-q6-k-xl>"`, `personal.toml` sets `model_path = "<directory
+holding the verified GGUF>"`, and the brain holds the 32 frozen notes. Without
+that configuration the sync selects the CPU-only default `bge-small-en-v1.5`,
+not the GGUF workload:
 
 ```
 pbrain --brain <tmp>/brain sync --device vulkan:<uuid> --json

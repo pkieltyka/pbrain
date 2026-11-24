@@ -202,13 +202,15 @@ class Runner:
         if not (self.repo / "go.mod").is_file() or not (
                 self.repo / "internal/semantic/calibrate/testdata/retrieval/brain").is_dir():
             raise SystemExit(f"cannot resolve the pbrain repository root from {Path(__file__).resolve()}")
-        self.goinfer = Path(args.goinfer_repo).resolve()
+        self.goinfer = Path(args.goinfer_repo).resolve() if args.goinfer_repo else None
         self.desktop = desktop_map(args.desktop_clients)
         self.manifest = None
 
     # ---- shared ---------------------------------------------------------
 
     def need_scripts(self):
+        if self.goinfer is None:
+            raise SystemExit("--goinfer-repo is required for build and qualify")
         for name in ("timing_lock.py", "void_rule.py"):
             if not (self.goinfer / "scripts" / name).is_file():
                 raise SystemExit(f"missing {name} under --goinfer-repo {self.goinfer}")
@@ -649,8 +651,8 @@ def main(argv=None):
     p.add_argument("--vulkan-loader-dir", default=os.environ.get("VULKAN_LOADER_DIR", ""))
     p.add_argument("--vulkan-layer-dir", default=os.environ.get("VULKAN_LAYER_DIR", ""))
     a = p.parse_args(argv)
-    if not a.goinfer_repo:
-        p.error("--goinfer-repo or GOINFER_REPO is required")
+    if a.stage != "verify" and not a.goinfer_repo:
+        p.error("--goinfer-repo or GOINFER_REPO is required for build and qualify")
     if a.stage in ("qualify", "all") and (not a.q8_file or not a.q6_file):
         p.error("--q8-file and --q6-file are required for the device stage")
     if a.stage != "verify" and (not a.vulkan_loader_dir or not a.vulkan_layer_dir):

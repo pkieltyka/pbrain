@@ -49,6 +49,16 @@ MODELS = {
     },
 }
 DB_NAME = re.compile(r"^[0-9a-f]{16}\.db$")
+
+
+def safe_db_path(index, name):
+    """The database path only when name is a bare 16-hex basename inside index."""
+    if not DB_NAME.match(str(name)):
+        return None
+    candidate = (index / name).resolve()
+    if candidate.parent != index.resolve():
+        return None
+    return candidate
 HEX64 = re.compile(r"^[0-9a-f]{64}$")
 
 
@@ -160,8 +170,10 @@ class Checker:
         self.require(manifest.get("dim") == DIM, f"{cell.name}: manifest dim")
         self.require(manifest.get("fingerprint") == index_fp, f"{cell.name}: manifest fingerprint")
         name = manifest.get("db", "")
-        self.require(bool(DB_NAME.match(str(name))), f"{cell.name}: db name {name!r}")
-        db = index / name
+        db = safe_db_path(index, name)
+        if db is None:
+            self.fail(f"{cell.name}: invalid db name {name!r}")
+            return None
         if not self.require(db.is_file(), f"{cell.name}: missing {name}"):
             return None
         self.require(db.stat().st_size == manifest.get("size"), f"{cell.name}: db size")
