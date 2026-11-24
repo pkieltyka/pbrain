@@ -102,7 +102,7 @@ var allowed = map[string][]string{
 	"internal/semantic":           {"search", "embed", "outline", "item", "gitx", "sys", "errs", "trace"},
 	"internal/semantic/calibrate": {"brain", "cli", "embed", "embed/bge", "embed/gemma2", "graph", "item", "outline", "query", "render", "search", "semantic", "store", "sys"}, // developer tool in semantic.md
 	"internal/embed":              {"sys", "errs"},
-	"internal/embed/bge":          {"embed", "sys", "errs", "trace"},
+	"internal/embed/bge":          {"embed", "sys", "errs", "trace", "embed/bge/bert"},
 	"internal/embed/gemma2":       {"embed", "trace"},
 	"internal/embed/embedtest":    {"embed", "errs"}, // semantic.md "Test plan": the test registry
 	"internal/importer":           {"item", "errs", "importer/fetch"},
@@ -123,6 +123,9 @@ var allowed = map[string][]string{
 	"internal/trace":              nil,
 	"internal/sys":                nil,
 	"internal/buildcheck":         nil,
+
+	"internal/embed/bge/bert":                 {"embed/bge/bert/internal/linalg"},
+	"internal/embed/bge/bert/internal/linalg": nil,
 }
 
 // TestPackageImports holds every package of the module to the table above, and every package

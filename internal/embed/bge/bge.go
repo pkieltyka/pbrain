@@ -11,9 +11,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	tokenizer "github.com/pkieltyka/aikit/embed"
-	"github.com/pkieltyka/aikit/encoder"
 	"github.com/pkieltyka/pbrain/internal/embed"
+	"github.com/pkieltyka/pbrain/internal/embed/bge/bert"
 	"github.com/pkieltyka/pbrain/internal/trace"
 )
 
@@ -25,14 +24,14 @@ const (
 )
 
 var (
-	loadBERT   = encoder.LoadBERTFromFS
+	loadBERT   = bert.LoadBERTFromFS
 	neutralize = strings.NewReplacer(
 		"[PAD]", "[ PAD]", "[UNK]", "[ UNK]", "[CLS]", "[ CLS]",
 		"[SEP]", "[ SEP]", "[MASK]", "[ MASK]",
 	)
 )
 
-// handoff transfers the verified buffers to aikit. A path is readable once,
+// handoff transfers the verified buffers to the local BERT loader. A path is readable once,
 // and the weights can continue to alias their buffer after the load.
 type handoff struct {
 	files   map[string][]byte
@@ -71,7 +70,7 @@ func open(ctx context.Context, a *embed.Artifact, _ embed.OpenOptions) (embed.Em
 		h.files[file.path] = files[i]
 	}
 	// The caller relinquishes the slices on Open. Only the handoff and, once
-	// read, aikit own the buffers during the load.
+	// read, the BERT loader own the buffers during the load.
 	clear(files)
 	decode := trace.Start(ctx, "model_decode")
 	model, err := loadBERT(h, ".")
@@ -102,11 +101,11 @@ type bertModel interface {
 
 type embedder struct {
 	model     bertModel
-	tokenizer *tokenizer.Tokenizer
+	tokenizer *bert.Tokenizer
 	cls, sep  int32
 }
 
-func newEmbedder(model *encoder.BERT) (*embedder, error) {
+func newEmbedder(model *bert.BERT) (*embedder, error) {
 	t := model.Tokenizer()
 	if t == nil {
 		return nil, errors.New("bge: model has no tokenizer")

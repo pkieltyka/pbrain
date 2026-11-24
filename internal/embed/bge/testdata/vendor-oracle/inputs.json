@@ -1,0 +1,567 @@
+[
+  {
+    "key": "decisions/bge-aikit.md:0",
+    "role": "document",
+    "text": "Load bge-small from verified bytes with aikit\n\nThe released binary's adapter calls encoder.LoadBERTFromFS on a one-shot in-memory filesystem. Model files, including the pooling configuration, must each be consumed exactly once. The loader's buffers stay immutable while the model lives. Hugot is a documented fallback."
+  },
+  {
+    "key": "decisions/context-budget.md:0",
+    "role": "document",
+    "text": "Context may spend spare characters after the base page fits\n\nThe --context option takes one to three neighboring body lines on each side of the snippet. Fit the page first, then add the numbered context lines within its budget. The result IDs, more and next stay the same. No front matter appears as context."
+  },
+  {
+    "key": "decisions/factory-review.md:0",
+    "role": "document",
+    "text": "Review the exact branch range before merging a ticket\n\nThe developer sends the reviewer the ticket, acceptance criteria and exact commit range. The operator reviews an approved change, merges it into master and pushes. PM moves the ticket to Done with its merge commit."
+  },
+  {
+    "key": "decisions/hybrid-order.md:0",
+    "role": "document",
+    "text": "Exact results keep their place in a hybrid page\n\nWith both optional search modes enabled, show exact hits first in their existing order, then semantic-only hits, then qualifying BM25 partials. Deduplicate by item. A model-free partial result says how many distinct clauses it matched."
+  },
+  {
+    "key": "decisions/index-refresh.md:0",
+    "role": "document",
+    "text": "Refresh passage vectors with an explicit incremental build\n\nAfter a batch of writes or a pull, run pbrain index. Reuse matching passage digests, embed only missing passages, and drop removed items. An ordinary write never loads a model. A search does not take the build lock or catch up."
+  },
+  {
+    "key": "decisions/missing-links.md:0",
+    "role": "document",
+    "text": "A dangling_link is a check warning\n\nDeleting an item can leave a replaces or relates target missing. A missing target points to nothing on reads. Report one warning, including for a handwritten link; that finding alone leaves check's exit status at zero."
+  },
+  {
+    "key": "decisions/model-cache.md:0",
+    "role": "document",
+    "text": "Keep personal passage vectors in the personal section\n\nThe per-user passage cache reuses shared text across worktrees. Personal vectors stay under the personal section’s .pbrain/ and never enter that shared cache."
+  },
+  {
+    "key": "decisions/original-refcount.md:0",
+    "role": "document",
+    "text": "Keep a copied original while any same-section item needs it\n\nAfter deleting a source item, check its valid digest against all items of its section, replaced items included. Remove the original only after the item file is gone and no other item references it. A copy in the other section does not affect the decision."
+  },
+  {
+    "key": "decisions/routed-lock.md:0",
+    "role": "document",
+    "text": "The item owns the write lock\n\nFor verify and delete, --personal widens lookup. Lock the section containing the resolved item. Verifying a shared item through the combined view edits the shared file under the shared writer lock."
+  },
+  {
+    "key": "decisions/search-page-size.md:0",
+    "role": "document",
+    "text": "Raise the search budget to 3,000 characters\n\nKeep the limit at five hits. The extra room pays for the file location and document sizes so an agent can open the evidence without a second search. If long rows still fill the page, use the continuation offset."
+  },
+  {
+    "key": "decisions/standing-rule.md:0",
+    "role": "document",
+    "text": "A proposal cannot retire a human decision\n\nA valid replacement must meet the kind, audience and standing rules. A provisional note can record disagreement or relate to a decided item without changing what is in force. Cite competing current successors when resolution is needed."
+  },
+  {
+    "key": "decisions/tag-map.md:0",
+    "role": "document",
+    "text": "Tag vocabulary is advisory\n\nAn optional [tags] table maps names to descriptions. Retain unfamiliar tags and emit an undeclared_tag notice. Check warns. If the secret scan flags the tag value, identify the field without repeating the value."
+  },
+  {
+    "key": "decisions/vector-sql.md:0",
+    "role": "document",
+    "text": "Score an ordinary SQLite table with vec_distance_cosine\n\nStore passage vectors per section. Apply eligibility first, then compute exact cosine distance with sqlite-vec. A vec0 nearest-neighbour query limits k, whereas the product needs every item above its calibrated threshold."
+  },
+  {
+    "key": "learnings/combined-gate.md:0",
+    "role": "document",
+    "text": "A mode can abstain alone and still fail in combination\n\nOn 40 held-out questions, two modes can each return 38 empty pages but only 36 when combined. Test both flags together for every listed model. If no admission rule passes for the combination, withhold the partial tier; an individually qualifying model can ship."
+  },
+  {
+    "key": "learnings/file-navigation.md:0",
+    "role": "document",
+    "text": "Use the file line in an editor and the body offset with get\n\nSearch returns a one-based file line including front matter and a zero-based code-point offset in the body. Both locate the start of the snippet. Use path:line in a file tool or pbrain get with --offset. The body_line field bridges the two coordinates."
+  },
+  {
+    "key": "learnings/fixture-reader.md:0",
+    "role": "document",
+    "text": "Charge the actual calls needed to reach a quotation\n\nJudge the JSON output the agent receives. Count all prior responses and the bytes decoded as code points through the end of the visible quotation, including JSON escaping. Allow a single get at the first hit’s snippet offset. Keep misses outside the cost averages."
+  },
+  {
+    "key": "learnings/guard-tracked.md:0",
+    "role": "document",
+    "text": "An ignore match alone does not protect personal data\n\nCheck Git’s actual index as well as ignore status before opening the brain. A forced add can put a private path in the repository even while it matches an ignore rule. Shared commands also stop on positive exposure."
+  },
+  {
+    "key": "learnings/outside-window.md:0",
+    "role": "document",
+    "text": "Look at the footer before assuming a time-limited search was empty\n\nThe outside-window count reports current matches hidden by the date bounds, including items of unknown age. Drop the indicated bound to investigate. A page cut short by a character budget is a different condition."
+  },
+  {
+    "key": "learnings/pack-startup.md:0",
+    "role": "document",
+    "text": "Prebuilding the tokenizer removes repeated JSON work\n\nThe EmbeddingGemma 2 spike reduced tokenizer initialization from 441–502 ms to 24–26 ms on the test laptop, with identical token IDs. Building the pack is a one-time derivation from pinned model files. The measurement covers the tokenizer, not the whole encoder."
+  },
+  {
+    "key": "learnings/tag-count-view.md:0",
+    "role": "document",
+    "text": "Tag counts are computed within the caller’s view\n\nAn undeclared label used only on personal items must not affect shared tag names, totals or pagination. Compute from visible current items. Public vocabulary declarations may be shown even if the visible count is zero."
+  },
+  {
+    "key": "notes/adoption-gates.md:0",
+    "role": "document",
+    "text": "Separate the model decision from the runtime decision\n\nUse the same frozen requests and budget to compare useful IDs and abstention. A faster loader reduces cost per search but does not show that a model retrieves better evidence. Measure the whole process on an arm64 Mac before release."
+  },
+  {
+    "key": "notes/budget-minimum.md:0",
+    "role": "document",
+    "text": "What budget_too_small means\n\nThe requested maximum must hold one complete result and its actual footer. The error states the smallest limit that works, measured in the output form requested. A hybrid page can need a longer footer than an exact-only page."
+  },
+  {
+    "key": "notes/delete-preview.md:0",
+    "role": "document",
+    "text": "Preview a deletion before confirming it\n\npbrain delete without --yes prints the file, the items that would be current again, and newly dangling resolved links in the caller's view. It changes nothing and exits 1 with confirm_required. The confirmed command computes the effects again."
+  },
+  {
+    "key": "notes/factory-install.md:0",
+    "role": "document",
+    "text": "Install the factory skill for the operator\n\nOnly the operator harness needs the skill installed. At launch the operator delivers each member's instructions through its own harness. Keep the factory checkout separate from the project the agents are editing."
+  },
+  {
+    "key": "notes/factory-ready.md:0",
+    "role": "document",
+    "text": "Who queues work for the team\n\nOnly the project owner or a person acting as owner adds work to the Ready section of TODO.md. Order is significant. The operator selects ready work; the project manager maintains status and the next action."
+  },
+  {
+    "key": "notes/factory-resume.md:0",
+    "role": "document",
+    "text": "Resume stopped members without replacing active sessions\n\nFactory up leaves live teammates alone and resumes recorded sessions. Use up --fresh to replace a stopped member's session. To leave work running, detach from herdr rather than taking the team down."
+  },
+  {
+    "key": "notes/linked-summary.md:0",
+    "role": "document",
+    "text": "A shared link exposes its title and summary\n\nFor material that must stay gated, use import --link-only. A summary is optional. Put only shareable facts in its title, tags and summary; the remote system decides who can open the original. Ask about the audience when it is unclear."
+  },
+  {
+    "key": "notes/partial-readiness.md:0",
+    "role": "document",
+    "text": "What semantic_partial counts\n\nWhen at least one index is usable, search compares the eligible current content that it covers and reports how many visible items it could not compare. A changed body cannot be scored through its stale vector. If no index can be used, semantic_not_ready accompanies lexical results."
+  },
+  {
+    "key": "notes/time-window.md:0",
+    "role": "document",
+    "text": "Time filters use created and local calendar days\n\nA bare date, today or yesterday uses the machine’s TZ. --until includes the named day up to the following local midnight. Filter before counting and applying the page limit. With a time bound, omit items whose created time is unknown."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:0",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nDiscovery and configuration\n\n### Discovery and configuration"
+  },
+  {
+    "key": "sources/discovery-field-guide.md:1",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nDiscovery and configuration\n\n1. With explicit `--brain`, else a nonempty `PBRAIN_DIR`, inspect only that directory. Resolve relative selection against the caller's directory. Otherwise check each ascending directory for `pbrain.toml`, then `docs/brain/pbrain.toml`. Stop at the first marker, including an invalid marker that must produce an error. Cross a Git boundary during ordinary discovery, as allowed by spec §10.\n2. Canonicalize the selected directory, then open its handle. Read `pbrain.toml` as a regular file through the handle. A symlink or special-file marker is `invalid_config`; a missing marker is `no_brain`. Determine the Git top with the nearest ancestral `.git` entry and `gitx.Top`; the brain itself anchors printed paths outside Git. Reject a malformed or inconsistent top rather than issuing a query in another worktree.\n3. Check the fixed protected paths first, then read `personal.toml` from the brain handle if present. Work out the configured personal root and its data folder, and check them before any item inspection. Resolve a configured relative path against the brain. Reject a resolved path equal to or containing the brain, including directory identity aliases. A missing or inaccessible configured root remains recorded as unreachable; shared operations can proceed and a command selecting personal gets `personal_unavailable`. A broken symlink or wrong type at a fixed protected path fails the guard."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:2",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nDiscovery and configuration\n\n4. When an alternate personal path is configured, ensure the guarded default folder holds no items. Walk its regular `.md` candidates by handles and without dot folders or symlinks. Apply the same whole-file limits and item parser as the store, stopping at the first valid item with a fixed `invalid_config` message. Even when inactive, this folder is pruned from shared scans and blocked for shared file inputs.\n5. Cache the handles and protection facts after checks succeed. If a command creating the default personal root races another creator, accept the winner only after opening the resulting real directory and applying the guard to that handle. On failed `Open`, release all handles before returning."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:3",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nDiscovery and configuration\n\nDecode with BurntSushi TOML using typed wire structures and explicit optional values so an absent key differs from zero. Apply the defaults of spec §6.1. Search and list limit overrides stay inside their flag ranges. A supplied character budget must be positive. Validate `[tags]` names against `[a-z0-9-]+` and descriptions as nonempty single-line strings. An explicitly empty table sets `HasTags`; omission leaves it false. Keep model name and local model path as configuration strings. Resolve a relative `model_path` from the brain when handing it to the semantic component. That component owns checksums, registry membership and the `PBRAIN_CACHE` selection.\n\nDecode TOML syntax and the safety-critical path before converting the audience value. Decode `[[audience]]` with `match` and `to`, then use `audience.ValidateRules`. On open, malformed TOML and invalid path fail the command. A well-formed file with an invalid audience value or rule leaves the guarded brain readable and saves a redacted rule error in the brain. No ordinary read consults the bad rules. Every item mutation, including one with an explicit destination, must check `AudienceRules` before acquiring input or taking a lock; the audience listing uses it too. An audience edit or inside-lock item refresh uses strict `ReadLocal` through the handle and refuses a fresh invalid rule."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:4",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nDiscovery and configuration\n\n`EditAudience` reads the local file once under the brain's settings lock. Validate the loaded rules, give the callback a copy, then validate its returned rules. Match rules by their canonical form. If the semantic list is unchanged, return `changed=false` so a missing file stays missing and comments survive a no-op. On a change preserve every other TOML value, including `path`, `author` and `model_path`. Write a complete TOML file with stable key order via the store's atomic replacement. Comments may be lost on an actual edit. The same `ReadLocal` is used by writes for the inside-lock refresh; the caller compares the refreshed plan and effective root before continuing.\n\nAuthor precedence is explicit flag, nonempty `PBRAIN_AUTHOR`, nonempty local author, then `human:` plus Git's nonempty `user.name` read in the selected brain's directory. Validate the selected value as a single nonempty line of at most 200 code points, preserving the actor spelling. Reject a supplied invalid higher-priority value rather than signing with another actor. Trim the Git record terminator; do not trim meaningful whitespace inside a valid name."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:5",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nGit subprocesses\n\n### Git subprocesses"
+  },
+  {
+    "key": "sources/discovery-field-guide.md:6",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nGit subprocesses\n\n- Copy the invocation environment. Remove `GIT_DIR`, `GIT_WORK_TREE`, `GIT_INDEX_FILE`, `GIT_COMMON_DIR`, `GIT_OBJECT_DIRECTORY`, `GIT_ALTERNATE_OBJECT_DIRECTORIES`, `GIT_NAMESPACE` and `GIT_CEILING_DIRECTORIES`. Clear the four Git pathspec environment switches so the wrapper controls literal matching. Retain normal configuration and ignore sources. Set `GIT_OPTIONAL_LOCKS=0`, disable the pager and cap each call at ten seconds or the parent deadline. Use argument vectors and never a shell.\n- Use `rev-parse --show-toplevel` in the nearest existing directory in the selected worktree. Only a known worktree calls this wrapper. Decode one returned absolute path by removing the record terminator. Compare it with the resolved directory containing the discovered `.git` entry. Resolve existing path aliases when comparing and refuse an inconsistent Git top.\n- For ignore checks run `check-ignore --no-index -z --stdin` from the top. Prefix each worktree-relative path with `./` to pass names beginning with a colon as ordinary paths, append a slash for a directory (also for missing folders), and NUL-terminate each input. Parse the returned original names as a set, then emit bools in input order. Accept statuses 0 and 1. Do not use `--literal-pathspecs` for this command: Git rejects literal pathspec magic here.\n- For tracked checks run `git --literal-pathspecs ls-files --cached -z -- \u003cpath\u003e` from the top. Omit a folder's final slash so the query covers both the directory's children and a tracked entry at the same path. Any returned entry fails the guard, even from an unmerged index, sparse checkout or force-add. Never derive tracked state from the working copy."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:7",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nGit subprocesses\n\n- For init candidates run `ls-files --cached --others --exclude-standard -z`, then keep paths whose final component is `pbrain.toml`. Deduplicate worktree-relative paths, discard markers absent from the working tree, and use canonical folder identity when comparing with the target. Git links and nested repository contents are outside this worktree's listing."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:8",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nExposure guard and display paths\n\n### Exposure guard and display paths\n\nGroup normalized protected paths by the actual worktree containing their closest existing ancestor. A protected directory with its own `.git` entry is already unsafe. Test both ignore and tracked state for every protected path inside Git; absence from disk does not waive the Git check. Inside each existing protected directory, walk directory entries by handle and stop at any `.git` entry of any type. Do not follow links or read Markdown during this check. For a reachable root, failure to establish these facts is fail-closed. A Git query failure remains `git_required`; a positive exposure or an unverifiable protected directory is `personal_exposed`. The message contains only the protected path's role and a remedy. An externally configured personal root marked unreachable is not walked.\n\nFor display, a file inside the anchor uses its forward-slash relative path. An external personal file uses `personal:` plus its forward-slash relative path under that section. Use a path only after verifying section membership. Private filesystem paths and raw syscall messages stay internal."
+  },
+  {
+    "key": "sources/discovery-field-guide.md:9",
+    "role": "document",
+    "text": "Brain discovery and Git queries\nInit\n\n### Init\n\nResolve the project root from the caller's worktree, or the current directory outside Git. Select the target by `--path`, `--brain`, `PBRAIN_DIR`, default `docs/brain`. Resolve relative `--path` and the default from the project root, and relative flag/environment brain selectors from the caller's directory. Check the normal discovery walk within the project and the Git marker inventory before creating anything. Refuse a canonical target different from an already existing brain of this project. Ignore an outer project's brain when initializing a separate nested checkout.\n\nUse folder handles to create the target and missing `pbrain.toml` without overwriting any file. Inspect `.gitignore` through the same target handle and refuse a symlink or special file before reading it. Compute the complete new contents by appending missing exact literal lines `personal/`, `personal.toml` and `.pbrain/`, retaining every pre-existing byte and adding a separator if needed. For changed contents, stage and flush a temporary sibling and publish it using `LinkNew` for an absent file or `Replace` for a regular existing file. A failed publication preserves the old bytes. A repeat after failure converges even if init had already created the brain marker. A read-only reopen loads settings and runs the exposure guard with the new ignore rules. An unchanged file is left in place. No item, personal directory, lock or index is created by init."
+  },
+  {
+    "key": "sources/storage-field-guide.md:0",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nNative handles and locking\n\n### Native handles and locking\n\nResolve external selectors or input paths with the native filesystem's symlink resolution rules before opening them. For missing paths, `Resolve` resolves the longest existing prefix and appends the components that do not yet exist when `allowMissing=true`. Preserve errors other than absence. Resolve existing objects with directory/file identities as well as path spelling. `OpenRoot` accepts a canonical absolute directory anywhere on the machine. Open it from `/`, one component at a time with `openat` using `O_DIRECTORY|O_NOFOLLOW|O_CLOEXEC`. On a missing child with creation enabled use `mkdirat`, then open it with the same flags. Reject `.`, `..`, empty names, NUL and separators at every child method. The only internal exception is opening `.` on an existing descriptor to obtain a fresh directory cursor for `Entries`. Enumerate and classify with `fstatat(AT_SYMLINK_NOFOLLOW)`. `Stat` never follows the final link."
+  },
+  {
+    "key": "sources/storage-field-guide.md:1",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nNative handles and locking\n\n`OpenRegular` opens descriptor-relative with `O_NOFOLLOW|O_CLOEXEC|O_NONBLOCK`, then checks the descriptor's type before reading. The nonblocking flag prevents an entry swapped for a FIFO from stalling the caller. Reading a bounded file checks metadata before allocation, then reads at most one byte above the ceiling and checks metadata again. Reject growth beyond the ceiling and report a change if the identity, length or modification time differs during the read. The read is private to a goroutine, and directories can be used concurrently with independent cursors."
+  },
+  {
+    "key": "sources/storage-field-guide.md:2",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nNative handles and locking\n\nAll new directories and temporary files are owner-only by default. Existing permissions are left in place on directories, and existing private files are never made more permissive. A temporary name is unpredictable, starts with a dot and has no `.md` extension. Open it exclusively with `O_CREAT|O_EXCL|O_NOFOLLOW` in the final folder. `Flush` calls file sync before close. `LinkNew` uses `linkat` without following links. Where hard links are unavailable, fall back to `renameat2(RENAME_NOREPLACE)` on Linux and `renameatx_np(RENAME_EXCL)` on macOS. An existing target remains an error. If both primitives fail, leave the target unchanged. `Replace` is the same-directory rename used only for a checked existing item or settings. `Remove` unlinks a regular entry relative to its handle. The cleanup after `LinkNew` accepts a missing temporary name because the exclusive-rename path already consumed it. [Linux rename contract](https://www.man7.org/linux/man-pages/man2/renameat2.2.html) · [Apple rename contract](https://github.com/apple-oss-distributions/xnu/blob/main/bsd/man/man2/rename.2)"
+  },
+  {
+    "key": "sources/storage-field-guide.md:3",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nNative handles and locking\n\n`Files.Lock` opens the named regular owner-only lock without following links and takes `flock(LOCK_EX|LOCK_NB)`. It retries would-block at 25 ms intervals until its supplied context ends. Retry interrupted syscalls within the same context. It has no timeout of its own, so an explicit index build can wait longer. Closing the holder releases the descriptor and lock, including when a process dies. The lock file stays in place.\n\n`Begin` borrows the opened root and opens or creates its `.pbrain/` child. A write to the missing default personal section first uses `EnsurePersonal`. `Begin` calls `Files.Lock` for `.pbrain/lock` with a context capped at the earlier of the caller deadline and 30 seconds, mapping failure to `io`. Hold the descriptor through cleanup. Settings use the same lock in the shared section. A command takes only one section lock. Readers and previews never call `Begin`. Native advisory locking coordinates pbrain processes; concurrent hand edits can still land in the final compare-and-mutate gap."
+  },
+  {
+    "key": "sources/storage-field-guide.md:4",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nCatalog scan and rereads\n\n### Catalog scan and rereads"
+  },
+  {
+    "key": "sources/storage-field-guide.md:5",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nCatalog scan and rereads\n\n1. Scan shared first. In personal view also borrow the personal root or treat an absent default personal folder as empty. The guard has already run. A shared scan prunes dot directories, all protected paths and aliases, symlinks, and special files before traversal. A personal scan applies the same structural filters, treats its own section root as permitted, and skips Git ignore entirely.\n2. Visit one breadth level at a time. Collect each eligible child directory and each regular file ending in `.md`. Submit the shared candidates in one ordered `brain.SharedIgnored` batch after pruning. Never enumerate a child whose batch result is ignored, including a tracked file below that child. Keep only path components and checked identities in the pending set. When re-opening a chain from the borrowed root, use `Sub(create=false)` and compare every reopened directory with the identity observed during enumeration. Skip vanished or swapped routes. This keeps descriptors bounded by workers and depth, even in a broad tree."
+  },
+  {
+    "key": "sources/storage-field-guide.md:6",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nCatalog scan and rereads\n\n3. Use at most `runtime.GOMAXPROCS(0)` workers to open candidate files. Compare the opened file's identity to the listed one and verify type. Use a bounded 4 MiB read that checks growth. On a concurrent rename, missing/replaced entry or inconsistent read, skip that candidate for this scan. Permissions or other unexpected read failures fail with generic `io`. Whole-file overflow and invalid UTF-8 produce `bad_front_matter` with safe reasons `too_large` and `invalid_utf8`. A parser-rejected header supplies the safe reason (`unclosed`, `syntax`, `not_mapping` or `duplicate_key`) and any line and column from `item.FrontMatterError`. A missing front-matter block (`item.ErrNoFrontMatter`) produces `not_an_item` with no position. No check diagnostic rereads the file or quotes raw parser text. Recoverable field problems stay on the parsed item.\n4. Populate `item.Version` from the observed size, modification time and CRC-32C of the entire read. Save `bodyAt` from `item.Parse` as the body byte offset. After a successful parse, assign `Item.Layout = item.Measure(data, bodyAt)` using the same validated whole-file bytes, for both `KeepAll` and `KeepNone`. Keep body bytes only with `KeepAll`. Sort items and skipped entries by section, then relative path in byte order. Build a map of the folded ID to all matching items. `Lookup` folds its argument with the item rule and keeps duplicate IDs."
+  },
+  {
+    "key": "sources/storage-field-guide.md:7",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nCatalog scan and rereads\n\n5. A `KeepNone` `Body` request opens the saved route again through its guarded handles and verifies the file identity and complete `Version` before slicing at its saved body offset. Missing, newly invalid, symlinked, replaced or changed bytes return `ErrChanged`; an unrelated I/O error maps to `io`. `KeepAll` returns the original slice, so a concurrent `verify` cannot mix a header with another body's bytes."
+  },
+  {
+    "key": "sources/storage-field-guide.md:8",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nGuarded caller input\n\n### Guarded caller input\n\nResolve a relative input against `Brain.CallerDir`. Run the shared-destination refusal before opening or reading file content. Compare the canonical path to every protected path by path components and by the identities of existing protected directories or files. Reject any ancestor component whose architecture fold equals `.pbrain`, independently of the filesystem's case policy and the selected brain. A refused path, a missing file and an alias with no usable target all yield `not_found` with the same fixed text.\n\nOpen the resolved parent with its canonical components through `OpenRoot(create=false)`. Check the parent's observed identity and the input descriptor's identity against the resolved observation before reading. If something was swapped to a link, protected route or different file, return the same `not_found` without reading the content. Cap at 5 MiB with a size check and a bounded read, then verify that the observation still matches. Higher-level checks validate UTF-8 and character counts. stdin goes directly to its command's bounded parser."
+  },
+  {
+    "key": "sources/storage-field-guide.md:9",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nWrite primitives and originals\n\n### Write primitives and originals"
+  },
+  {
+    "key": "sources/storage-field-guide.md:10",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nWrite primitives and originals\n\n- To validate a new item destination, derive the kind folder from its enum and the final name from the caller's generated ID. Reject an unsafe folder, a nonregular occupying entry and a protected destination. For shared, ask `SharedIgnored` about the folder with a trailing slash and the final path even if absent. Run this before storing an original. `Publish` performs the final check under the same lock, opens or creates the kind folder, writes and flushes the complete temp file, then calls `LinkNew` once. The successful link or exclusive rename commits. Remove the temp if still present and sync the folder after commitment. Creation of any destination directory is synced in its parent.\n- `ReadFile` resolves the item's relative route from the locked section through no-follow handles, bounds its read and requires the item snapshot's `Version`. `ReplaceItem` stages the edited bytes next to the existing file, re-reads and compares the expected `Version` immediately before rename, then renames and syncs. `RemoveItem` rechecks the target version, then unlinks it and syncs the folder. No command follows a swapped path to a different object. A compare and unlink or rename remain separate operations.\n- Settings publication requires the shared lock. Use a brain-relative temporary file and a complete TOML payload. Replace a checked regular `personal.toml` atomically; for missing settings use `LinkNew`, with a simultaneous external creation reported as `conflict`. The caller reads and encodes the new settings while holding this lock."
+  },
+  {
+    "key": "sources/storage-field-guide.md:11",
+    "role": "document",
+    "text": "Catalog and filesystem operations\nWrite primitives and originals\n\n- `PutOriginal` receives an already computed digest and verifies the input bytes against it. The input ceiling is 5 MiB. Open `.pbrain/originals` under the locked section with no-follow handles. The filename is lower-case hexadecimal encoding of the 32-byte digest. For an existing file, verify regular type and the exact expected byte count by descriptor before reading. Hash at most the expected length plus one sentinel byte, require exact EOF and unchanged metadata, then compare the digest. Reject a size or digest mismatch with `io` before item publication. For a missing original, publish by the same temp/flush/link protocol and use the same bounded verification on the published bytes. A failure can leave an unused original in local data; never publish the referencing item on failure.\n- `RemoveOriginal` accepts a parsed 32-byte digest, so no caller string can become a path component. It requires an existing regular file under `.pbrain/originals` of the locked section. The caller checks whether any other item in that section still references it, while locked, before calling. A failed unlink returns `removed=false`. If unlink succeeds and directory sync fails, return `removed=true` and the sync error so the caller can report the actual state and emit `after_write`."
+  },
+  {
+    "key": "sources/tokenizer-report.md:0",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike\n\n# goinfer fork: the fast-loading tokenizer spike\n\nRun 2026-11-21 by @lead-dev-2. It is the first of the three goinfer changes in `goinfer-architecture-review.md`, the one the plan said to prove first. Measured on an Intel Core Ultra 7 255H, Linux x86_64, Go 1.27.3, `GOMAXPROCS=4`, warm file cache; single runs unless stated."
+  },
+  {
+    "key": "sources/tokenizer-report.md:1",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e Bottom line\n\n## Bottom line\n\n**It works.** A prebuilt binary \"pack\" of EmbeddingGemma 2's tokenizer loads in **24 to 26 ms**, against **441 to 502 ms** for its `tokenizer.json`. It gives **identical token ids**:\n- on goinfer's 48 golden texts (the sentence-transformers reference ids);\n- on 10,000 seeded random encodings, against the `tokenizer.json` path, both with and without special-token parsing;\n- on **3,052 texts and 250,897 tokens** against the Hugging Face `tokenizers` library itself: the 22 parity texts with their prompts, 3,000 seeded random texts mixing scripts, emoji, control-like and special-token text, and the 30 corpus windows.\n\nThe pack is **9,581,663 bytes**, against 32,170,510 for `tokenizer.json`. Building it from `tokenizer.json` takes 0.75 to 0.84 s, once, when the model is derived. The tokenizer item of the plan is done, inside the \"tens of milliseconds\" target. The architect's fallbacks (an encode-only form, or dropping the model) are not needed."
+  },
+  {
+    "key": "sources/tokenizer-report.md:2",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e Where it is\n\n## Where it is\n\n- **Repository:** the owner's fork, `~/Dev/pkieltyka/goinfer` (`github.com/pkieltyka/goinfer`), on the local branch **`pbrain/fast-tokenizer`**, from `main` at `e0d66171`.\n- **Commits** (pushed to github.com/pkieltyka/goinfer and merged into the fork's main: PR #1 as `2f80ef14`, then the changelog.d fragment `0cad28e3` as PR #2, `2e413ee1`; offered upstream as townsendmerino/goinfer#1194):\n\n  | Commit | What |\n  |---|---|\n  | `6f6806d5` | `tokenizer: prebuilt pack form of a SentencePiece-style BPE tokenizer` |\n  | `bc477653` | `tokenizer: fill a pack's merge ranks into a flat hash table` |\n  | `e98418db` | `fuzz-weekly: run tokenizer FuzzLoadPack` |\n\n- **Remotes:** an `upstream` remote for `github.com/townsendmerino/goinfer` was added for fetching, with its push URL set to `DISABLED`.\n- **The repository's rules** (its `CLAUDE.md`, `AGENTS.md` and `CONTRIBUTING.md`):\n  - explicit staging;\n  - `Co-Authored-By` trailers, with no session or machine names in commit text;\n  - comments that say what is true now;\n  - numbers in commit messages with their machine and settings;\n  - a new fuzz target listed in `fuzz-weekly.yml`, which the repository's own layout test requires."
+  },
+  {
+    "key": "sources/tokenizer-report.md:3",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e What was changed\n\n## What was changed\n\n- **`tokenizer/pack.go`** (new):\n  - `BuildPack(tokenizerJSON []byte) ([]byte, error)` and `LoadPack(pack []byte) (*Tokenizer, error)`;\n  - the error class `ErrPack`;\n  - `flatMerges`, an open-addressing table for the merge ranks.\n- **The pack format**, little-endian:\n  - magic `GITOKPK1`, then a version;\n  - flags: byte fallback, ignore-merges, prepend-space, strip-leading-space;\n  - the special-token ids;\n  - one string table: every piece by id, then the few strings outside it;\n  - vocabulary entries (string index, id);\n  - merges as id pairs in list order, with a negative value naming a string, for the rare merge with a piece outside the vocabulary;\n  - added tokens with their rstrip flag;\n  - a trailing SHA-256 of all of it.\n- **`LoadPack` rebuilds exactly the `Tokenizer` that `parseTokenizerJSON` builds** for this family:\n  - pieces are substrings of one string block;\n  - the vocabulary map and the merge table are filled in parallel;\n  - the byte-fallback table and the added-token trie are rebuilt as `initGemma` does."
+  },
+  {
+    "key": "sources/tokenizer-report.md:4",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e What was changed\n\nIt accepts only the SentencePiece-style byte-fallback BPE family (Gemma); a byte-level or score-ranked tokenizer is refused at `BuildPack`. Every count, offset and id is bounds-checked before anything is allocated, and a malformed pack is an `ErrPack` error, never a panic.\n- **`tokenizer/sentencepiece.go`:** `mergeTable` gains an optional `flat` field. `rank` and `len` consult it when it is set. Every other loader is untouched.\n- **Determinism:** the same `tokenizer.json` always gives the same pack bytes (`TestBuildPack_deterministic`). The pack built from `google/embeddinggemma-2` revision `f9972ac2`'s `tokenizer.json` has SHA-256 `45a7e7d5a1e84ad83ef469a8f6aecc3dd15f51b7c4866008e2d770142d96b709`, so pbrain can pin it beside the source file's digest.\n\n**Where the load time went:**\n\n| Step | Before | After |\n|---|---|---|\n| Reading and parsing the JSON | 18 ms + 137 ms | 0 |\n| Normalising the 514,906 merges | 165 ms | 0 |\n| Merge table (515k entries) | Go map, built with two text lookups per merge | flat table filled by id, about 50 ms faster than a pre-sized Go map |\n| Vocabulary map (262,144 entries) | from JSON | about 25 ms, in parallel with the merges |\n| Pack checksum | | about 3 ms |\n| **Total** | **441 to 502 ms** | **24 to 26 ms** (best of 5; 53 to 63 ms with a Go map for the merges) |"
+  },
+  {
+    "key": "sources/tokenizer-report.md:5",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e What was changed\n\n**Memory:** the loaded tokenizer keeps about 16.6 MB on the heap, and about 35 MB is allocated in all during the load. `LoadPack` does not keep the pack's bytes."
+  },
+  {
+    "key": "sources/tokenizer-report.md:6",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e How it was checked\n\n## How it was checked\n\nAll of these ran in the fork, on the branch:\n- **Tier-0 unit tests** (`tokenizer/pack_test.go`):\n  - `TestPack_equalsJSON`: a synthetic Gemma-style tokenizer with byte fallback, a merge with a piece outside the vocabulary, a merge listed twice, and added tokens with rstrip. The pack and JSON tokenizers' tables match field by field, every merge rank matches and so does every absence, and 2,000 random texts encode and decode the same in both special-token modes.\n  - `TestBuildPack_deterministic`, `TestBuildPack_refusesOtherFamilies`.\n  - `TestLoadPack_refusesDamage`: truncations, bit flips, and structural damage behind a valid checksum (huge counts, offsets out of order, a bad version, an id out of range, trailing bytes).\n- **Fuzzing:** `FuzzLoadPack` ran 35 s in two runs, more than 13 million inputs, with no failure. It is listed in `.github/workflows/fuzz-weekly.yml`.\n- **Real checkpoint** (`tokenizer/pack_real_test.go`, build tag `realckpt`, `GOINFER_EG2_DIR`): the 48 golden texts and the 10,000 random encodings above, and the timings.\n- **Against Hugging Face `tokenizers`:** a scratch program in my scratch folder, outside the tree, so nothing new is committed for it.\n- **The repository's checks:**\n  - `python3 scripts/touched.py`: **VERDICT PASS, 17 checks**. Its first run failed on the layout test until `FuzzLoadPack` was listed.\n  - `go run ./cmd/lint` with the pinned staticcheck 2026.2.1 (0.8.1): **VERDICT PASS, 7/7**.\n  - `gofmt -l`: clean.\n  - In this sandbox the timing lock (`GOINFER_TIMING_LOCK_FILE`) and staticcheck's cache were pointed into my scratch folder, because the home directory is read-only here. On the maintainer's box they use their defaults."
+  },
+  {
+    "key": "sources/tokenizer-report.md:7",
+    "role": "document",
+    "text": "Tokenizer pack experiment for EmbeddingGemma 2\ngoinfer fork: the fast-loading tokenizer spike \u003e How it plugs into the bytes loader\n\n## How it plugs into the bytes loader\n\nThe architecture's EmbeddingGemma 2 adapter (`components/semantic.md` at 9e1ddcc3, \"The EmbeddingGemma 2 adapter\") derives a model pack from the four pinned source files and opens the model only from verified bytes.\n- **Derive.** Call `tokenizer.BuildPack(tokenizer.json bytes)` and store the result as the pack's tokenizer file. Its digest is fixed for a pinned source, so the release table can pin it as the architecture requires.\n- **Open.** Call `tokenizer.LoadPack(artifact bytes)` to get a `*tokenizer.Tokenizer` directly, opening no file.\n- **One gap remains,** for the bytes-loader change. `embeddinggemma2.LoadEncoder(dir)` reads `tokenizer.json` by path today, and `Encoder`'s fields are private. The loader change needs a constructor such as `embeddinggemma2.NewEncoder(m *Model, tok *tokenizer.Tokenizer, prompts map[string]string) (*Encoder, error)`, beside @architect's `Model`-from-bytes loader. It is a small addition, in the same branch family.\n- **Special tokens** behave as before: a pack-loaded tokenizer serves `Encode` and `EncodeSegments` unchanged. So the adapter's rule that a literal `\u003ceos\u003e` in a body never becomes a special token is met with `EncodeSegments` and `Special: false`, as for the JSON-loaded tokenizer.\n- **Two checksums.** `LoadPack`'s own checksum (about 3 ms) repeats the Artifact's digest check. That is cheap and keeps the function safe for other callers.\n\n**Effect on @architect's estimate.** He put goinfer's verify, load and one query at 360 to 450 ms once all three changes land, with the tokenizer taking \"tens of milliseconds\". The measured 24 to 26 ms is at the bottom of that, so his figure stands on this point."
+  },
+  {
+    "key": "reference-00",
+    "role": "document",
+    "text": "The cache folder is derived data. A new checkout can recreate it from Markdown."
+  },
+  {
+    "key": "reference-01",
+    "role": "document",
+    "text": "Retries must return the original result or report that its input changed."
+  },
+  {
+    "key": "reference-02",
+    "role": "document",
+    "text": "An HTTP redirect is checked before the reader opens the next connection."
+  },
+  {
+    "key": "reference-03",
+    "role": "document",
+    "text": "Changes to the front matter leave paragraph offsets in the stored body unchanged."
+  },
+  {
+    "key": "reference-04",
+    "role": "document",
+    "text": "A shared release note explains compatibility, installation, and safe rollbacks."
+  },
+  {
+    "key": "reference-05",
+    "role": "document",
+    "text": "Workshop schedule\n\nMeet at the library on Tuesday and bring the sample prints."
+  },
+  {
+    "key": "reference-06",
+    "role": "document",
+    "text": "func ready(ctx context.Context) bool { return ctx.Err() == nil }"
+  },
+  {
+    "key": "reference-07",
+    "role": "document",
+    "text": "Die Warteschlange verwendet einen Schlüssel, damit Wiederholungen nur einmal zählen."
+  },
+  {
+    "key": "reference-08",
+    "role": "document",
+    "text": "キャッシュを削除してからテストをもう一度実行します。"
+  },
+  {
+    "key": "reference-09",
+    "role": "document",
+    "text": "The words “very small” describe the baseline. A 1.2 ms measurement came later."
+  },
+  {
+    "key": "reference-10",
+    "role": "document",
+    "text": "reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder reminder \n\nThe testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. The testing team compared the parsed text with the signed source. This ending is beyond the limit."
+  },
+  {
+    "key": "reference-11",
+    "role": "document",
+    "text": "\n\t  café, résumé, and coöperate — variants with combining marks: café.\r\n"
+  },
+  {
+    "key": "reference-12",
+    "role": "query",
+    "text": "where do the reusable vectors live"
+  },
+  {
+    "key": "reference-13",
+    "role": "query",
+    "text": "what happens if the same request arrives twice"
+  },
+  {
+    "key": "reference-14",
+    "role": "query",
+    "text": "is a redirect safe to follow"
+  },
+  {
+    "key": "reference-15",
+    "role": "query",
+    "text": "will editing metadata move my snippet"
+  },
+  {
+    "key": "reference-16",
+    "role": "query",
+    "text": "where is the supported upgrade path"
+  },
+  {
+    "key": "reference-17",
+    "role": "query",
+    "text": "was the meeting in the library"
+  },
+  {
+    "key": "reference-18",
+    "role": "query",
+    "text": "is the context cancelled"
+  },
+  {
+    "key": "reference-19",
+    "role": "query",
+    "text": "wie wird ein Auftrag wiederholt"
+  },
+  {
+    "key": "reference-20",
+    "role": "query",
+    "text": "テストをどう実行する"
+  },
+  {
+    "key": "reference-21",
+    "role": "query",
+    "text": "describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person describe a search phrase that remains clear and readable to a person cut this end"
+  },
+  {
+    "key": "document-empty",
+    "role": "document",
+    "text": ""
+  },
+  {
+    "key": "document-whitespace",
+    "role": "document",
+    "text": " \t\n  \r "
+  },
+  {
+    "key": "document-composed",
+    "role": "document",
+    "text": "Café naïve déjà vu ÉCOLE"
+  },
+  {
+    "key": "document-decomposed",
+    "role": "document",
+    "text": "Café naïve déjà vu ÉCOLE"
+  },
+  {
+    "key": "document-cjk",
+    "role": "document",
+    "text": "我喜欢北京｜東京、한국어。"
+  },
+  {
+    "key": "document-punctuation",
+    "role": "document",
+    "text": "a—b…c!! 3.14 hyphen-word @user /x_y.go"
+  },
+  {
+    "key": "document-specials",
+    "role": "document",
+    "text": "[PAD]abc[UNK]def [CLS] [SEP] [MASK]"
+  },
+  {
+    "key": "document-unknown",
+    "role": "document",
+    "text": "qzjqzjqzj�‍🗿"
+  },
+  {
+    "key": "document-overlong-word",
+    "role": "document",
+    "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "key": "document-boundary-word",
+    "role": "document",
+    "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "key": "document-control",
+    "role": "document",
+    "text": "a\u0000b​c\tD\r\nE"
+  },
+  {
+    "key": "query-empty",
+    "role": "query",
+    "text": ""
+  },
+  {
+    "key": "query-whitespace",
+    "role": "query",
+    "text": " \t\n  \r "
+  },
+  {
+    "key": "query-composed",
+    "role": "query",
+    "text": "Café naïve déjà vu ÉCOLE"
+  },
+  {
+    "key": "query-decomposed",
+    "role": "query",
+    "text": "Café naïve déjà vu ÉCOLE"
+  },
+  {
+    "key": "query-cjk",
+    "role": "query",
+    "text": "我喜欢北京｜東京、한국어。"
+  },
+  {
+    "key": "query-punctuation",
+    "role": "query",
+    "text": "a—b…c!! 3.14 hyphen-word @user /x_y.go"
+  },
+  {
+    "key": "query-specials",
+    "role": "query",
+    "text": "[PAD]abc[UNK]def [CLS] [SEP] [MASK]"
+  },
+  {
+    "key": "query-unknown",
+    "role": "query",
+    "text": "qzjqzjqzj�‍🗿"
+  },
+  {
+    "key": "query-overlong-word",
+    "role": "query",
+    "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "key": "query-boundary-word",
+    "role": "query",
+    "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  {
+    "key": "query-control",
+    "role": "query",
+    "text": "a\u0000b​c\tD\r\nE"
+  },
+  {
+    "key": "document-cut-509",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "query-cut-509",
+    "role": "query",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "prefix-cut-509",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a \n\nb b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b "
+  },
+  {
+    "key": "document-cut-510",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "query-cut-510",
+    "role": "query",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "prefix-cut-510",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a \n\nb b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b "
+  },
+  {
+    "key": "document-cut-511",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "query-cut-511",
+    "role": "query",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a "
+  },
+  {
+    "key": "prefix-cut-511",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a \n\nb b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b "
+  },
+  {
+    "key": "long-prefix-and-body",
+    "role": "document",
+    "text": "a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a a \n\nb b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b b "
+  }
+]
