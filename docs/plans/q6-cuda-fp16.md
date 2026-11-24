@@ -1,5 +1,7 @@
 # Q6 CUDA FP16 evaluation (#67)
 
+**Owner decision.** Keep Q6 on ordinary CUDA with no FP16 opt-in for now. Revisit when the fix for the attach overhead ships. [goinfer #82](https://github.com/pkieltyka/goinfer/issues/82)
+
 **Recommendation to the owner.** Keep ordinary CUDA as the Q6 default. Offer `semantic.cuda_precision = "fp16"` as an explicit opt-in for users whose longer syncs benefit on eligible GPUs. FP16 reduced fresh-sync wall time by 7.6% on 219 passages and increased it by 62.5% on 59. Both routes returned the same ranked IDs on all 77 retrieval questions. The experiment used a benchmark-only hook on `38a16ea`. Production adoption requires a separate owner decision. [Issue and evidence](https://github.com/pkieltyka/pbrain/issues/67)
 
 If approved, preserve the distinction between an omitted setting and explicit `"fp16"` in `internal/brain/config.go`. For Q6, omission and explicit `"fp32"` both select the base profile. Explicit `"fp16"` requests the accelerated profile. Registering `CUDAFP16Fingerprint` alone would activate today's global FP16 default and stale existing Q6 manifests. Preserve the Google/Q8 defaults. Before enabling Q6, test omitted and explicit configuration, both rebuild directions, ineligible-device fallback and isolation from a warm opposite-profile cache.
