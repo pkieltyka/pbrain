@@ -1,0 +1,435 @@
+{
+  "219": {
+    "fp32": {
+      "wall_s": 6.8776284944979125,
+      "wall_samples": [
+        6.873500842993963,
+        6.881756146001862
+      ],
+      "passages_per_s": 31.842382742290795,
+      "peak_mib": 2130,
+      "spans_ms": {
+        "model_verify": 202.2651635,
+        "model_decode": 271.4330535,
+        "device_attach": 1081.8628965,
+        "forward": 4587.1545995,
+        "publish": 5.5678035
+      },
+      "sqlite_total_ms": 6.345269,
+      "attach": {
+        "selector": "cuda",
+        "uuid": "cuda:GPU-d3752b75-6d35-9d0f-a67e-c201d9c27381",
+        "cc_major": 12,
+        "cc_minor": 0,
+        "fp16_ffn": false,
+        "packed_attention": false,
+        "fusions": false,
+        "transposed_attention": true
+      },
+      "positions": 110157,
+      "shapes": [
+        [
+          17,
+          7924,
+          819
+        ],
+        [
+          13,
+          8082,
+          870
+        ],
+        [
+          16,
+          7909,
+          849
+        ],
+        [
+          16,
+          7874,
+          739
+        ],
+        [
+          16,
+          7845,
+          829
+        ],
+        [
+          16,
+          7717,
+          863
+        ],
+        [
+          17,
+          8106,
+          868
+        ],
+        [
+          16,
+          8038,
+          869
+        ],
+        [
+          17,
+          7784,
+          804
+        ],
+        [
+          13,
+          7391,
+          879
+        ],
+        [
+          17,
+          8047,
+          876
+        ],
+        [
+          15,
+          8070,
+          872
+        ],
+        [
+          15,
+          7526,
+          766
+        ],
+        [
+          15,
+          7844,
+          784
+        ]
+      ],
+      "vectors_sha256": "fed6a1dcf18aabc551a5a0e46509497c172e390367ce9dff12b6d0dc967e7486",
+      "cpu_parity": {
+        "vectors": 219,
+        "exact": 0,
+        "max_abs_coordinate_delta": 7.324852049350739e-07,
+        "min_cos768": 0.9999999999807628,
+        "median_cos768": 0.9999999999992251,
+        "worst_cos768": [
+          "decisions/20240109-090000-shared0028.md",
+          2
+        ],
+        "min_cos512": 0.9999999999809509,
+        "median_cos512": 0.9999999999992487,
+        "worst_cos512": [
+          "decisions/20240109-090000-shared0028.md",
+          2
+        ]
+      }
+    },
+    "fp16": {
+      "wall_s": 6.357841714496317,
+      "wall_samples": [
+        6.347826108991285,
+        6.367857320001349
+      ],
+      "passages_per_s": 34.44573698279372,
+      "peak_mib": 1782,
+      "spans_ms": {
+        "model_verify": 200.119095,
+        "model_decode": 259.1758625,
+        "device_attach": 2785.17638,
+        "forward": 2501.7677329999997,
+        "publish": 5.7569675
+      },
+      "sqlite_total_ms": 6.442556499999999,
+      "attach": {
+        "selector": "cuda-eg2-fp16",
+        "uuid": "cuda:GPU-d3752b75-6d35-9d0f-a67e-c201d9c27381",
+        "cc_major": 12,
+        "cc_minor": 0,
+        "fp16_ffn": true,
+        "packed_attention": true,
+        "fusions": true,
+        "transposed_attention": false
+      },
+      "positions": 110157,
+      "shapes": [
+        [
+          17,
+          7924,
+          819
+        ],
+        [
+          13,
+          8082,
+          870
+        ],
+        [
+          16,
+          7909,
+          849
+        ],
+        [
+          16,
+          7874,
+          739
+        ],
+        [
+          16,
+          7845,
+          829
+        ],
+        [
+          16,
+          7717,
+          863
+        ],
+        [
+          17,
+          8106,
+          868
+        ],
+        [
+          16,
+          8038,
+          869
+        ],
+        [
+          17,
+          7784,
+          804
+        ],
+        [
+          13,
+          7391,
+          879
+        ],
+        [
+          17,
+          8047,
+          876
+        ],
+        [
+          15,
+          8070,
+          872
+        ],
+        [
+          15,
+          7526,
+          766
+        ],
+        [
+          15,
+          7844,
+          784
+        ]
+      ],
+      "vectors_sha256": "f133a8f51c7e32cf2bc0d59b78f3c5f514ce695236b90638d4fd132105b727cd",
+      "cpu_parity": {
+        "vectors": 219,
+        "exact": 0,
+        "max_abs_coordinate_delta": 0.00018047261983156204,
+        "min_cos768": 0.9999991228737767,
+        "median_cos768": 0.9999999268378393,
+        "worst_cos768": [
+          "decisions/20240109-090000-shared0028.md",
+          9
+        ],
+        "min_cos512": 0.9999991730039907,
+        "median_cos512": 0.9999999296815744,
+        "worst_cos512": [
+          "decisions/20240109-090000-shared0028.md",
+          9
+        ]
+      }
+    },
+    "cross_route": {
+      "vectors": 219,
+      "exact": 0,
+      "max_abs_coordinate_delta": 0.00018083536997437477,
+      "min_cos768": 0.9999991182373498,
+      "median_cos768": 0.9999999268747437,
+      "worst_cos768": [
+        "decisions/20240109-090000-shared0028.md",
+        9
+      ],
+      "min_cos512": 0.9999991686573604,
+      "median_cos512": 0.9999999296857824,
+      "worst_cos512": [
+        "decisions/20240109-090000-shared0028.md",
+        9
+      ]
+    },
+    "wall_speedup": 1.0817552250186484
+  },
+  "59": {
+    "fp32": {
+      "wall_s": 2.435832440998638,
+      "wall_samples": [
+        2.4572779429872753,
+        2.414386939010001
+      ],
+      "passages_per_s": 24.223576573117644,
+      "peak_mib": 2094,
+      "spans_ms": {
+        "model_verify": 182.9311255,
+        "model_decode": 260.67742999999996,
+        "device_attach": 1084.5990895,
+        "forward": 298.028632,
+        "publish": 3.63795
+      },
+      "sqlite_total_ms": 2.6732175000000002,
+      "attach": {
+        "selector": "cuda",
+        "uuid": "cuda:GPU-d3752b75-6d35-9d0f-a67e-c201d9c27381",
+        "cc_major": 12,
+        "cc_minor": 0,
+        "fp16_ffn": false,
+        "packed_attention": false,
+        "fusions": false,
+        "transposed_attention": true
+      },
+      "positions": 9271,
+      "shapes": [
+        [
+          55,
+          7712,
+          444
+        ],
+        [
+          4,
+          1559,
+          524
+        ]
+      ],
+      "vectors_sha256": "fb5fd01a15df82a43514805e7d43e1e91a53350fe58c2705ffe2861a63fd9e24",
+      "cpu_parity": {
+        "vectors": 59,
+        "exact": 0,
+        "max_abs_coordinate_delta": 3.6135315895080566e-07,
+        "min_cos768": 0.9999999999965401,
+        "median_cos768": 0.9999999999995324,
+        "worst_cos768": [
+          "sources/tokenizer-report.md",
+          5
+        ],
+        "min_cos512": 0.9999999999966377,
+        "median_cos512": 0.9999999999995428,
+        "worst_cos512": [
+          "sources/tokenizer-report.md",
+          5
+        ]
+      }
+    },
+    "fp16": {
+      "wall_s": 3.957052185498469,
+      "wall_samples": [
+        3.943055284995353,
+        3.9710490860015852
+      ],
+      "passages_per_s": 14.910275487985967,
+      "peak_mib": 1754,
+      "spans_ms": {
+        "model_verify": 183.81354,
+        "model_decode": 271.5437705,
+        "device_attach": 2765.801637,
+        "forward": 211.494045,
+        "publish": 3.5537549999999998
+      },
+      "sqlite_total_ms": 2.5478794999999996,
+      "attach": {
+        "selector": "cuda-eg2-fp16",
+        "uuid": "cuda:GPU-d3752b75-6d35-9d0f-a67e-c201d9c27381",
+        "cc_major": 12,
+        "cc_minor": 0,
+        "fp16_ffn": true,
+        "packed_attention": true,
+        "fusions": true,
+        "transposed_attention": false
+      },
+      "positions": 9271,
+      "shapes": [
+        [
+          55,
+          7712,
+          444
+        ],
+        [
+          4,
+          1559,
+          524
+        ]
+      ],
+      "vectors_sha256": "9827418f144413837aeea94276aaf997e368af7636f46e25c8f9b4507c3e8c1b",
+      "cpu_parity": {
+        "vectors": 59,
+        "exact": 0,
+        "max_abs_coordinate_delta": 6.383657455444336e-05,
+        "min_cos768": 0.9999998857904105,
+        "median_cos768": 0.9999999587967047,
+        "worst_cos768": [
+          "sources/tokenizer-report.md",
+          5
+        ],
+        "min_cos512": 0.9999998886578099,
+        "median_cos512": 0.9999999597018074,
+        "worst_cos512": [
+          "sources/tokenizer-report.md",
+          5
+        ]
+      }
+    },
+    "cross_route": {
+      "vectors": 59,
+      "exact": 0,
+      "max_abs_coordinate_delta": 6.347522139549255e-05,
+      "min_cos768": 0.9999998867238179,
+      "median_cos768": 0.9999999588128159,
+      "worst_cos768": [
+        "sources/tokenizer-report.md",
+        5
+      ],
+      "min_cos512": 0.9999998895678665,
+      "median_cos512": 0.999999959838884,
+      "worst_cos512": [
+        "sources/tokenizer-report.md",
+        5
+      ]
+    },
+    "wall_speedup": 0.6155674291901705
+  },
+  "retrieval": {
+    "counts": {
+      "strict": {
+        "top1": 15,
+        "top3": 16,
+        "first_page": 16,
+        "abstentions": 30,
+        "false_answers": []
+      },
+      "fp32-semantic": {
+        "top1": 39,
+        "top3": 42,
+        "first_page": 42,
+        "abstentions": 30,
+        "false_answers": []
+      },
+      "fp16-semantic": {
+        "top1": 39,
+        "top3": 42,
+        "first_page": 42,
+        "abstentions": 30,
+        "false_answers": []
+      },
+      "fp32-combined": {
+        "top1": 39,
+        "top3": 42,
+        "first_page": 42,
+        "abstentions": 30,
+        "false_answers": []
+      },
+      "fp16-combined": {
+        "top1": 39,
+        "top3": 42,
+        "first_page": 42,
+        "abstentions": 30,
+        "false_answers": []
+      }
+    },
+    "changes": [],
+    "failures": []
+  }
+}
