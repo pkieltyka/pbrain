@@ -1,0 +1,183 @@
+--- a/internal/embed/gemma2/gguf.go
++++ b/internal/embed/gemma2/gguf.go
+@@ -38 +38 @@
+-		ggufEntry(q6Name, q6Files, q6Fingerprint, "", devices),
++		ggufEntry(q6Name, q6Files, q6Fingerprint, fp16Fingerprint(q6Fingerprint, goinferRevision), devices),
+--- a/internal/embed/gemma2/gemma2.go
++++ b/internal/embed/gemma2/gemma2.go
+@@ -7,0 +8,2 @@
++	"os"
++	"reflect"
+@@ -50,0 +53,3 @@
++	if err == nil && device.Backend == "cuda" {
++		err = verifyEvalCUDAAttach(acc, id, selector)
++	}
+@@ -60,0 +66,34 @@
++}
++
++// verifyEvalCUDAAttach reads the v0.6.7 handle's initialized pipeline
++// flags. The public handle reports only the backend name and the device.
++func verifyEvalCUDAAttach(acc embeddinggemma2.Accelerator, id, selector string) error {
++	device := acc.(embeddinggemma2.AttachedDeviceReporter).AttachedDevice()
++	handle := reflect.ValueOf(acc).Elem()
++	ffn := !handle.FieldByName("ffnFP16").IsZero()
++	packed := handle.FieldByName("packedAttnMode").Bool()
++	fused := !handle.FieldByName("fusions").IsNil()
++	transposed := !handle.FieldByName("combinedAttention").IsZero()
++	switch selector {
++	case "cuda":
++		if ffn || packed || fused || !transposed {
++			return fmt.Errorf("Q6 eval: expected ordinary CUDA with transposed attention")
++		}
++	case embed.CUDAFP16Selector:
++		if !ffn || !packed || !fused || transposed {
++			return fmt.Errorf("Q6 eval: expected CUDA fp16 FFN, packed attention and fusions")
++		}
++	default:
++		return fmt.Errorf("Q6 eval: unexpected selector %q", selector)
++	}
++	if device.ID != id || device.Backend != "cuda" {
++		return fmt.Errorf("Q6 eval: attached %v instead of %s", device, id)
++	}
++	path := os.Getenv("PBRAIN_Q6_EVAL_ATTACH")
++	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
++	if err != nil {
++		return err
++	}
++	_, err = fmt.Fprintf(file, "{\"q6_eval_attach\":{\"selector\":%q,\"uuid\":%q,\"cc_major\":%d,\"cc_minor\":%d,\"fp16_ffn\":%t,\"packed_attention\":%t,\"fusions\":%t,\"transposed_attention\":%t}}\n",
++		selector, device.ID, device.ComputeCapability.Major, device.ComputeCapability.Minor, ffn, packed, fused, transposed)
++	return errors.Join(err, file.Close())
+--- a/internal/embed/gemma2/gguf_cuda_test.go
++++ b/internal/embed/gemma2/gguf_cuda_test.go
+@@ -5,0 +6,6 @@
++	"crypto/sha256"
++	"encoding/binary"
++	"encoding/json"
++	"math"
++	"os"
++	"path/filepath"
+@@ -9,0 +16,2 @@
++	"github.com/pkieltyka/pbrain/internal/item"
++	"github.com/pkieltyka/pbrain/internal/semantic"
+@@ -64,0 +73,121 @@
++
++func TestQ6EvaluationLayouts(t *testing.T) {
++	dir := fixtureDir(t, "PBRAIN_TEST_GEMMA2_Q6")
++	gpu := os.Getenv("PBRAIN_Q6_EVAL_DEVICE")
++	if gpu == "" {
++		t.Fatal("set exact CUDA device UUID")
++	}
++	row := testGGUFEntry(t, q6Name)
++	reg := embed.NewRegistry(row)
++	groups := []struct {
++		name  string
++		texts []string
++	}{
++		{"59", batchFixture(t)}, {"219", q6EvalLongFixture(t)},
++	}
++	for _, precision := range []string{"fp32", "fp16"} {
++		t.Run(precision, func(t *testing.T) {
++			profile := reg.ResolveWriter(row.Model, precision, gpu)
++			if precision == "fp16" && (profile.Selector != embed.CUDAFP16Selector || profile.DeviceID != gpu) {
++				t.Fatalf("unexpected fp16 writer: %+v", profile)
++			}
++			if precision == "fp32" && profile.Selector != "" {
++				t.Fatalf("unexpected fp32 writer: %+v", profile)
++			}
++			x, err := reg.Open(t.Context(), verified(t, dir, row.Model), embed.OpenOptions{Device: gpu, Writer: profile})
++			if err != nil {
++				t.Fatal(err)
++			}
++			e := x.(*encoder)
++			t.Cleanup(func() {
++				if err := e.Close(); err != nil {
++					t.Error(err)
++				}
++			})
++			if e.cpu != nil || e.Info().Device != "cuda:0" || e.Fingerprint() != profile.Fingerprint || e.Info().Budget != 6<<30 {
++				t.Fatalf("unexpected named writer: info=%+v fingerprint=%s", e.Info(), e.Fingerprint())
++			}
++			for _, group := range groups {
++				t.Run(group.name, func(t *testing.T) {
++					texts := group.texts
++					get := func(in []string) [][]float32 {
++						t.Helper()
++						vs, err := e.Embed(t.Context(), embed.Document, in)
++						if err != nil || len(vs) != len(in) {
++							t.Fatalf("embed: %d vectors, %v", len(vs), err)
++						}
++						return vs
++					}
++					singles := make([][]float32, len(texts))
++					h := sha256.New()
++					bits := make([]byte, 4*dimension)
++					for i := range texts {
++						singles[i] = get(texts[i : i+1])[0]
++						for j, v := range singles[i] {
++							binary.LittleEndian.PutUint32(bits[4*j:], math.Float32bits(v))
++						}
++						h.Write(bits)
++					}
++					t.Logf("route=%s count=%d singleton_sha256=%x", precision, len(texts), h.Sum(nil))
++					check := func(label string, got [][]float32) {
++						t.Helper()
++						for i := range got {
++							if !sameVectorBits(singles[i], got[i]) {
++								t.Fatalf("%s differs from singleton at %d", label, i)
++							}
++						}
++						t.Logf("route=%s %s %d/%d equal", precision, label, len(got), len(singles))
++					}
++					check("packed", get(texts))
++					var split [][]float32
++					for block := range slices.Chunk(texts, 17) {
++						split = append(split, get(block)...)
++					}
++					check("split17", split)
++					rev := slices.Clone(texts)
++					slices.Reverse(rev)
++					got := get(rev)
++					slices.Reverse(got)
++					check("reversed", got)
++					prior := e.info.Budget
++					e.info.Budget = 1 << 20
++					defer func() { e.info.Budget = prior }()
++					check("1-MiB", get(texts))
++				})
++			}
++		})
++	}
++}
++
++func q6EvalLongFixture(t *testing.T) []string {
++	t.Helper()
++	var fixture struct {
++		Source string
++		Notes  []string
++	}
++	data, err := os.ReadFile(os.Getenv("PBRAIN_Q6_EVAL_219"))
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err := json.Unmarshal(data, &fixture); err != nil {
++		t.Fatal(err)
++	}
++	var texts []string
++	for _, path := range fixture.Notes {
++		data, err := os.ReadFile(filepath.Join(fixture.Source, path))
++		if err != nil {
++			t.Fatal(err)
++		}
++		h, off, _, err := item.Parse(path, data)
++		if err != nil {
++			t.Fatal(err)
++		}
++		for _, p := range semantic.Passages(h.Title, data[off:]) {
++			texts = append(texts, p.Text)
++		}
++	}
++	if len(fixture.Notes) != 22 || len(texts) != 219 {
++		t.Fatalf("unexpected fixture %d/%d", len(fixture.Notes), len(texts))
++	}
++	return texts
++}

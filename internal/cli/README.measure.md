@@ -1075,3 +1075,118 @@ remained current and sync embedded zero passages. Both fp16 indexes reported
 stale and sync embedded all 59 passages under their new fingerprints with
 zero reuse. All four results matched their fresh v0.6.7 controls by vector
 bytes.
+
+## Q6 CUDA fp16 evaluation (#67)
+
+The same evaluation binary from pbrain `38a16ea` ran both routes on the
+RTX PRO 6000 Blackwell Max-Q (CC 12.0, driver 595.112.07). The build used
+Go 1.27.3, `CGO_ENABLED=0`, `-trimpath` and the Linux amd64 release tags
+`cuda,vulkan,eg2_combined,eg2_fp16`. The three goinfer modules were the
+public v0.6.7 pins at `c26c69ed44717d86cf2218370054d5e89886b694`.
+Both routes verified the same 248,812,032-byte Unsloth UD-Q6_K_XL GGUF
+(SHA-256 `dc84f042bc3ffbe6122b3b38b2fb299d66f5f37b276c9d458db85d4a4f1e6ba3`).
+
+A scratch Go overlay gave Q6 a revision-pinned fp16 profile and recorded
+each successful attach. It checked the UUID returned by the attached
+handle and read the initialized v0.6.7 pipeline flags. The ordinary
+`cuda` route loaded the transposed-attention pipeline. The
+`cuda-eg2-fp16` route loaded the fp16 FFN, packed attention and fusions.
+Every CUDA run used the same named persistent UUID, with no fallback.
+The evaluation patch targets a disposable copy of `38a16ea` and applies
+with `git apply --unidiff-zero`. It contains the route receipt hook and
+layout test. [Evaluation overlay](../../tools/phase28/evidence/q6-cuda-fp16-67/eval-overlay.patch)
+
+### Matched indexing
+
+The #66 harness setup used fresh SQLite indexes and vector caches,
+CPUs 0–3, `GOMAXPROCS=4`, the default 6 GiB workspace and a named RTX
+selector. Two matched pairs per fixture reversed the route order under
+the timing lock. Each run started after two five-second samples at or
+below 4% host CPU busy with no NVIDIA compute client. The timer covered
+the full process, including model verification and loading. GPU peaks
+are the highest device-wide 100 ms samples across both trials.
+
+| Passages | CUDA mode | Wall s | Passages/s | Peak GPU MiB |
+| ---: | --- | ---: | ---: | ---: |
+| 219 | Ordinary | 6.88 | 31.84 | 2,130 |
+| 219 | fp16 | 6.36 | 34.45 | 1,782 |
+| 59 | Ordinary | 2.44 | 24.22 | 2,094 |
+| 59 | fp16 | 3.96 | 14.91 | 1,754 |
+
+Medians are from two samples per cell. On 219 passages the paired
+speedups were 1.083× and 1.081×. On 59 passages the fp16 runs took 1.60×
+and 1.64× as long as ordinary CUDA. Batch shapes matched between both
+routes and both trials. The 219-passage case used 110,157 positions in
+14 forwards with 13–17 inputs per call and longest inputs of 739–879
+positions. The 59-passage case used 9,271 positions in two forwards with
+55 and four inputs.
+
+| Passages | CUDA mode | Verify ms | Load ms | Attach ms | Forward ms | SQLite ms | Publish ms |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 219 | Ordinary | 202.3 | 271.4 | 1,081.9 | 4,587.2 | 6.3 | 5.6 |
+| 219 | fp16 | 200.1 | 259.2 | 2,785.2 | 2,501.8 | 6.4 | 5.8 |
+| 59 | Ordinary | 182.9 | 260.7 | 1,084.6 | 298.0 | 2.7 | 3.6 |
+| 59 | fp16 | 183.8 | 271.5 | 2,765.8 | 211.5 | 2.5 | 3.6 |
+
+SQLite sums the lookup, write, commit and checkpoint spans. Forward time
+on 219 passages fell 1.83×, while whole-sync wall time fell 7.6%. The
+longer attachment accounted for most of the difference. On the shorter
+fixture the attachment penalty outweighed the forward-time saving. fp16
+reduced the sampled peak by 348 MiB on 219 passages and 340 MiB on 59.
+
+### Vector and index checks
+
+Every fresh index passed SQLite `quick_check`. Item paths, content
+digests, CRCs and sizes matched, as did passage identities, ordinals,
+boundaries and digests. The two trials agreed by vector bytes within
+each route. The layout test compared singleton, packed, 17-input-split,
+reversed and 1 MiB-budget outputs on both fixtures. All layouts agreed
+by bits within each route, and the singleton vector hashes matched the
+published SQLite indexes.
+
+The CPU reference used the same verified Q6 file and goinfer pin. The
+minimum cosine passed 0.999 on every passage at both 768 dimensions and
+the renormalized leading 512.
+
+| Passages | CUDA mode vs CPU | Minimum at 768 | Minimum at 512 |
+| ---: | --- | ---: | ---: |
+| 219 | Ordinary | 0.999999999981 | 0.999999999981 |
+| 219 | fp16 | 0.999999122874 | 0.999999173004 |
+| 59 | Ordinary | 0.999999999997 | 0.999999999997 |
+| 59 | fp16 | 0.999999885790 | 0.999999888658 |
+
+Ordinary and fp16 CUDA differed by bytes on all 278 distinct passages.
+Their minimum and median cosines were 0.999999118237 and 0.999999926875
+at 768 dimensions on 219 passages, and 0.999999886724 and 0.999999958813
+on 59. At 512 dimensions the minima were 0.999999168657 and
+0.999999889568, with medians of 0.999999929686 and 0.999999959839.
+The largest absolute change in any stored coordinate was 0.00018084.
+
+### Retrieval and recommendation
+
+On the full #61 retrieval fixture (35 notes and 62 passages), actual
+CPU queries used the existing 0.72 cutoff against each CUDA-built
+index. The 47 answerable questions and 30 held-out unanswerable questions
+produced identical ranked IDs for each of the 77 queries in both
+semantic modes. The existing gain and abstention checks passed.
+
+| Search mode | Top 1 / 47 | Top 3 / 47 | Expected on first page / 47 | Abstained / 30 |
+| --- | ---: | ---: | ---: | ---: |
+| Strict lexical | 15 | 16 | 16 | 30 |
+| Semantic, both CUDA profiles | 39 | 42 | 42 | 30 |
+| Combined, both CUDA profiles | 39 | 42 | 42 | 30 |
+
+Recommend **explicit opt-in for Q6 fp16**, with ordinary CUDA as the
+default. The larger fixture showed a repeatable gain and lower memory
+use. On the short fixture a fresh sync took 62.5% longer. The retrieval
+results support CPU queries against either profile at the existing
+cutoff.
+
+A future Q6 fp16 profile would use vector fingerprint
+`43ce747722b0e928f7dc6218872509e69b777814e2cd4bdf4cfd13b63eedf434`
+and chunker-v1 index fingerprint
+`cbddba624bade0aca37c5aec7c6ab1b0efeeb962fca64ad76f8251a5b9250c77`
+at this goinfer revision. Switching profiles requires sync to build
+each requested section under the destination fingerprint. Cached vectors
+stay within that profile, and both share the verified model file.
+[Accepted shapes, route receipts and metrics](../../tools/phase28/evidence/q6-cuda-fp16-67/summary.json)
