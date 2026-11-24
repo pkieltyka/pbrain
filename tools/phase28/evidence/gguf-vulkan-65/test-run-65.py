@@ -55,7 +55,10 @@ def main():
               "peak_attributed_bytes": 1, "max_device_vram_delta": 1, "peak_swap_bytes": 0,
               "peak_host_rss_bytes": 1, "attributed_samples": 1, "peak_vram_bytes": 1}
     assert verify65.layout_guard_failures(layout) == []
-    assert verify65.layout_guard_failures(dict(layout, swap_void=False)) == []
+    assert not verify65.no_void("void: swap grew")
+    assert not verify65.no_void(False)
+    assert "swap_void" in verify65.layout_guard_failures(dict(layout, swap_void=False))
+    assert "swap_void" in verify65.layout_guard_failures(dict(layout, swap_void="void: swap grew"))
     for field in ("stop", "swap_void", "pageout_delta", "peak_attributed_bytes",
                   "max_device_vram_delta", "peak_swap_bytes", "peak_host_rss_bytes",
                   "attributed_samples", "peak_vram_bytes"):

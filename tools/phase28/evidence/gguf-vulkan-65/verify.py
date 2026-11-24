@@ -62,8 +62,8 @@ def numeric(result, field):
 
 
 def no_void(value):
-    """True only for the runner's no-void forms: False or None."""
-    return value is False or value is None
+    """True only for the runner's clean form: an explicit null swap_void."""
+    return value is None
 
 
 def layout_guard_failures(result):
