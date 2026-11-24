@@ -61,6 +61,39 @@ def numeric(result, field):
     return value
 
 
+def no_void(value):
+    """True only for the runner's no-void forms: False or None."""
+    return value is False or value is None
+
+
+def layout_guard_failures(result):
+    """Guard failures in a layout result; used by the verifier and host control."""
+    failures = []
+    if "stop" not in result or result.get("stop") is not None:
+        failures.append("stop")
+    if "swap_void" not in result or not no_void(result.get("swap_void")):
+        failures.append("swap_void")
+    pageout = numeric(result, "pageout_delta")
+    if pageout != 0:
+        failures.append("pageout_delta")
+    for field, cap in (("peak_attributed_bytes", ATTRIBUTED_CAP),
+                       ("max_device_vram_delta", ATTRIBUTED_CAP),
+                       ("peak_swap_bytes", CHILD_SWAP_CAP)):
+        value = numeric(result, field)
+        if value is None or value > cap:
+            failures.append(field)
+    rss = numeric(result, "peak_host_rss_bytes")
+    if rss is None or rss <= 0:
+        failures.append("peak_host_rss_bytes")
+    samples = numeric(result, "attributed_samples")
+    if samples is None or samples <= 0:
+        failures.append("attributed_samples")
+    vram = numeric(result, "peak_vram_bytes")
+    if vram is None or vram <= 0:
+        failures.append("peak_vram_bytes")
+    return failures
+
+
 def safe_db_path(index, name):
     """The database path only when name is a bare 16-hex basename inside index."""
     if not DB_NAME.match(str(name)):
@@ -141,7 +174,7 @@ class Checker:
         self.require(wall is not None and wall > 0, f"{cell.name}: no process wall")
         pageout = numeric(result, "pageout_delta")
         self.require(pageout == 0, f"{cell.name}: pageout {result.get('pageout_delta')}")
-        self.require("swap_void" in result and not result.get("swap_void"),
+        self.require("swap_void" in result and no_void(result.get("swap_void")),
                      f"{cell.name}: swap void {result.get('swap_void')}")
         load = numeric(result, "launch_load1")
         self.require(load is not None and load <= LOAD_CAP,
@@ -327,13 +360,8 @@ class Checker:
 
         layout = self.read(self.out / "layout/result.json")
         self.require(layout.get("returncode") == 0, f"layout: returncode {layout.get('returncode')}")
-        self.require(layout.get("stop") is None, f"layout: stop {layout.get('stop')}")
-        self.require(layout.get("pageout_delta") == 0, "layout: pageout")
-        self.require(not layout.get("swap_void"), "layout: swap void")
-        self.require(layout.get("peak_attributed_bytes", 0) <= ATTRIBUTED_CAP, "layout: attributed cap")
-        self.require(layout.get("attributed_samples", 0) > 0, "layout: no attribution")
-        self.require(layout.get("peak_vram_bytes", 0) > 0, "layout: no device peak")
-        self.require(layout.get("peak_attributed_bytes", 0) > 0, "layout: no attributed bytes")
+        for failure in layout_guard_failures(layout):
+            self.fail(f"layout: {failure}")
         for key in MODELS:
             receipt = self.read(self.out / "layout" / f"{MODELS[key]['name']}.json")
             self.require(receipt.get("model") == MODELS[key]["name"], f"layout {key}: model")

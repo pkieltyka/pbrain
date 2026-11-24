@@ -50,7 +50,21 @@ def main():
             nonfinite = json.loads('{"x": ' + raw + '}')
             assert verify65.numeric(nonfinite, "x") is None, (field, raw)
     assert all(verify65.numeric(complete, field) is not None for field in complete)
-    print("PASS host control: exact pid+comm exemptions, DRM aggregation, DB basename confinement and finite nonnegative guard fields")
+
+    layout = {"stop": None, "swap_void": None, "pageout_delta": 0,
+              "peak_attributed_bytes": 1, "max_device_vram_delta": 1, "peak_swap_bytes": 0,
+              "peak_host_rss_bytes": 1, "attributed_samples": 1, "peak_vram_bytes": 1}
+    assert verify65.layout_guard_failures(layout) == []
+    assert verify65.layout_guard_failures(dict(layout, swap_void=False)) == []
+    for field in ("stop", "swap_void", "pageout_delta", "peak_attributed_bytes",
+                  "max_device_vram_delta", "peak_swap_bytes", "peak_host_rss_bytes",
+                  "attributed_samples", "peak_vram_bytes"):
+        missing = dict(layout)
+        del missing[field]
+        assert field in verify65.layout_guard_failures(missing), field
+    assert "swap_void" in verify65.layout_guard_failures(dict(layout, swap_void=True))
+    assert "peak_attributed_bytes" in verify65.layout_guard_failures(dict(layout, peak_attributed_bytes=-1))
+    print("PASS host control: exact pid+comm exemptions, DRM aggregation, DB basename confinement, finite nonnegative guards and layout guard keys")
 
 
 if __name__ == "__main__":
