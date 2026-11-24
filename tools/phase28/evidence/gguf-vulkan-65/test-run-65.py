@@ -32,7 +32,19 @@ def main():
     assert verify65.safe_db_path(index, "0123456789abcdef.db") == index / "0123456789abcdef.db"
     for bad in ("../outside.db", "/tmp/outside.db", "0123456789abcdef.db/../x", "", "ABCDEF0123456789.db"):
         assert verify65.safe_db_path(index, bad) is None, bad
-    print("PASS host control: exact pid+comm exemptions, DRM aggregation and DB basename confinement")
+
+    complete = {"peak_attributed_bytes": 1, "max_device_vram_delta": 2, "peak_swap_bytes": 0}
+    for field in complete:
+        assert verify65.numeric(complete, field) == complete[field], field
+        missing = dict(complete)
+        del missing[field]
+        assert verify65.numeric(missing, field) is None, field
+        text = dict(complete, **{field: "0"})
+        assert verify65.numeric(text, field) is None, field
+        boolean = dict(complete, **{field: True})
+        assert verify65.numeric(boolean, field) is None, field
+    assert all(verify65.numeric(complete, field) is not None for field in complete)
+    print("PASS host control: exact pid+comm exemptions, DRM aggregation, DB basename confinement and required numeric guard fields")
 
 
 if __name__ == "__main__":

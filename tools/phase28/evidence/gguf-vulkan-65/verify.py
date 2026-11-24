@@ -51,6 +51,14 @@ MODELS = {
 DB_NAME = re.compile(r"^[0-9a-f]{16}\.db$")
 
 
+def numeric(result, field):
+    """The field's number, or None when absent, boolean, or not numeric."""
+    value = result.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
 def safe_db_path(index, name):
     """The database path only when name is a bare 16-hex basename inside index."""
     if not DB_NAME.match(str(name)):
@@ -126,25 +134,39 @@ class Checker:
         cellinfo = self.read(cell / "cell.json")
         sync = self.read(cell / "sync.json")
         self.require(result.get("returncode") == 0, f"{cell.name}: returncode {result.get('returncode')}")
-        self.require(result.get("stop") is None, f"{cell.name}: stop {result.get('stop')}")
-        wall = result.get("process_wall_ns", 0)
-        self.require(isinstance(wall, int) and wall > 0, f"{cell.name}: no process wall")
-        self.require(result.get("pageout_delta") == 0, f"{cell.name}: pageout {result.get('pageout_delta')}")
-        self.require(not result.get("swap_void"), f"{cell.name}: swap void {result.get('swap_void')}")
-        self.require(result.get("launch_load1", 99) <= LOAD_CAP, f"{cell.name}: launch load {result.get('launch_load1')}")
-        self.require(result.get("launch_available_mb", 0) >= HOST_NEED_MB,
+        self.require("stop" in result and result.get("stop") is None, f"{cell.name}: stop {result.get('stop')}")
+        wall = numeric(result, "process_wall_ns")
+        self.require(wall is not None and wall > 0, f"{cell.name}: no process wall")
+        pageout = numeric(result, "pageout_delta")
+        self.require(pageout == 0, f"{cell.name}: pageout {result.get('pageout_delta')}")
+        self.require("swap_void" in result and not result.get("swap_void"),
+                     f"{cell.name}: swap void {result.get('swap_void')}")
+        load = numeric(result, "launch_load1")
+        self.require(load is not None and load <= LOAD_CAP,
+                     f"{cell.name}: launch load {result.get('launch_load1')}")
+        available = numeric(result, "launch_available_mb")
+        self.require(available is not None and available >= HOST_NEED_MB,
                      f"{cell.name}: available {result.get('launch_available_mb')} MiB")
-        self.require(result.get("peak_attributed_bytes", 0) <= ATTRIBUTED_CAP,
-                     f"{cell.name}: attributed peak over cap")
-        self.require(result.get("max_device_vram_delta", 0) <= ATTRIBUTED_CAP,
-                     f"{cell.name}: device delta over cap")
-        self.require(result.get("peak_swap_bytes", 0) <= CHILD_SWAP_CAP,
+        attributed = numeric(result, "peak_attributed_bytes")
+        self.require(attributed is not None and attributed <= ATTRIBUTED_CAP,
+                     f"{cell.name}: attributed peak {result.get('peak_attributed_bytes')}")
+        delta = numeric(result, "max_device_vram_delta")
+        self.require(delta is not None and delta <= ATTRIBUTED_CAP,
+                     f"{cell.name}: device delta {result.get('max_device_vram_delta')}")
+        swap = numeric(result, "peak_swap_bytes")
+        self.require(swap is not None and swap <= CHILD_SWAP_CAP,
                      f"{cell.name}: child swap {result.get('peak_swap_bytes')}")
+        rss = numeric(result, "peak_host_rss_bytes")
+        self.require(rss is not None and rss > 0, f"{cell.name}: host RSS {result.get('peak_host_rss_bytes')}")
         expected_device = "cpu" if device == "cpu" else "vulkan"
         self.require(result.get("device") == expected_device, f"{cell.name}: device {result.get('device')}")
         if device == "vulkan":
-            self.require(result.get("attributed_samples", 0) > 0, f"{cell.name}: no attribution")
-            self.require(result.get("peak_vram_bytes", 0) > 0, f"{cell.name}: no device peak")
+            samples = numeric(result, "attributed_samples")
+            self.require(samples is not None and samples > 0,
+                         f"{cell.name}: no attribution {result.get('attributed_samples')}")
+            vram = numeric(result, "peak_vram_bytes")
+            self.require(vram is not None and vram > 0,
+                         f"{cell.name}: no device peak {result.get('peak_vram_bytes')}")
             self.require(result.get("selector") == PIN_UUID, f"{cell.name}: selector {result.get('selector')}")
 
         self.require(cellinfo.get("model") == MODELS[key]["name"], f"{cell.name}: model {cellinfo.get('model')}")
