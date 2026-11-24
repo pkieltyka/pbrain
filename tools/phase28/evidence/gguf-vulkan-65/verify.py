@@ -52,9 +52,11 @@ DB_NAME = re.compile(r"^[0-9a-f]{16}\.db$")
 
 
 def numeric(result, field):
-    """The field's number, or None when absent, boolean, or not numeric."""
+    """The field's finite nonnegative number, or None for anything else."""
     value = result.get(field)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    if not math.isfinite(value) or value < 0:
         return None
     return value
 

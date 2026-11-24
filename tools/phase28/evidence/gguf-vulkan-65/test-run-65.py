@@ -6,6 +6,7 @@ reported as foreign. This runs no model, device or build.
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("run65", Path(__file__).with_name("run-65.py"))
@@ -43,8 +44,13 @@ def main():
         assert verify65.numeric(text, field) is None, field
         boolean = dict(complete, **{field: True})
         assert verify65.numeric(boolean, field) is None, field
+        negative = dict(complete, **{field: -1})
+        assert verify65.numeric(negative, field) is None, field
+        for raw in ("NaN", "Infinity", "-Infinity"):
+            nonfinite = json.loads('{"x": ' + raw + '}')
+            assert verify65.numeric(nonfinite, "x") is None, (field, raw)
     assert all(verify65.numeric(complete, field) is not None for field in complete)
-    print("PASS host control: exact pid+comm exemptions, DRM aggregation, DB basename confinement and required numeric guard fields")
+    print("PASS host control: exact pid+comm exemptions, DRM aggregation, DB basename confinement and finite nonnegative guard fields")
 
 
 if __name__ == "__main__":
