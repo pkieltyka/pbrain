@@ -1,7 +1,12 @@
 # #65 GGUF-on-Vulkan device evidence
 
-Prepared, not run. The runner and verifier are reviewed before the device slot;
-the device stage starts only after #76 releases the queue.
+Both GGUF rows passed device acceptance on the Radeon RX 9060 XT using
+pbrain `d6cc3425edbc` and goinfer v0.6.6. The accepted evidence contains
+804 files sealed by SHA-256
+`c0145f00b2a91752435c1e3ba2d04c8e6970f615294fe9e1951119fbd480d4ce`
+of `evidence.SHA256`. The [measurement record](../../../../internal/cli/README.measure.md#gguf-on-vulkan-device-acceptance-65)
+gives the fixture, parity and batch-layout results, timings, resource peaks
+and hashes. The sealed raw run remains in local evidence storage.
 
 ## Files
 
@@ -10,7 +15,6 @@ the device stage starts only after #76 releases the queue.
 - `verify.py` — read-only verification of the complete evidence tree.
 - `fixture-paths.txt` / `fixture.SHA256` — the 32-note frozen workload.
 - `test-run-65.py` — host control: a new PID with an approved comm is foreign.
-- `../gguf-vulkan-65` receipts are produced only by a run and are not in Git.
 
 ## Review gate
 
