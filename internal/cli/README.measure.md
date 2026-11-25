@@ -1305,3 +1305,206 @@ from about 4,240 to 3,980 positions/s. Forward throughput per position fell
 about 6% on the longer fixture. The cause of that difference was not determined.
 
 [Capture and verification](../../tools/phase28/evidence/metal-69/README.md)
+
+## Rule 3 and full-size sync refresh (#32)
+
+### Pax (Linux)
+
+2026-11-25. Pax, Ryzen 9 7950X and RTX PRO 6000 Blackwell Max-Q,
+driver 595.112.07. The release is v0.4.6 at `76aea82`, pinned to goinfer
+v0.6.8. Both published Linux amd64 archives matched the release SHA-256
+checksums. The suite held the host timing lock and checked for foreign
+NVIDIA compute before and throughout each timed command. Google CUDA and
+both Rule 3 arms used `GOMAXPROCS=4` on CPUs 8–11, matching #22's cores.
+Those cores and their SMT siblings were at most 2.0% busy in the two
+Rule 3 preflight samples. The entire host was 5.5–6.7% busy in those
+samples.
+
+#### Check, open and first query
+
+Five pairs alternated one fresh process per arm. The pinned Google text
+pack was primed in the filesystem cache. Each timed iteration strictly
+verified its digests, loaded the model, embedded the same query as #22,
+and closed the encoder. The CUDA arm includes device resolution and
+attachment. The CPU benchmark is untagged. The CUDA benchmark uses the
+published tag set `cuda,vulkan,eg2_combined,eg2_fp16` and a scratch-only
+test override that requests and checks `cuda-eg2-fp16` on the RTX UUID.
+Both benchmarks used the released source with Go 1.27.3. Normal
+`pbrain search --semantic` embeds its query on the CPU.
+
+| Arm | Five fresh samples (ms) | Median (ms) | Range (ms) | Below 600 ms |
+| --- | --- | ---: | ---: | ---: |
+| Untagged CPU | 354.7, 361.4, 360.8, 359.7, 371.3 | 360.8 | 354.7–371.3 | 5/5 |
+| Google CUDA fp16 | 1,029.3, 824.7, 959.3, 893.5, 887.2 | 893.5 | 824.7–1,029.3 | 0/5 |
+
+The earlier #22 CUDA median was 1,049.7 ms under higher load. The matched
+fresh-process #32 rerun measured 353.2 ms for CPU (347.1–357.6) and
+840.0 ms for CUDA (806.6–912.9). The earlier 286.2 ms CPU median
+(282.9–353.3) came from five iterations in a single process. The v0.4.6
+strict-verification CPU arm still clears 600 ms. The CUDA arm exceeds it
+in every sample. These are comparisons with historical runs across
+different commits, GPU kernels and start conditions.
+
+#### Full 5,000-item sync
+
+The retained #22 corpus contains 4,500 shared and 500 personal Markdown
+notes, totaling 50,000,000 bytes. We checked all paths and content against
+the old corpus before restoring its original one-note increment. Fresh
+runs started with empty indexes and vector caches. The checksum-verified
+release GPU binary (Go 1.27.0) ran `pbrain --personal sync --json` with
+the RTX selected by persistent UUID and CUDA precision left at its
+default. The two published manifests confirm the expected v0.6.8 fp16
+fingerprint for each Gemma row. Both rows embedded all 48,511 passages
+and passed SQLite `quick_check` in both sections.
+
+| Sync | Wall time (s) | Passages/s | Peak host RSS (MiB) | Sampled device peak (MiB) |
+| --- | ---: | ---: | ---: | ---: |
+| #22 Google CUDA, goinfer v0.5.0 | 4,181.3 | 11.60 | 4,758.0 | 1,314 |
+| v0.4.6 Google CUDA fp16 | 517.4 | 93.76 | 2,866.1 | 1,788 |
+| v0.4.6 Q8_0 CUDA fp16 | 522.8 | 92.78 | 2,611.7 | 1,788 |
+| v0.4.6 Google CUDA fp16, one new personal note | 2.00 | — | 1,927.4 | 802 |
+
+The Google pack ran about 8.08× as fast as #22 on this fixture. Software
+and host load also changed between those runs. The device columns use
+different sampling methods. This refresh sampled total RTX use every
+250 ms, against #22's compute-process memory sample roughly every three
+seconds. The one-note run embedded exactly one new personal passage
+and zero shared passages. It reused the installed model pack. Its earlier
+#22 counterpart took 2.386 s.
+
+The full Linux runs had tracing off. The 250 ms GPU samples had a median
+utilization of 91% for Google (2,068 samples) and 90% for Q8_0
+(2,090 samples).
+
+The optional Linux BGE run used a whole-host idle gate for the 32-worker
+baseline. All 36 preflight samples exceeded 4% busy (4.9–9.5%), so
+the BGE sync did not start.
+
+### Apple M4 (macOS)
+
+Apple M4 arm64 with 10 logical CPUs, 10 GPU cores and 24 GiB of unified memory,
+macOS 27.2.1 (26B131). The host had 339 GiB free. The last two read-only
+preflight samples were 99.14% and 99.80% idle. Go 1.27.4 was already
+installed. The run used one home scratch directory for the model,
+corpus, Go build and module caches, temporary files, installs and
+pbrain cache. The Mac's existing Go telemetry mode was `local`, with
+counters in `~/Library/Application Support/go/telemetry`. That mode and
+directory stayed as configured.
+
+| Published v0.4.6 archive | SHA-256 |
+| --- | --- |
+| `pbrain_0.4.6_darwin_arm64.tar.gz` | `5affedee4a0806e0c6e77b4fa7b0ac29391d0081157e50e4cbad20d594864f74` |
+| `pbrain_0.4.6_darwin_arm64_cpu.tar.gz` | `05f9330e28027ae2fadadb5baf7aedeb6557070194c28adcb232a5ef52e213b9` |
+
+Both named archive checksum entries were present exactly once and passed
+`shasum -a 256 -c` on the Mac. Both extracted binaries reported
+`v0.4.6`. Untagged and `-tags metal` installs from `@v0.4.6` with
+`CGO_ENABLED=0` also reported `v0.4.6` from their scratch `GOBIN`s.
+The browser-style quarantine xattr was set on a separate scratch copy
+of the Metal archive binary. That copy's `--version` did not complete
+within the 20-second SSH test bound. A separate
+`spctl --assess --type execute --verbose=4` check returned exit 3 and
+`rejected`. The focused system logs showed no matching entry, so the
+cause of the original stalled launch remains unknown.
+
+#### CPU Rule 3
+
+The existing `BenchmarkBgeFirstQuery`, `BenchmarkGemmaFirstQuery`
+and `BenchmarkGemmaQ8FirstQuery` ran unmodified from the v0.4.6 source.
+Each row used five fresh native processes, `GOMAXPROCS=4` and primed
+model bytes. The measured iteration verified the pinned digest, loaded
+the model, embedded the first query and closed the encoder.
+
+| CPU model | Five fresh samples (ms) | Median (ms) | Range (ms) | Below 600 ms |
+| --- | --- | ---: | ---: | ---: |
+| bge-small | 99.4, 66.1, 69.8, 67.7, 66.4 | 67.7 | 66.1–99.4 | 5/5 |
+| Google Gemma pack | 221.8, 200.4, 209.1, 202.8, 204.1 | 204.1 | 200.4–221.8 | 5/5 |
+| Q8_0 GGUF | 306.0, 306.9, 306.3, 306.9, 315.3 | 306.9 | 306.0–315.3 | 5/5 |
+
+The 600 ms target applies to the CPU query path in every release build.
+Metal attach cost is measured in the sync trace.
+
+#### Full 5,000-item sync
+
+After scp, the runner checked the 5,000 note paths and file bytes on
+the Mac against the original #22 fixture. The fixture digest was
+`2cbd38cde77fdc6f1d67949e50efd40d261d9f0a79d6bda5a759a854218db490`.
+The shared and personal sections started with empty indexes and caches.
+The released Metal binary ran with four Go workers and `--device metal`.
+Its preflight idle samples were 98.9% and 98.6%. The released CPU binary
+ran BGE separately with ten Go workers after 99.90% and 98.35% idle samples.
+Both sections passed SQLite `quick_check` for each model. The Q8_0 manifests
+confirmed the default `metal-eg2-combined-v1` writer fingerprint.
+
+| Sync | Wall time (s) | Passages/s | Peak host RSS (MiB) | Sampled device peak (MiB) |
+| --- | ---: | ---: | ---: | ---: |
+| Q8_0 default Metal, 48,511 passages | 5,288.0 | 9.17 | 3,305.5 | — |
+| BGE small CPU, 48,511 passages | 3,064.8 | 15.83 | 1,594.3 | — |
+| Q8_0 default Metal, one new personal note | 1.152 | — | 2,127.3 | — |
+
+Metal uses unified memory. The runtime did not provide a separate
+device peak. macOS `time -l` reported peak process footprints of
+3,261.1 MiB for the Metal run, 1,545.9 MiB for BGE and 2,131.2 MiB for the
+increment. Both full runs embedded 43,642 shared and 4,869 personal
+passages. Adding the same personal note as #22 embedded one new passage
+and left the shared generation intact. The full sync trace recorded
+attach spans of 167.4 ms for shared and 39.8 ms for personal. The
+increment attached in 39.8 ms and 38.1 ms respectively, including the
+shared no-op profile check.
+The Metal timings include the trace instrumentation.
+
+| Full Metal Q8_0 span | Total (s) |
+| --- | ---: |
+| Model digest verification | 0.261 |
+| Model decode | 0.272 |
+| Device attachment | 0.207 |
+| Tokenization and preparation | 8.985 |
+| Forward | 5,245.937 |
+| SQLite lookup, write, commit and checkpoint | 5.004 |
+| Vector cache writes | 13.187 |
+| Publish | 14.556 |
+
+The 48,511 singleton forwards handled 24,475,852 prepared positions
+(median 535 per passage, range 27–902) at 4,666 positions/s. Forward
+spans account for 99.2% of sync wall time and include time inside the
+backend on the host and device. Tokenization and preparation account
+for 0.17%. macOS `time -l` recorded 163.94 s of user and 37.17 s of system
+CPU time, averaging 3.8% of one logical CPU. The capture has no Metal
+GPU utilization samples or kernel timings. The traced
+[#69 matrix](#apple-silicon-metal-q8-indexing-69) used the same
+219-passage Q8_0 fixture across devices. It measured 23.254 s of Metal
+forward time in 219 singletons and 2.276 s of RTX forward time in
+14 packed calls.
+
+#### Warm semantic search
+
+The released Metal archive ran `pbrain search --semantic --json` with
+four Go workers and the same exact and paraphrase queries as #22. Each
+row has one untimed priming query followed by five fresh processes.
+The Q8_0 measurements read the full Metal-built index before adding
+the incremental note. Each query used the CPU.
+
+| Model | View and query | Median (ms) | Range (ms) | Below 1 s |
+| --- | --- | ---: | ---: | ---: |
+| Q8_0 | Shared, exact | 474.0 | 460.3–482.6 | 5/5 |
+| Q8_0 | Shared, paraphrase | 458.5 | 455.3–479.5 | 5/5 |
+| Q8_0 | Personal, exact | 484.4 | 481.2–501.2 | 5/5 |
+| Q8_0 | Personal, paraphrase | 478.7 | 478.3–483.0 | 5/5 |
+| BGE small | Shared, exact | 276.9 | 275.8–278.6 | 5/5 |
+| BGE small | Shared, paraphrase | 273.9 | 273.7–275.3 | 5/5 |
+| BGE small | Personal, exact | 296.5 | 296.1–298.5 | 5/5 |
+| BGE small | Personal, paraphrase | 294.5 | 293.2–295.3 | 5/5 |
+
+#### Native Go suite
+
+Native `go test ./...` ran from v0.4.6 with Go 1.27.4, `CGO_ENABLED=0`,
+four Go workers and package parallelism two. Untagged and `-tags metal`
+each had 24 passing packages and two with no test files. Each hit the
+same three pre-#1 lock failures:
+`cmd/pbrain TestScenarios/14-concurrent-writers`,
+`internal/cli TestConcurrentSettingsWriters` and
+`internal/semantic TestModelProvisionShared`.
+
+Local review receipts are under `/var/tmp/pbrain-rule3-046.dE76IE` on pax.
+They include the release checksum checks, raw timings, compact Metal
+forward records and the native Go logs.
