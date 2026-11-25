@@ -256,6 +256,45 @@ var fromEnv = h.Transport{Proxy: h.ProxyFromEnvironment}
 	}
 }
 
+func TestRuntimeAuditRejectsEagerDecoderEnvHelper(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"cpu_gateup_fused.go": `package decoder
+import "os"
+func envBoolDefault(name string, def bool) bool { return os.Getenv(name) != "" }
+`,
+		"env_snapshot.go": `package decoder
+func readSettings() {
+	_ = envBoolDefault("GOINFER_W4A8_BATCH", false)
+	_ = envBoolDefault("GOINFER_CPU_FUSED_GATEUP", false)
+}
+var eager = envBoolDefault("GOINFER_CPU_FUSED_GATEUP", false)
+func init() { _ = envBoolDefault("GOINFER_W4A8_BATCH", false) }
+var escaped = envBoolDefault
+`,
+	}
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var graph bytes.Buffer
+	pkg := runtimePackage{Dir: dir, ImportPath: decoderPkg, GoFiles: []string{"cpu_gateup_fused.go", "env_snapshot.go"},
+		Module: &runtimeModule{Path: goinferModule, Version: auditedPin}}
+	if err := json.NewEncoder(&graph).Encode(pkg); err != nil {
+		t.Fatal(err)
+	}
+	_, got := reviewRuntimeGraph(t, &graph, linuxAMD64GPU, nil)
+	want := []string{
+		decoderPkg + `/env_snapshot.go:6 (eager) uses decoder.envBoolDefault "GOINFER_CPU_FUSED_GATEUP"`,
+		decoderPkg + `/env_snapshot.go:7 (init) uses decoder.envBoolDefault "GOINFER_W4A8_BATCH"`,
+		decoderPkg + `/env_snapshot.go:8 (escaped) uses decoder.envBoolDefault <indirect>`,
+	}
+	if !slices.Equal(got, want) {
+		t.Fatalf("decoder helper findings %q, want %q", got, want)
+	}
+}
+
 func TestRuntimeAuditRejectsStaleStartupException(t *testing.T) {
 	// Simulate restoring one of the startup exceptions cleared by goinfer #70.
 	old := runtimeSite{decoderPkg + "/deltanet.go", "deltaNetTiming", "os.Getenv", `"GOINFER_DELTANET_TIMING"`}
@@ -317,8 +356,17 @@ func auditRuntimeFile(t *testing.T, filename, label string, report func(int, run
 	visit := func(n ast.Expr, stack []ast.Node, symbol, argument string) {
 		report(positions.Position(n.Pos()).Line, runtimeSite{label, runtimeScope(stack), symbol, argument})
 	}
+	isDecoder := path.Dir(label) == decoderPkg
 	ast.PreorderStack(f, nil, func(node ast.Node, stack []ast.Node) bool {
 		switch n := node.(type) {
+		case *ast.Ident:
+			// Audit callers even when the list of known startup violations is empty.
+			// A reference outside a direct call could escape and run at init time.
+			if isDecoder && n.Name == "envBoolDefault" {
+				if decl, ok := stack[len(stack)-1].(*ast.FuncDecl); !ok || decl.Name != n {
+					visit(n, stack, "decoder.envBoolDefault", runtimeArgument(n, stack))
+				}
+			}
 		case *ast.SelectorExpr:
 			if pkg, ok := n.X.(*ast.Ident); ok {
 				p := imports[pkg.Name]

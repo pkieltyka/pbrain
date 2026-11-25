@@ -1,0 +1,5 @@
+# Audit decoder environment-helper callers (#63)
+
+Count references to goinfer decoder's package-private `envBoolDefault` in the existing release-source AST scan, even when the known startup-violation list is empty. Skip the declaration. In `audit_sites_test.go`, allow one direct call from `env_snapshot.go/readSettings` for each of the two reviewed keys on the pinned version. The existing allowance for the helper's own `os.Getenv(name)` still applies. Any other caller, key, duplicate or escaped reference goes through the usual audit finding. This is a check of direct references to this helper; a whole-program call graph is outside #63.
+
+First reproduce the missed package initializer through `reviewRuntimeGraph` on a synthetic linked decoder package. Include both approved first-use calls, an explicit `init` invocation and an escaped function value. Then enable the caller check in `audit_test.go`, verify the exact findings with no startup exceptions, and run `TestRuntimeEnvAndOutput` on all seven release graphs.
