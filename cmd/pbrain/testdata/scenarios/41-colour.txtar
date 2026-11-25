@@ -26,7 +26,7 @@ nocolor $WORK/get-colour $WORK/get-stripped
 cmp $WORK/get-stripped $WORK/get-plain
 
 # The same bytes reach a terminal as a pipe, with output translation off. Where no pseudo-terminal
-# can be used (on macOS: the Mac backlog), ptyskip logs the reason.
+# can be used, ptyskip logs the reason.
 [!pty] ptyskip
 [pty] ptyout $WORK/search-tty pbrain-test search zebra
 [pty] cmp $WORK/search-tty $WORK/search-plain

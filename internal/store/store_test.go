@@ -352,8 +352,13 @@ func TestLockWaitPolicies(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	start := time.Now()
-	if _, err := Begin(ctx, b, item.Shared); code(err) != "io" || time.Since(start) > time.Second {
+	if _, err := Begin(ctx, b, item.Shared); code(err) != "io" || err.Error() != "another pbrain command holds this section's lock; try again" || time.Since(start) > time.Second {
 		t.Fatalf("a cancelled wait: %v", err)
+	}
+
+	faulty := w.openWith(&faultFiles{Files: sys.Native(), failLock: true})
+	if _, err := Begin(context.Background(), faulty, item.Shared); code(err) != "io" || err.Error() != "the section's lock cannot be taken" {
+		t.Fatalf("a failed lock: %v", err)
 	}
 
 	// TryLock makes one attempt and never waits: ErrLocked while another descriptor of this
@@ -700,8 +705,7 @@ func TestScannedRoutesAreReleased(t *testing.T) {
 func TestNameAdmission(t *testing.T) {
 	w := newWorld(t)
 	// A name that is not valid UTF-8 can be set up only where the file system keeps one; APFS refuses
-	// it, and there the line-feed and U+FFFD stems are still checked (the macOS side of the rest is in
-	// the Mac backlog).
+	// it, and there the line-feed and U+FFFD stems are still checked.
 	bad := os.WriteFile(filepath.Join(t.TempDir(), "x\xff"), nil, 0o600) == nil
 	if bad {
 		w.write("p/docs/brain/notes/x\xff.md", note("Bad name"))
@@ -709,7 +713,7 @@ func TestNameAdmission(t *testing.T) {
 		w.write("p/docs/brain/dup/x\xff.md", "---\nkind: note\nkind: note\n---\n")
 		w.write("p/docs/brain/odd\xfe/good-stem.md", note("Under an odd folder"))
 	} else {
-		t.Log("names that are not valid UTF-8 are not set up: the file system refuses them; macOS tracked in the Mac backlog")
+		t.Log("names that are not valid UTF-8 are not set up: the file system refuses them")
 	}
 	w.write("p/docs/brain/notes/x\uFFFD.md", note("Real replacement character"))
 	w.write("p/docs/brain/notes/a\nb.md", note("Line feed"))

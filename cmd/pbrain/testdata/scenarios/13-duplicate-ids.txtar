@@ -11,7 +11,7 @@ pbrain list --tag same --limit 1 --offset 1 --json
 ids results mixed
 
 # Two ids equal but for case need a file system that keeps both names (APFS by default does not).
-[!casedistinct] fsnote 'the file system does not keep Mixed.md and mixed.md apart; macOS tracked in the Mac backlog'
+[!casedistinct] fsnote 'the file system does not keep Mixed.md and mixed.md apart'
 [casedistinct] cp docs/brain/a/Mixed.md docs/brain/b/Mixed.md
 [casedistinct] status 1 pbrain verify Mixed --json
 [casedistinct] stderr 'ambiguous_id'
@@ -20,7 +20,13 @@ ids results mixed
 
 # Composed and decomposed café are two ids, which needs a file system that keeps both names (APFS
 # takes them as one).
-[!nfdistinct] fsnote 'the file system takes composed and decomposed café as one name; macOS tracked in the Mac backlog'
+[!nfdistinct] fsnote 'the file system takes composed and decomposed café as one name'
+[!nfdistinct] pbrain get café --json
+[!nfdistinct] stdout '"id":"café"'
+[!nfdistinct] status 1 pbrain get café --json
+[!nfdistinct] stderr '"code":"not_found"'
+[!nfdistinct] pbrain list --json
+[!nfdistinct] stdout -count=1 '"id":"café"'
 [nfdistinct] bytefile $WORK/cafe-nfd.md 'docs/brain/cafe\u0301.md'
 [nfdistinct] pbrain search café --json
 [nfdistinct] ids results café

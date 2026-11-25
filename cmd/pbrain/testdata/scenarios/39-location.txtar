@@ -109,7 +109,7 @@ stdout 'koala-mine'
 
 
 # Names that are not valid UTF-8 need a file system that keeps them (APFS refuses them).
-[!badnames] skip 'the file system refuses names that are not valid UTF-8; macOS tracked in the Mac backlog'
+[!badnames] skip 'the file system refuses names that are not valid UTF-8'
 
 # Under a folder whose name is not valid UTF-8 the result has no path, and ? in text; nothing names
 # the other folder whose name holds U+FFFD at that place.

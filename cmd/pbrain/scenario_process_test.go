@@ -78,7 +78,15 @@ func (f *scenarioFiles) Stat(d sys.Dir, n string) (sys.FileInfo, error) {
 func (f *scenarioFiles) OpenRegular(d sys.Dir, n string) (sys.RegularFile, error) {
 	return f.Files.OpenRegular(unwrapDir(d), n)
 }
-func (f *scenarioFiles) Lock(ctx context.Context, d sys.Dir, n string) (io.Closer, error) {
+func (f *scenarioFiles) Lock(ctx context.Context, d sys.Dir, n string) (closer io.Closer, err error) {
+	if log := os.Getenv("PBRAIN_TEST_LOCKLOG"); log != "" {
+		// Record why a lock failed, which the command's own message does not say, for parallel-add.
+		defer func() {
+			if err != nil {
+				os.WriteFile(log, []byte(err.Error()+"\n"), 0o600) //nolint:errcheck // best effort
+			}
+		}()
+	}
 	if f.mode == "barrier" {
 		f.mode = "" // only the first lock in this child
 		ready := os.NewFile(3, "ready")
@@ -155,7 +163,7 @@ func parallelAdd(ts *testscript.TestScript, neg bool, args []string) {
 		for _, key := range []string{"PATH", "HOME", "GIT_CONFIG_NOSYSTEM", "GIT_CONFIG_GLOBAL", "PBRAIN_TEST_NOW", "TZ", "GOMAXPROCS"} {
 			cmd.Env = append(cmd.Env, key+"="+ts.Getenv(key))
 		}
-		cmd.Env = append(cmd.Env, "PBRAIN_TEST_FAULT=barrier")
+		cmd.Env = append(cmd.Env, "PBRAIN_TEST_FAULT=barrier", "PBRAIN_TEST_LOCKLOG="+filepath.Join(ts.Getenv("WORK"), fmt.Sprintf("locklog-%d", i)))
 		cmd.Stdout, cmd.Stderr = &outs[i], &diags[i]
 		cmd.ExtraFiles = []*os.File{readyW, gateR}
 		ts.Check(cmd.Start())
@@ -181,7 +189,8 @@ func parallelAdd(ts *testscript.TestScript, neg bool, args []string) {
 				Error struct{ Code, Message string }
 			}
 			if cmd.ProcessState.ExitCode() != 1 || outs[i].Len() != 0 || json.Unmarshal(diags[i].Bytes(), &diag) != nil || diag.Error.Code != "invalid" || !strings.Contains(diag.Error.Message, "already replaced") {
-				ts.Fatalf("writer failed: %v: %s %s", err, &diags[i], &outs[i])
+				lockErr, _ := os.ReadFile(filepath.Join(ts.Getenv("WORK"), fmt.Sprintf("locklog-%d", i)))
+				ts.Fatalf("writer failed: %v: %s %s (lock: %s)", err, &diags[i], &outs[i], lockErr)
 			}
 			failures++
 			continue
