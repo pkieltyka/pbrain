@@ -18,7 +18,7 @@ Only a person moves an issue into Todo. That column means the operator may assig
 
 @pm owns tracker writes, or the operator when there is no @pm. Members report discoveries to that owner, who records them in Backlog. Record owner, criteria, branch or commit, verdict and next step on the issue, as comments. Integrated work is closed (`todos close N --reason completed --comment '<commit>'`) and moves to Done.
 
-Check the board with `todos board --json`; pass `--project pkieltyka/3` if it shows another. Check failures with `todos doctor --json`; reconcile an uncertain write before retrying. Never run `todos rm`; close instead, after confirmed integration. A change counts as integrated only when its GitHub Actions run is green on Linux. macOS is out of scope for now: its CI test jobs are commented out and Mac work (#1, #9) is on the Backlog.
+Check the board with `todos board --json`; pass `--project pkieltyka/3` if it shows another. Check failures with `todos doctor --json`; reconcile an uncertain write before retrying. Never run `todos rm`; close instead, after confirmed integration. A change counts as integrated only when its GitHub Actions run is green on Linux and on macOS. Native Mac measurements (#9) and binary signing (#70) are tracked on the board.
 
 ## Workflow
 
