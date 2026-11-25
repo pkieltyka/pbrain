@@ -547,8 +547,11 @@ and [database comparisons](../../tools/phase28/evidence/bge-pax-34/database-comp
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
-amd64 and arm64. The Darwin binaries are only built: running them is
-deferred with macOS (architecture §17). Once a release tag is available,
+amd64 and arm64. Darwin arm64 Metal is qualified for Q8 indexing and CPU
+search on Apple M4. The broader Darwin test and workload coverage remains
+deferred (architecture §17). [Completed M4 qualification](#apple-silicon-metal-q8-indexing-69)
+
+Once a release tag is available,
 verify versioned install in a scratch directory by setting `GOBIN` there
 and running
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@"$PBRAIN_RELEASE_TAG"`.
