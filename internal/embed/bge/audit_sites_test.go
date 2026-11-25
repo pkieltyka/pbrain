@@ -9,6 +9,8 @@ var dormantRuntimeSites = map[runtimeSite]string{
 	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_FAKEQUANT_ACT"`}:                       "decoder first-use settings",
 	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_FAKEQUANT_EXPERTS"`}:                   "decoder first-use settings",
 	{decoderPkg + "/env_snapshot.go", "readSettings", "os.Getenv", `"GOINFER_W4A8_SPLITHALF"`}:                      "decoder first-use settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "decoder.envBoolDefault", `"GOINFER_W4A8_BATCH"`}:             "decoder first-use boolean settings",
+	{decoderPkg + "/env_snapshot.go", "readSettings", "decoder.envBoolDefault", `"GOINFER_CPU_FUSED_GATEUP"`}:       "decoder first-use boolean settings",
 	{decoderPkg + "/cpu_gateup_fused.go", "envBoolDefault", "os.Getenv", "name"}:                                    "decoder first-use boolean settings",
 	{cudaModule + "/graphs_safe.go", "(*cudaResident).graphsTenancySafe", "os.Getenv", `"CUDA_MPS_PIPE_DIRECTORY"`}: "resident decoder graph tenancy",
 	{cudaModule + "/graphs_safe.go", "(*cudaResident).admitGraphs", "os.Getenv", `"GOINFER_CUDA_GRAPHS_UNSAFE"`}:    "resident decoder graph admission",
