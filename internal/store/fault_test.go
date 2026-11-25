@@ -19,7 +19,7 @@ import (
 // faultFiles is the native seam with chosen failures in the folder operations of a write.
 type faultFiles struct {
 	sys.Files
-	failLink, failRemove, failSync, failReplace bool
+	failLock, failLink, failRemove, failSync, failReplace bool
 }
 
 type faultDir struct {
@@ -55,6 +55,9 @@ func (f *faultFiles) OpenRegular(d sys.Dir, name string) (sys.RegularFile, error
 	return f.Files.OpenRegular(unwrap(d), name)
 }
 func (f *faultFiles) Lock(ctx context.Context, d sys.Dir, name string) (io.Closer, error) {
+	if f.failLock {
+		return nil, errInjected
+	}
 	return f.Files.Lock(ctx, unwrap(d), name)
 }
 func (f *faultFiles) TryLock(d sys.Dir, name string) (io.Closer, error) {

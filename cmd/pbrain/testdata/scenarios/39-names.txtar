@@ -35,7 +35,7 @@ stdout '^error bad_front_matter "docs/brain/bad\\u000apath.md"  duplicate_key$'
 byterm 'docs/brain/bad\npath.md'
 
 # Names that are not valid UTF-8 need a file system that keeps them (APFS refuses them).
-[!badnames] skip 'the file system refuses names that are not valid UTF-8; macOS tracked in the Mac backlog'
+[!badnames] skip 'the file system refuses names that are not valid UTF-8'
 
 # Of the stems 78 ff and 78 ef bf bd only the second is an item: a search returns it alone, with its
 # path, and one notice counts the other.

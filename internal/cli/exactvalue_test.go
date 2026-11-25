@@ -169,8 +169,8 @@ func TestRefusedReplacesTargetIsOneToken(t *testing.T) {
 }
 
 // badNamesSkip is why a case that needs a name that is not valid UTF-8 is skipped where the file
-// system refuses one (APFS); the macOS side is in the Mac backlog.
-const badNamesSkip = "the file system refuses names that are not valid UTF-8; macOS tracked in the Mac backlog"
+// system refuses one (APFS).
+const badNamesSkip = "the file system refuses names that are not valid UTF-8"
 
 // badNamesKept reports whether the file system under the test's temporary folder keeps such a name.
 func badNamesKept(t *testing.T) bool {

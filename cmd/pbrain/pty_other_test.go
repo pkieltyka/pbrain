@@ -1,4 +1,4 @@
-//go:build !linux
+//go:build !linux && !darwin
 
 package main
 
@@ -7,9 +7,8 @@ import (
 	"testing"
 )
 
-// ptySkipReason is why the terminal checks of scenario 41 do not run here: the pseudo-terminal code
-// is Linux only, and the macOS run is an item of the Mac backlog.
-const ptySkipReason = "pty checks run on Linux only; macOS tracked in the Mac backlog"
+// ptySkipReason records which platforms implement the terminal checks.
+const ptySkipReason = "pty checks run on Linux and Darwin"
 
 func ptyAvailable() bool { return false }
 

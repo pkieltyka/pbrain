@@ -140,6 +140,17 @@ jobs:
           CGO_ENABLED: "1"
         run: go test -race ./...
 
+      - name: confirm scenario 41 exercised the pseudo-terminal
+        env:
+          CGO_ENABLED: ${{ matrix.mode == 'race' && '1' || '0' }}
+          GOFLAGS: ${{ matrix.mode == 'race' && '-race' || '' }}
+        run: |
+          log="$RUNNER_TEMP/pbrain-pty.log"
+          go test -count=1 -v -run '^(TestColourPipeAndTerminal|TestScenarios)$/^41-colour$' ./cmd/pbrain | tee "$log"
+          grep -F -- '--- PASS: TestColourPipeAndTerminal' "$log"
+          grep -F -- '--- PASS: TestScenarios/41-colour' "$log"
+          if grep -F 'skipped:' "$log"; then exit 1; fi
+
   macos-archives:
     name: macOS arm64 release archives
     needs: check
