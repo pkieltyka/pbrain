@@ -30,6 +30,7 @@ const (
 	goinferModule = "github.com/pkieltyka/goinfer"
 	cudaModule    = goinferModule + "/backend/cuda"
 	vulkanModule  = goinferModule + "/backend/vulkan"
+	metalModule   = goinferModule + "/backend/metal"
 	decoderPkg    = goinferModule + "/decoder"
 	auditedPin    = "v0.6.8"
 )
@@ -112,7 +113,8 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 	}
 	if checked[bertPackage] == 0 || checked[bertKernels] == 0 || checked[goinferModule] == 0 ||
 		(slices.Contains(tags, "cuda") != (checked[cudaModule] > 0)) ||
-		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) {
+		(slices.Contains(tags, "vulkan") != (checked[vulkanModule] > 0)) ||
+		(slices.Contains(tags, "metal") != (checked[metalModule] > 0)) {
 		t.Fatalf("incomplete runtime graph for tags %v: %v", tags, checked)
 	}
 	t.Logf("audited %v with release tags %v", checked, tags)

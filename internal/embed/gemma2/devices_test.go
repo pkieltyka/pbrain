@@ -179,7 +179,7 @@ func TestUnifiedDeviceListing(t *testing.T) {
 		{Backend: "cuda", Err: errors.Join(embeddinggemma2.ErrNoDevice, closeFailure)},
 		{Backend: "vulkan", Err: errors.Join(absent, listFailure)},
 	}
-	listing := deviceListing(raw, failures, true)
+	listing := deviceListing(raw, failures, true, false)
 	devices := listing.Sorted()
 	if len(devices) != 3 || devices[0].Persistent != cuda1.ID || devices[1].Persistent != cuda0.ID ||
 		devices[1].Memory != "live" || devices[1].FreeBytes != 0 || devices[2].Persistent != vk.ID ||
@@ -193,7 +193,7 @@ func TestUnifiedDeviceListing(t *testing.T) {
 	if err := listing.Failed["vulkan"]; !errors.Is(err, listFailure) || errors.Is(err, absent) {
 		t.Fatalf("Vulkan partial failure: %v", err)
 	}
-	q8 := deviceListing(raw, failures, false)
+	q8 := deviceListing(raw, failures, false, false)
 	if len(q8.Devices) != 2 || len(q8.Failed) != 1 || !errors.Is(q8.Failed["cuda"], closeFailure) {
 		t.Fatalf("CUDA-only listing includes an ineligible backend: %+v", q8)
 	}

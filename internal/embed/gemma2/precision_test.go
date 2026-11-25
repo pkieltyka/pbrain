@@ -77,7 +77,7 @@ func TestCUDAInventoryProfileEligibility(t *testing.T) {
 		raw := embeddinggemma2.DeviceInfo{
 			Backend: "cuda", ID: uuid, Alias: "cuda:0", TextBatching: true, ComputeCapability: cc,
 		}
-		listing := deviceListing([]embeddinggemma2.DeviceInfo{raw}, nil, false)
+		listing := deviceListing([]embeddinggemma2.DeviceInfo{raw}, nil, false, false)
 		if len(listing.Devices) != 1 {
 			t.Fatalf("lost the CUDA fixture: %+v", listing)
 		}

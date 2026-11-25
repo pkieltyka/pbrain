@@ -145,7 +145,7 @@ func TestGGUFDevicePolicy(t *testing.T) {
 		row("cuda", "cuda:0", "cuda:GPU-zero", embeddinggemma2.MemoryLive, 8*gib),
 		row("vulkan", "vulkan:0", "vulkan:uuid0", embeddinggemma2.MemoryEstimated, 19*gib),
 	}
-	withVulkan := deviceListing(raw, nil, true)
+	withVulkan := deviceListing(raw, nil, true, false)
 	if len(withVulkan.Devices) != 2 {
 		t.Fatalf("Vulkan-enabled listing = %+v", withVulkan)
 	}
@@ -153,27 +153,19 @@ func TestGGUFDevicePolicy(t *testing.T) {
 		got.Persistent != "vulkan:uuid0" || got.FreeBytes != 19*gib {
 		t.Fatalf("unexpected Vulkan row: %+v", got)
 	}
-	cudaOnly := deviceListing(raw, nil, false)
+	cudaOnly := deviceListing(raw, nil, false, false)
 	if len(cudaOnly.Devices) != 1 || cudaOnly.Devices[0].Backend != "cuda" {
 		t.Fatalf("CUDA-only listing = %+v", cudaOnly)
 	}
 
-	// Both rows accept a Vulkan inventory injected through the shared builder.
-	listing := embed.Listing{Devices: []embed.DeviceInfo{
-		{ID: "cuda:0", Persistent: "cuda:GPU-zero", Backend: "cuda", Name: "CUDA"},
-		{ID: "vulkan:0", Persistent: "vulkan:uuid0", Backend: "vulkan", Name: "Radeon"},
-	}}
-	for _, entry := range ggufEntries(func() embed.Listing { return listing }) {
-		got := entry.Devices()
-		if len(got.Devices) != 2 || got.Devices[1].Backend != "vulkan" {
-			t.Fatalf("%s does not list the Vulkan inventory: %+v", entry.Model.Name, got)
-		}
-	}
-
-	// Production rows use the Vulkan-enabled inventory, not the CUDA-only one.
+	// Both production rows admit Vulkan and only Q8's listing admits Metal.
 	for _, entry := range GGUFEntries() {
-		if got, want := reflect.ValueOf(entry.Devices).Pointer(), reflect.ValueOf(listDevices).Pointer(); got != want {
-			t.Fatalf("%s does not use listDevices", entry.Model.Name)
+		want := listDevices
+		if entry.Model.Name == q8Name {
+			want = listQ8Devices
+		}
+		if reflect.ValueOf(entry.Devices).Pointer() != reflect.ValueOf(want).Pointer() {
+			t.Fatalf("%s uses the wrong GPU inventory", entry.Model.Name)
 		}
 	}
 }

@@ -48,16 +48,19 @@ func attachDevice(model *embeddinggemma2.Encoder, device embed.DeviceInfo, overr
 		return 0, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, id, err)
 	}
 	budget, err := attachedBudget(acc, id, override)
-	if err == nil {
-		return budget, nil
-	}
-	if closeErr := acc.Close(); closeErr != nil {
-		return 0, &attachCleanupError{
-			err: errors.Join(err, fmt.Errorf("close %s: %w", id, closeErr)),
-			acc: acc,
+	return budget, closeRejectedAttachment(acc, id, err)
+}
+
+func closeRejectedAttachment(acc embeddinggemma2.Accelerator, id string, err error) error {
+	if err != nil {
+		if closeErr := acc.Close(); closeErr != nil {
+			return &attachCleanupError{
+				err: errors.Join(err, fmt.Errorf("close %s: %w", id, closeErr)),
+				acc: acc,
+			}
 		}
 	}
-	return 0, err
+	return err
 }
 
 func attachedBudget(acc embeddinggemma2.Accelerator, id string, override int64) (int64, error) {
@@ -122,18 +125,18 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 	if err != nil {
 		return nil, err
 	}
-	return newRuntime(ctx, m, conf.Prompts, opt, fingerprint, true)
+	return newRuntime(ctx, m, conf.Prompts, opt, fingerprint, false)
 }
 
-func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[string]string, opt embed.OpenOptions, fp string, allowVulkan bool) (embed.Embedder, error) {
+func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[string]string, opt embed.OpenOptions, fp string, allowMetal bool) (embed.Embedder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	model, tok := m.Model(), m.Tokenizer()
 	cfg := model.Config()
-	compiled, list := cudaCompiled, listCUDADevices
-	if allowVulkan {
-		compiled, list = cudaCompiled || vulkanCompiled, listDevices
+	compiled, list := cudaCompiled || vulkanCompiled, listDevices
+	if allowMetal {
+		compiled, list = true, listQ8Devices
 	}
 	writer := opt.Writer
 	if writer.Inventory != nil {
@@ -151,13 +154,18 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	weightFloor := 3 * 4 * int64(cfg.Layers) * int64(cfg.Hidden) * int64(cfg.Intermediate)
 	var attached *embeddinggemma2.Encoder
 	var budget int64
+	var metalProfile string
 	info, err := chooseRuntime(ctx, selector, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
 		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
 			return err
 		}
 		attach := trace.Start(ctx, trace.DeviceAttach)
-		budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
+		if allowMetal && device.Backend == "metal" {
+			metalProfile, err = attachMetal(candidate)
+		} else {
+			budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
+		}
 		attach.EndWith(trace.Fields{Device: device.ID, Failed: err != nil})
 		if err != nil {
 			return err
@@ -183,7 +191,9 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	if attached != nil {
 		e.model = attached
 		e.info.Budget = budget
-		if selector == "auto" {
+		if metalProfile != "" {
+			e.fp = profileFingerprint(fp, metalProfile, goinferRevision)
+		} else if selector == "auto" {
 			e.cpu = m
 		}
 	}
@@ -199,6 +209,9 @@ func (e *encoder) Fingerprint() string { return e.fp }
 func (e *encoder) Info() embed.RunInfo { return e.info }
 
 func (e *encoder) Window() int {
+	if e.info.Device == metalDeviceID {
+		return 1
+	}
 	if e.model != nil && (e.model.Accelerator() != nil || e.cpu != nil) {
 		return batchInputs
 	}
@@ -228,7 +241,7 @@ func (e *encoder) Embed(ctx context.Context, role embed.Role, texts []string) ([
 	if role != embed.Query && role != embed.Document {
 		return nil, errors.New("gemma2: unknown embedding role")
 	}
-	if role == embed.Document && len(texts) > 1 && e.model.Accelerator() != nil {
+	if role == embed.Document && len(texts) > 1 && e.model.Accelerator() != nil && e.Window() > 1 {
 		return e.embedDocuments(ctx, texts)
 	}
 	out := make([][]float32, len(texts))

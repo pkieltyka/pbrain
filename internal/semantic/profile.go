@@ -26,8 +26,18 @@ func precisionMarker(model embed.Model, request string) string {
 // manifestProfile returns the effective vector identity, or empty when the
 // manifest is stale under this request. This needs no device discovery.
 func manifestProfile(m manifest, model embed.Model, request string) string {
+	if m.Model != model.Name || m.Dim != model.Dim {
+		return ""
+	}
+	if m.CUDAPrecisionRequest == "" {
+		for _, fp := range model.MetalFingerprints {
+			if fp != "" && m.Fingerprint == indexFingerprint(fp) {
+				return fp
+			}
+		}
+	}
 	marker := precisionMarker(model, request)
-	if m.Model != model.Name || m.Dim != model.Dim || m.CUDAPrecisionRequest != marker {
+	if m.CUDAPrecisionRequest != marker {
 		return ""
 	}
 	switch {

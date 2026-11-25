@@ -58,6 +58,8 @@ jobs:
           # goinfer's Vulkan backend is Linux amd64 only: on arm64 the tag builds and links nothing of it.
           GOOS=linux GOARCH=arm64 go build -tags 'cuda vulkan' -o /dev/null ./cmd/pbrain
           GOOS=linux GOARCH=arm64 go vet -tags 'cuda vulkan' ./...
+          GOOS=darwin GOARCH=arm64 go build -tags metal -o /dev/null ./cmd/pbrain
+          GOOS=darwin GOARCH=arm64 go vet -tags metal ./...
       - name: verify CUDA fallback without a GPU
         env:
           CGO_ENABLED: "0"

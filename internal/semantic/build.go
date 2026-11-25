@@ -219,6 +219,17 @@ func (b *builder) run() (BuildResult, error) {
 	if b.writer.Reason != "" {
 		b.progress(Progress{Section: b.sec.Section, PrecisionFallback: b.writer.Reason})
 	}
+	if b.writer.ResolveMetal {
+		// Metal's attached profile, even on an otherwise unchanged sync,
+		// decides which generation and vector cache can be reused.
+		if err := b.openEmbedder(); err != nil {
+			return b.res, err
+		}
+		b.writer.Fingerprint = b.emb.Fingerprint()
+		if err := ctx.Err(); err != nil {
+			return b.res, err
+		}
+	}
 	fp := indexFingerprint(b.writer.Fingerprint)
 	matches := func(m manifest) bool {
 		return manifestProfile(m, b.m, b.opt.CUDAPrecision) == b.writer.Fingerprint
@@ -231,7 +242,9 @@ func (b *builder) run() (BuildResult, error) {
 		if x, err = newIndex(ctx, fp, b.m.Name, b.m.Dim); err != nil {
 			return b.res, ctxOr(ctx, buildIOErr("the index cannot be built"))
 		}
-		x.cudaPrecisionRequest = precisionMarker(b.m, b.opt.CUDAPrecision)
+		if !b.m.IsMetalFingerprint(b.writer.Fingerprint) {
+			x.cudaPrecisionRequest = precisionMarker(b.m, b.opt.CUDAPrecision)
+		}
 		b.changed = true // an index that is missing, unreadable or stale is replaced even when empty
 	}
 	b.x = x
@@ -312,7 +325,7 @@ func (b *builder) run() (BuildResult, error) {
 	if err := b.flush(queue, pending); err != nil {
 		return b.res, err
 	}
-	b.art = nil // no batch left: the runtime is never opened when nothing was queued
+	b.art = nil // release verified bytes if no runtime consumed them
 	if len(dead) > 0 {
 		if err := x.removeItems(ctx, dead); err != nil {
 			return b.res, ctxOr(ctx, buildIOErr("the index cannot be updated"))
@@ -487,7 +500,12 @@ func (b *builder) openEmbedder() error {
 		return ctxOr(b.ctx, wrapAccelIO(message, err))
 	}
 	b.emb = emb
-	if emb.Fingerprint() != b.writer.Fingerprint {
+	fp := emb.Fingerprint()
+	matches := fp == b.writer.Fingerprint
+	if b.writer.ResolveMetal {
+		matches = b.m.IsMetalFingerprint(fp) || device == "auto" && matches
+	}
+	if !matches {
 		return buildIOErr("the model opened with a different vector profile")
 	}
 	b.reportRuntime()

@@ -17,7 +17,11 @@ const goinferRevision = "fd85e325a50f3f525f4629599ff2a5b9cca4c246"
 const cudaWeightFloor = 3 * 4 * 24 * 512 * 2048
 
 func fp16Fingerprint(base, revision string) string {
-	sum := sha256.Sum256([]byte("pbrain-vector-profile-v1\n" + base + "\n" + embed.CUDAFP16Selector + "\n" + revision))
+	return profileFingerprint(base, embed.CUDAFP16Selector, revision)
+}
+
+func profileFingerprint(base, profile, revision string) string {
+	sum := sha256.Sum256([]byte("pbrain-vector-profile-v1\n" + base + "\n" + profile + "\n" + revision))
 	return hex.EncodeToString(sum[:])
 }
 

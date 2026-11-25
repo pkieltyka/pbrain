@@ -9,8 +9,8 @@ sha256sum --check --strict "pbrain_${version}_checksums.txt"
 
 shopt -s nullglob
 archives=(pbrain_"${version}"_*.tar.gz)
-if (( ${#archives[@]} != 6 )); then
-    echo "expected six release archives, got ${#archives[@]}" >&2
+if (( ${#archives[@]} != 7 )); then
+    echo "expected seven release archives, got ${#archives[@]}" >&2
     exit 1
 fi
 
@@ -56,5 +56,7 @@ check_archive linux amd64 "" cuda,vulkan,eg2_combined,eg2_fp16
 check_archive linux arm64 "" cuda,eg2_combined,eg2_fp16
 for arch in amd64 arm64; do
     check_archive linux "$arch" _cpu ""
-    check_archive darwin "$arch" "" ""
 done
+check_archive darwin amd64 "" ""
+check_archive darwin arm64 _cpu ""
+check_archive darwin arm64 "" metal
