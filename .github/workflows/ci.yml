@@ -7,9 +7,6 @@ on:
 permissions:
   contents: read
 
-# Two jobs, run side by side. macOS test jobs are off: the project targets Linux for now and Mac
-# work is on the Backlog (#1, #9). To restore them, add a macos-latest job running `go test ./...`.
-
 jobs:
   check:
     name: lint, test, build
@@ -87,6 +84,15 @@ jobs:
       - name: verify release archives and checksums
         run: bash .github/scripts/verify-release-archives.sh dist
 
+      - uses: actions/upload-artifact@v7
+        with:
+          name: darwin-arm64-archives
+          path: |
+            dist/pbrain_*_darwin_arm64.tar.gz
+            dist/pbrain_*_darwin_arm64_cpu.tar.gz
+          if-no-files-found: error
+          retention-days: 1
+
   race:
     name: test (race)
     runs-on: ubuntu-latest
@@ -99,3 +105,66 @@ jobs:
         env:
           CGO_ENABLED: "1"
         run: go test -race ./...
+
+  macos:
+    name: macOS arm64 (${{ matrix.mode }})
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [release, race]
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: the runner is darwin/arm64
+        run: test "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" = darwin/arm64
+      - name: the suite in the release configuration
+        if: matrix.mode == 'release'
+        env:
+          CGO_ENABLED: "0"
+        run: go test ./...
+      - name: build, vet and test the Metal build (fake devices; no GPU work)
+        if: matrix.mode == 'release'
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go build -tags metal -o /dev/null ./cmd/pbrain
+          go vet -tags metal ./...
+          go test -tags metal ./internal/embed/... ./internal/cli
+      - name: the suite under the race detector
+        if: matrix.mode == 'race'
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race ./...
+
+  macos-archives:
+    name: macOS arm64 release archives
+    needs: check
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: the runner is darwin/arm64
+        run: test "$(go env GOHOSTOS)/$(go env GOHOSTARCH)" = darwin/arm64
+      - uses: actions/download-artifact@v8
+        with:
+          name: darwin-arm64-archives
+          path: dist
+      - name: run each archive's binary
+        run: |
+          for suffix in "" _cpu; do
+            dir="$RUNNER_TEMP/pbrain$suffix"
+            mkdir "$dir"
+            tar -xzf dist/pbrain_*_darwin_arm64$suffix.tar.gz -C "$dir"
+            PBRAIN_SCENARIO_BINARY="$dir/pbrain" go test -count=1 -run '^TestReleaseBinaryOutput$' ./cmd/pbrain
+          done
+          # Listing only: exit 0 and some output. Which rows a hosted VM lists is not checked.
+          out=$("$RUNNER_TEMP/pbrain/pbrain" devices --json)
+          test -n "$out"
+          echo "$out"

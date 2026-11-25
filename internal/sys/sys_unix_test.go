@@ -317,6 +317,87 @@ func TestLockFollowsContext(t *testing.T) {
 	must(t, second.Close()) // closing twice is harmless
 }
 
+// Many openers racing to create one missing lock file all open it, as the writers of a fresh section
+// and the builds sharing a fresh model folder do.
+func TestLockFileCreateRace(t *testing.T) {
+	_, x := tempRoot(t)
+	d, err := asDir(x)
+	must(t, err)
+	const openers, rounds = 16, 300
+	for r := range rounds {
+		name := fmt.Sprintf("lock-%d", r)
+		start := make(chan struct{})
+		errs := make(chan error, openers)
+		var wg sync.WaitGroup
+		for range openers {
+			wg.Go(func() {
+				<-start
+				fd, err := openLock(d, name)
+				if err == nil {
+					err = ownerOnly(fd)
+					unix.Close(fd)
+				}
+				errs <- err
+			})
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("round %d: %v", r, err)
+			}
+		}
+	}
+}
+
+// A lock file cannot be made in a folder removed while its handle is open: Lock fails, and promptly.
+func TestLockInRemovedFolder(t *testing.T) {
+	p, root := tempRoot(t)
+	d, err := root.Sub("gone", true)
+	must(t, err)
+	defer d.Close()
+	must(t, os.Remove(filepath.Join(p, "gone")))
+	start := time.Now()
+	if _, err := Native().Lock(context.Background(), d, "lock"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("lock in a removed folder: %v", err)
+	}
+	if time.Since(start) > 5*time.Second {
+		t.Fatal("Lock kept retrying in a removed folder")
+	}
+}
+
+// Many openers racing to create one missing folder through Sub all open it, as writers and builds do
+// with a fresh .pbrain, kind or models folder.
+func TestSubCreateRace(t *testing.T) {
+	_, d := tempRoot(t)
+	const openers, rounds = 16, 300
+	for r := range rounds {
+		name := fmt.Sprintf("sub-%d", r)
+		start := make(chan struct{})
+		errs := make(chan error, openers)
+		var wg sync.WaitGroup
+		for range openers {
+			wg.Go(func() {
+				<-start
+				sub, err := d.Sub(name, true)
+				if err == nil {
+					err = sub.Close()
+				}
+				errs <- err
+			})
+		}
+		close(start)
+		wg.Wait()
+		close(errs)
+		for err := range errs {
+			if err != nil {
+				t.Fatalf("round %d: %v", r, err)
+			}
+		}
+	}
+}
+
 // helper runs this test binary as another process doing one sys operation.
 func helper(t *testing.T, args ...string) *exec.Cmd {
 	t.Helper()

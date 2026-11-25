@@ -63,7 +63,10 @@ func Begin(ctx context.Context, b *brain.Brain, section item.Section) (*Tx, erro
 	l, err := b.Files().Lock(lctx, data, "lock")
 	if err != nil {
 		data.Close()
-		return nil, ioError("another pbrain command holds this section's lock; try again")
+		if lctx.Err() != nil { // the wait ran out: another command holds the lock
+			return nil, ioError("another pbrain command holds this section's lock; try again")
+		}
+		return nil, ioError("the section's lock cannot be taken")
 	}
 	tx := &Tx{b: b, files: b.Files(), section: section, root: root, data: data, lock: l, rootDir: b.Shared.Dir}
 	if section == item.Personal {

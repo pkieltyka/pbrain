@@ -509,12 +509,8 @@ func openLockFile(x Dir, name string) (*dir, int, error) {
 	if err := validName(name); err != nil {
 		return nil, -1, err
 	}
-	var fd int
-	if err := retry(func() error {
-		var err error
-		fd, err = unix.Openat(d.fd, name, unix.O_RDWR|unix.O_CREAT|unix.O_NOFOLLOW|unix.O_CLOEXEC|unix.O_NONBLOCK, 0o600)
-		return err
-	}); err != nil {
+	fd, err := openLock(d, name)
+	if err != nil {
 		return nil, -1, pathErr("lock", d.child(name), err)
 	}
 	if err := ownerOnly(fd); err != nil {
@@ -522,6 +518,32 @@ func openLockFile(x Dir, name string) (*dir, int, error) {
 		return nil, -1, &fs.PathError{Op: "lock", Path: d.child(name), Err: err}
 	}
 	return d, fd, nil
+}
+
+const lockOpenTries = 50
+
+// openLock opens the named lock file of d, creating it owner-only when it is missing. It opens an
+// existing file and creates a missing one only exclusively, never with O_CREAT alone: on macOS,
+// openat(O_CREAT) racing another creator of the same name can fail with ENOENT. A create that loses
+// the race (EEXIST), or fails with ENOENT all the same, is followed by another open. The tries are
+// bounded, so a folder removed while its handle is open fails promptly with the real error.
+func openLock(d *dir, name string) (int, error) {
+	const flags = unix.O_RDWR | unix.O_NOFOLLOW | unix.O_CLOEXEC | unix.O_NONBLOCK
+	var fd int
+	var err error
+	for try := range lockOpenTries {
+		if try > 0 {
+			time.Sleep(time.Millisecond)
+		}
+		if err = retry(func() (e error) { fd, e = unix.Openat(d.fd, name, flags, 0); return }); !errors.Is(err, unix.ENOENT) {
+			return fd, err
+		}
+		err = retry(func() (e error) { fd, e = unix.Openat(d.fd, name, flags|unix.O_CREAT|unix.O_EXCL, 0o600); return })
+		if err == nil || !errors.Is(err, unix.EEXIST) && !errors.Is(err, unix.ENOENT) {
+			return fd, err
+		}
+	}
+	return -1, err
 }
 
 // tryFlock makes one attempt at an exclusive lock of fd, retrying only an interrupted call. It
