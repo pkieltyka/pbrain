@@ -176,16 +176,102 @@ mkdir metal cpu quarantine
 tar -xzf pbrain_0.4.6_darwin_arm64.tar.gz -C metal
 tar -xzf pbrain_0.4.6_darwin_arm64_cpu.tar.gz -C cpu
 metal/pbrain --version && metal/pbrain devices && cpu/pbrain --version
-# What a browser download carries: flags 0083, the time in hex, the agent, an id.
+# What a browser download carries: flags, the time in hex, the agent, an id. 0081 is what the M4 run used.
 cp metal/pbrain quarantine/pbrain
-xattr -w com.apple.quarantine "0083;$(printf %x "$(date +%s)");Safari;$(uuidgen)" quarantine/pbrain
-quarantine/pbrain --version || echo "quarantined copy: exit $?"   # recorded, not a failure of the script
+xattr -w com.apple.quarantine "0081;$(printf %x "$(date +%s)");Safari;$(uuidgen)" quarantine/pbrain
+# Bounded by a supervisor that kills only its own, not yet reaped, child. A shell watchdog could
+# signal a reused PID, and perl's alarm does not stop a Go binary: the Go runtime swallows SIGALRM.
+cat > bounded.go <<'EOF'
+// bounded runs a command for at most a given time and prints one JSON line about the run.
+// It signals only its own child, which it has not yet waited for, so it cannot hit a reused PID.
+package main
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"os"
+	"os/exec"
+	"time"
+)
+
+// capped keeps the first max bytes written to it and says whether more came.
+type capped struct {
+	kept      []byte
+	max       int
+	truncated bool
+}
+
+func (c *capped) Write(p []byte) (int, error) {
+	room := c.max - len(c.kept)
+	if len(p) > room {
+		c.truncated = true
+		c.kept = append(c.kept, p[:room]...)
+	} else {
+		c.kept = append(c.kept, p...)
+	}
+	return len(p), nil
+}
+
+func main() {
+	if len(os.Args) < 3 {
+		fmt.Fprintln(os.Stderr, "usage: bounded DURATION COMMAND [ARG...]")
+		os.Exit(2)
+	}
+	limit, err := time.ParseDuration(os.Args[1])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(2)
+	}
+	row := map[string]any{"argv": os.Args[2:], "limit_ms": limit.Milliseconds()}
+	if data, err := os.ReadFile(os.Args[2]); err == nil {
+		sum := sha256.Sum256(data)
+		row["sha256"] = hex.EncodeToString(sum[:])
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), limit)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, os.Args[2], os.Args[3:]...)
+	out := &capped{max: 4096}
+	cmd.Stdout, cmd.Stderr = out, out // one writer: os/exec then writes to it from one goroutine
+	cmd.WaitDelay = 2 * time.Second   // do not wait on a pipe some other process still holds
+	start := time.Now()
+	runErr := cmd.Run()
+	row["elapsed_ms"] = time.Since(start).Milliseconds()
+	row["timed_out"] = ctx.Err() != nil
+	row["output"] = string(out.kept) // standard output and standard error together
+	row["output_truncated"] = out.truncated
+	if cmd.ProcessState != nil {
+		row["exit"] = cmd.ProcessState.ExitCode() // -1 when a signal ended it
+		row["state"] = cmd.ProcessState.String()
+	} else if runErr != nil {
+		row["start_error"] = runErr.Error()
+	}
+	json.NewEncoder(os.Stdout).Encode(row)
+}
+EOF
+# One JSON row: the copy's SHA-256, elapsed time, exit, whether the limit ended it, and the first
+# 4,096 bytes of its standard output and standard error together. Always exit 0.
+go run bounded.go 20s quarantine/pbrain --version | tee -a "$S/evidence/install.jsonl"
+shasum -a 256 metal/pbrain quarantine/pbrain | tee -a "$S/evidence/quarantine-copy.txt"
+# Read-only assessment of the same copy; exit 3 means rejected.
+spctl --assess --type execute --verbose=4 quarantine/pbrain >> "$S/evidence/quarantine-copy.txt" 2>&1 \
+  || echo "spctl exit $?" >> "$S/evidence/quarantine-copy.txt"
 CGO_ENABLED=0 GOBIN="$S/install/gobin-cpu" go install github.com/pkieltyka/pbrain/cmd/pbrain@v0.4.6
 CGO_ENABLED=0 GOBIN="$S/install/gobin-metal" go install -tags metal github.com/pkieltyka/pbrain/cmd/pbrain@v0.4.6
 gobin-cpu/pbrain --version && gobin-metal/pbrain --version && gobin-metal/pbrain devices
 ```
 
 Nothing goes onto the system `PATH`. The quarantine attribute is set on that one scratch copy and on nothing else.
+
+Result on the M4 (2026-11-25, v0.4.6 `darwin_arm64`), from @lead-dev's own runner, not from the script above. The receipts are `mac-install-observed.log` and `mac-gatekeeper.jsonl` in the run's evidence.
+
+- **Recorded.** The probe was a copy named `pbrain-quarantine-probe` in the Mac's scratch directory, carrying `com.apple.quarantine` = `0081;6b06e34c;Safari;<id>`. Its `--version` did not complete within the runner's 20-second limit. `spctl --assess --type execute --verbose=4` on that copy exited 3 with "rejected"; that check was read-only. A `log show` query for `syspolicyd` and `CoreServicesUIAgent` lines naming the probe returned its header alone. Both `go install` variants exited 0 and print `v0.4.6`. The archive's SHA-256 is `5affedee4a0806e0c6e77b4fa7b0ac29391d0081157e50e4cbad20d594864f74`.
+- **Not recorded.** The launch's elapsed time and exit status, its output, and a hash of the probe as run. The runner's source copies the binary extracted from the checksum-verified archive before it sets the attribute; no as-run hash ties the two. The script above now writes them into the supervisor's row in `install.jsonl` (the copy's SHA-256, elapsed time, exit, and the first 4,096 bytes of standard output and standard error together) and the two hashes into `quarantine-copy.txt`; a later run supplies them. The launch is not repeated while the Metal sync runs.
+- **Inferred.** That Gatekeeper is why the launch did not complete, and that it waited on a prompt no SSH session can see: the rejection supports the first, and nothing shows the second. That a person who downloads the archive in a browser meets the same: the attribute here was set by hand on an extracted binary, whereas a browser sets it on the archive, and whether the extracted binary inherits it depends on what unpacks it. No browser download was tested.
+
+This is tracked as #70, "macOS: Gatekeeper blocks browser-downloaded binaries (signing/notarization or documented workaround)", on the Backlog and linked from #9, with two options: sign and notarise in the release workflow, which needs an Apple Developer ID and the owner's decision, or document `xattr -d com.apple.quarantine` and the `go install` path. This row of #9 is met by recording the result; the fix is #70's.
 
 **Rule 3.** In `$S/src`, after one priming run, five fresh processes each of `GOMAXPROCS=4 go test -run '^$' -bench '^<name>$' -benchtime=1x -count=1 <package>` for `BenchmarkBgeFirstQuery` (`./internal/embed/bge`, `PBRAIN_TEST_BGE_MODEL`), `BenchmarkGemmaFirstQuery` (`./internal/embed/gemma2`, `PBRAIN_TEST_GEMMA2_PACK`) and `BenchmarkGemmaQ8FirstQuery` (`./internal/embed/gemma2`, `PBRAIN_TEST_GEMMA2_Q8`). All three open the model on the CPU, which is what a search does in every build. Pass: median under 600 ms. Every sample is published; a miss goes to the owner.
 
@@ -214,7 +300,7 @@ Not in this plan: a rule 3 benchmark for UD-Q6_K_XL (none exists), the Google pa
 - **Pseudo-terminal output on macOS.** Whether Darwin can drop output still queued when the child's side closes is not verified. The byte-exact comparison would show it as a failure. If it does, stop and send @architect the log.
 - **`unix.Syscall(unix.SYS_IOCTL, ...)` on Darwin** is not compiled or run here. Step 4's proof is the run.
 - **`pbrain devices` in a VM.** The spec says it exits 0 whatever the listing does. If the Metal archive crashes or hangs on the hosted runner, that is a product finding for @operator, not a reason to drop the step.
-- **Unsigned binaries.** The archives are not notarised. Step 6's quarantine row measures what a browser download meets. Signing needs an Apple developer identity and is the owner's call.
+- **Unsigned binaries.** The archives are not notarised. In step 6 a copy carrying the quarantine attribute did not complete `--version` within 20 s and `spctl` rejected it. By inference, not by test, a browser download of a Darwin archive may not run as downloaded until #70 is decided; `curl`, `gh release download` and `go install` set no quarantine attribute.
 
 ## Questions
 
