@@ -1290,4 +1290,15 @@ on 59. On the Linux host the 219-passage Q8 fp16 rate is 26.4× its own CPU
 rate. Ordinary CUDA has the faster short-fixture Q8 sync because it spends
 less time attaching. CPU BGE has the highest 59-passage rate on each host.
 
+The Radeon slowdown per passage is mainly a difference in work per passage.
+The 219-passage fixture averages 503 prepared positions per passage, compared
+with 157 on the 59-passage fixture. Radeon used 14 forwards of 7,391–8,106
+positions on the longer fixture and two forwards of 7,712 and 1,559 on the
+shorter one. These are the same batch shapes as ordinary CUDA. The separate
+4 GiB guard never intervened. At the Vulkan working-set estimate, the full
+8,192-position batch limit fits in the 1 GiB workspace budget. Q8 forward
+rate was about 4,300 positions/s on 59 passages and 4,020 on 219. Q6 moved
+from about 4,240 to 3,980 positions/s. Forward throughput per position fell
+about 6% on the longer fixture. The cause of that difference was not determined.
+
 [Capture and verification](../../tools/phase28/evidence/metal-69/README.md)
