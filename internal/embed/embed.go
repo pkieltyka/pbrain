@@ -89,8 +89,13 @@ type Model struct {
 	Source              []File // the published files a pack is derived from; empty when Files are downloaded as they are
 	Dim                 int
 	Cutoff              float32
-	Fingerprint         string // lower-case hex SHA-256; see "Fingerprints"
-	CUDAFP16Fingerprint string // optional vector identity for the qualified CUDA selector
+	Fingerprint         string    // lower-case hex SHA-256; see "Fingerprints"
+	CUDAFP16Fingerprint string    // optional vector identity for the qualified CUDA selector
+	MetalFingerprints   [2]string // optional stock and combined vector identities
+}
+
+func (m Model) IsMetalFingerprint(fp string) bool {
+	return fp != "" && (fp == m.MetalFingerprints[0] || fp == m.MetalFingerprints[1])
 }
 
 // Artifact is a model read into private memory and authenticated against its
@@ -108,6 +113,7 @@ type Entry struct {
 	Devices func() Listing
 	// ResolveFP16 chooses the qualified card, or explains a precision downgrade.
 	ResolveFP16 func(Listing, string) (DeviceInfo, string)
+	MetalWriter bool // this build can resolve the row's Metal vector profiles
 	// Derive is set only for a model with Source. It is pure: from the verified bytes of
 	// Model.Source, in order, it returns the bytes of Model.Files, in order. It opens no file.
 	Derive func(source [][]byte) ([][]byte, error)

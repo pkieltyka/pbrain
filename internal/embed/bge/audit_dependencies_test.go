@@ -9,16 +9,21 @@ const (
 	linuxARM64GPU
 	linuxAMD64CPU
 	linuxARM64CPU
-	darwinRelease
+	darwinCPU
+	darwinARM64Metal
 
 	cudaReleases      = linuxAMD64GPU | linuxARM64GPU
 	linuxReleases     = cudaReleases | linuxAMD64CPU | linuxARM64CPU
+	darwinRelease     = darwinCPU | darwinARM64Metal
 	allReleaseTargets = linuxReleases | darwinRelease
 )
 
 func auditTarget(osName, arch string, tags []string) runtimeTarget {
 	if osName == "darwin" {
-		return darwinRelease
+		if arch == "arm64" && slices.Contains(tags, "metal") {
+			return darwinARM64Metal
+		}
+		return darwinCPU
 	}
 	if osName != "linux" {
 		return 0
@@ -53,10 +58,18 @@ var reviewedDependencySites = map[runtimePin]map[runtimeSite]runtimeAllowance{
 		{"github.com/JohannesKaufmann/html-to-markdown/v2/converter/ctx.go", "assembleAbsoluteURL", "fmt.Println", ""}:   {allReleaseTargets, 1, "conversion diagnostic through redirected stdout"},
 	},
 	{"github.com/ebitengine/purego", "v0.10.1"}: {
-		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "_cgo_sys_thread_start", "builtin.print", ""}:   {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
-		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "_cgo_sys_thread_start", "builtin.println", ""}: {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
-		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "x_cgo_init", "builtin.println", ""}:            {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
-		{"github.com/ebitengine/purego/internal/fakecgo/go_util.go", "x_cgo_thread_start", "builtin.println", ""}:     {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_darwin.go", "_cgo_sys_thread_start", "builtin.print", ""}:   {darwinARM64Metal, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_darwin.go", "_cgo_sys_thread_start", "builtin.println", ""}: {darwinARM64Metal, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "_cgo_sys_thread_start", "builtin.print", ""}:    {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "_cgo_sys_thread_start", "builtin.println", ""}:  {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_linux.go", "x_cgo_init", "builtin.println", ""}:             {cudaReleases, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+		{"github.com/ebitengine/purego/internal/fakecgo/go_util.go", "x_cgo_thread_start", "builtin.println", ""}:      {cudaReleases | darwinARM64Metal, 1, "fatal purego thread-bootstrap diagnostic before abort"},
+	},
+	{metalModule, auditedPin}: {
+		{metalModule + "/attn_segments.go", "(*resident).attnCore", "os.Getenv", "\"GOINFER_ATTNFA_DEBUG\""}:          {darwinARM64Metal, 1, "dormant decoder resident attention diagnostic"},
+		{metalModule + "/backend.go", "emodelFallbackOut", "os.Stderr", ""}:                                           {darwinARM64Metal, 1, "captures stderr for dormant Gemma 4 decoder prefill diagnostic; initializer does not write"},
+		{metalModule + "/gemma4_moe.go", "(*resident).forwardLogitsPaged", "os.Getenv", "\"GOINFER_MOE_PROF_SPLIT\""}: {darwinARM64Metal, 1, "dormant Gemma 4 decoder paging diagnostic"},
+		{metalModule + "/model.go", "(*resident).knobValue", "os.Getenv", "name"}:                                     {darwinARM64Metal, 1, "dormant decoder option fallback without an injected knob callback"},
 	},
 	{"github.com/eitamring/gocudrv", "v0.3.2"}: {
 		{"github.com/eitamring/gocudrv/internal/hostcb/hostcb.go", "Invoke (closure)", "os.Stderr", ""}: {cudaReleases, 1, "host callback diagnostic through the current Go stderr"},

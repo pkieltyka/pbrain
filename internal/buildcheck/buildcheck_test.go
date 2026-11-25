@@ -194,7 +194,7 @@ func TestPackageImports(t *testing.T) {
 	}
 }
 
-// TestReleaseConfig checks the CPU and CUDA release build configurations and the version flag.
+// TestReleaseConfig checks release build targets, tags and the version flag.
 func TestReleaseConfig(t *testing.T) {
 	data, err := os.ReadFile(filepath.Join(root(t), ".goreleaser.yaml"))
 	if err != nil {
@@ -221,6 +221,7 @@ func TestReleaseConfig(t *testing.T) {
 		// goinfer's Vulkan backend supports Linux amd64 only, so arm64 keeps CUDA alone.
 		"pbrain-cuda-vulkan": {os: []string{"linux"}, arch: []string{"amd64"}, tags: []string{"cuda", "vulkan", "eg2_combined", "eg2_fp16"}},
 		"pbrain-cuda":        {os: []string{"linux"}, arch: []string{"arm64"}, tags: []string{"cuda", "eg2_combined", "eg2_fp16"}},
+		"pbrain-metal":       {os: []string{"darwin"}, arch: []string{"arm64"}, tags: []string{"metal"}},
 	}
 	for _, build := range cfg.Builds {
 		targets, ok := want[build.ID]

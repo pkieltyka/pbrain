@@ -79,34 +79,54 @@ func chooseRuntime(ctx context.Context, selector string, weightFloor int64, comp
 }
 
 func listCUDADevices() embed.Listing {
-	return probeDevices(false)
+	return probeDevices(false, false)
 }
 
 func listDevices() embed.Listing {
-	return probeDevices(true)
+	return probeDevices(true, false)
 }
 
-func probeDevices(allowVulkan bool) embed.Listing {
+func listQ8Devices() embed.Listing {
+	return probeDevices(true, metalCompiled)
+}
+
+func probeDevices(allowVulkan, allowMetal bool) embed.Listing {
 	devices, failures := embeddinggemma2.Devices(embeddinggemma2.ProbeOptions{IncludeMemory: true})
-	return deviceListing(devices, failures, allowVulkan)
+	return deviceListing(devices, failures, allowVulkan, allowMetal)
 }
 
-func deviceListing(devices []embeddinggemma2.DeviceInfo, failures []embeddinggemma2.ProbeFailure, allowVulkan bool) embed.Listing {
-	allowed := func(backend string) bool { return backend == "cuda" || allowVulkan && backend == "vulkan" }
+func deviceListing(devices []embeddinggemma2.DeviceInfo, failures []embeddinggemma2.ProbeFailure, allowVulkan, allowMetal bool) embed.Listing {
+	allowed := func(backend string) bool {
+		return backend == "cuda" || allowVulkan && backend == "vulkan" || allowMetal && backend == "metal"
+	}
 	ids := make(map[string]int, len(devices))
 	aliases := make(map[string]int, len(devices))
+	metalRows := 0
 	for _, device := range devices {
 		ids[strings.ToLower(device.ID)]++
 		aliases[device.Alias]++
+		if device.Backend == "metal" {
+			metalRows++
+		}
 	}
 	var listing embed.Listing
 	for _, device := range devices {
-		prefix := device.Backend + ":"
-		if !allowed(device.Backend) || !device.TextBatching ||
-			!strings.HasPrefix(device.ID, prefix) || !strings.HasPrefix(device.Alias, prefix) ||
-			device.ID == prefix || device.Alias == prefix ||
-			ids[strings.ToLower(device.ID)] != 1 || aliases[device.Alias] != 1 {
+		if !allowed(device.Backend) {
 			continue
+		}
+		alias := device.Alias
+		if device.Backend == "metal" {
+			if metalRows != 1 || !systemDefaultMetal(device) {
+				continue
+			}
+			alias = metalDeviceID
+		} else {
+			prefix := device.Backend + ":"
+			if !device.TextBatching || !strings.HasPrefix(device.ID, prefix) || !strings.HasPrefix(alias, prefix) ||
+				device.ID == prefix || alias == prefix ||
+				ids[strings.ToLower(device.ID)] != 1 || aliases[alias] != 1 {
+				continue
+			}
 		}
 		memoryKind := "unknown"
 		switch device.MemoryKind {
@@ -116,7 +136,7 @@ func deviceListing(devices []embeddinggemma2.DeviceInfo, failures []embeddinggem
 			memoryKind = "shared"
 		}
 		listing.Devices = append(listing.Devices, embed.DeviceInfo{
-			ID: device.Alias, Persistent: device.ID, Backend: device.Backend, Name: device.Name,
+			ID: alias, Persistent: device.ID, Backend: device.Backend, Name: device.Name,
 			TotalBytes: device.Memory.TotalBytes, FreeBytes: device.Memory.AvailableBytes,
 			Memory: device.Memory.Basis.String(), MemoryKind: memoryKind,
 			ComputeCapability: device.ComputeCapability, RunnableSelectors: device.RunnableSelectors(),

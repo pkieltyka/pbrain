@@ -38,11 +38,11 @@ type Source struct {
 }
 
 type openedIndex struct {
-	section item.Section
-	dir     sys.Dir // index/, nil when the section has none
-	x       *indexDB
-	state   IndexState
-	fp16    bool
+	section  item.Section
+	dir      sys.Dir // index/, nil when the section has none
+	x        *indexDB
+	state    IndexState
+	profiled bool
 }
 
 // Start needs no scan and never fails. It runs the cheap checks and, when they pass, begins
@@ -148,7 +148,7 @@ func (s *Source) runIndexes(ctx context.Context) {
 			o.dir = idx
 			o.x, o.state = openExpectedIndex(ctx, s.opt.Files, idx, matches, false)
 			if o.state == IndexOK {
-				o.fp16 = manifestProfile(o.x.from, s.m, s.opt.CUDAPrecision) == s.m.CUDAFP16Fingerprint
+				o.profiled = manifestProfile(o.x.from, s.m, s.opt.CUDAPrecision) != s.m.Fingerprint
 			}
 		}
 		s.opened = append(s.opened, o)
@@ -198,7 +198,7 @@ func (s *Source) CatchUp(ctx context.Context) error {
 	total := 0
 	for _, in := range secs {
 		o := s.usable(in.Section)
-		if o == nil || o.fp16 {
+		if o == nil || o.profiled {
 			continue
 		}
 		part := &catchUp{o: o}

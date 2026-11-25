@@ -26,31 +26,29 @@ var q6Files = []embed.File{
 var q8Fingerprint = modelFingerprint(q8Name, q8Files)
 var q6Fingerprint = modelFingerprint(q6Name, q6Files)
 
-// GGUFEntries returns the qualified GGUF model rows. Both support CPU and every
-// GPU backend the binary links: the Vulkan tag decides whether Vulkan is present.
+// GGUFEntries returns the qualified GGUF rows. Q8 additionally admits Metal.
 func GGUFEntries() []embed.Entry {
-	return ggufEntries(listDevices)
-}
-
-func ggufEntries(devices func() embed.Listing) []embed.Entry {
-	return []embed.Entry{
-		ggufEntry(q8Name, q8Files, q8Fingerprint, fp16Fingerprint(q8Fingerprint, goinferRevision), devices),
-		ggufEntry(q6Name, q6Files, q6Fingerprint, "", devices),
+	q8 := ggufEntry(q8Name, q8Files, q8Fingerprint, listQ8Devices)
+	q8.MetalWriter = metalCompiled
+	q8.Model.CUDAFP16Fingerprint = fp16Fingerprint(q8Fingerprint, goinferRevision)
+	q8.Model.MetalFingerprints = [2]string{
+		profileFingerprint(q8Fingerprint, metalStockProfile, goinferRevision),
+		profileFingerprint(q8Fingerprint, metalCombinedProfile, goinferRevision),
 	}
+	return []embed.Entry{q8, ggufEntry(q6Name, q6Files, q6Fingerprint, listDevices)}
 }
 
-func ggufEntry(name string, files []embed.File, fingerprint, cudaFP16 string, devices func() embed.Listing) embed.Entry {
+func ggufEntry(name string, files []embed.File, fingerprint string, devices func() embed.Listing) embed.Entry {
 	return embed.Entry{
 		Model: embed.Model{
 			Name: name, Runtime: "goinfer", Dim: dimension, Cutoff: 0.72,
 			Fingerprint: fingerprint, Files: slices.Clone(files),
-			CUDAFP16Fingerprint: cudaFP16,
 		},
-		Open: openGGUF(fingerprint), Devices: devices, ResolveFP16: fp16Resolver(),
+		Open: openGGUF(fingerprint, name == q8Name && metalCompiled), Devices: devices, ResolveFP16: fp16Resolver(),
 	}
 }
 
-func openGGUF(fingerprint string) func(context.Context, *embed.Artifact, embed.OpenOptions) (embed.Embedder, error) {
+func openGGUF(fingerprint string, allowMetal bool) func(context.Context, *embed.Artifact, embed.OpenOptions) (embed.Embedder, error) {
 	return func(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.Embedder, error) {
 		files := a.Files
 		a.Files = nil
@@ -71,6 +69,6 @@ func openGGUF(fingerprint string) func(context.Context, *embed.Artifact, embed.O
 		if m.Model().Config().EmbeddingDim != dimension {
 			return nil, errors.New("gemma2: unexpected GGUF vector dimension")
 		}
-		return newRuntime(ctx, m, prompts, opt, fingerprint, true)
+		return newRuntime(ctx, m, prompts, opt, fingerprint, allowMetal)
 	}
 }

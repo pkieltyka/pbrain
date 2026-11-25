@@ -1,1 +1,34 @@
 # Next release
+
+- The Darwin arm64 archive includes Metal indexing for `embeddinggemma-2-q8-0`. Use `pbrain sync --device metal`, `--device metal:0` or auto selection. On the Apple M4, the default combined profile indexed the 219-passage fixture in 23.76 seconds (9.22 passages/s), compared with 27.07 seconds (8.09 passages/s) for stock Metal. Search still uses the CPU. Sync rebuilds a section when its writer profile changes. Use the `darwin_arm64_cpu` archive for the untagged build. [Measurements](../../internal/cli/README.measure.md#apple-silicon-metal-q8-indexing-69)
+- Aligned the goinfer root, CUDA, Vulkan and Metal modules at v0.6.8. Google and Q8_0 CUDA fp16 fingerprints include the pinned goinfer revision, so indexes built under v0.6.7 need one sync to rebuild. Base indexes retain their fingerprints. On the RTX PRO 6000, all 2,224 compared passages matched bit for bit and the sampled device peaks were unchanged.
+
+## Device comparison
+
+Fresh SQLite syncs at goinfer v0.6.8, with four Go workers and two runs
+per cell in reversed pairs. Rates and wall times are medians. CUDA and
+Vulkan device memory figures are sampled peaks. Metal shares system memory.
+Compare GPU and CPU measurements within each host. All profiles cleared
+same-file CPU cosine 0.999. [Trace splits and vector checks](../../internal/cli/README.measure.md#matched-device-comparison)
+
+### Ryzen 9 7950X (Linux)
+
+| Device and writer | Model | 219 wall (s) / p/s | 59 wall (s) / p/s | Peak device MiB, 219 / 59 |
+| --- | --- | ---: | ---: | ---: |
+| RTX PRO 6000, CUDA fp16 | Google pack | 6.06 / 36.13 | 3.78 / 15.60 | 1,782 / 1,754 |
+| RTX PRO 6000, CUDA fp16 | Q8_0 | 6.27 / 34.93 | 4.06 / 14.52 | 1,782 / 1,754 |
+| RTX PRO 6000, CUDA ordinary | Q8_0 | 6.83 / 32.06 | 2.57 / 22.92 | 2,130 / 2,094 |
+| RTX PRO 6000, CUDA ordinary | UD-Q6_K_XL | 6.98 / 31.38 | 2.52 / 23.38 | 2,130 / 2,094 |
+| RX 9060 XT, Vulkan | Q8_0 | 29.13 / 7.52 | 3.73 / 15.84 | 1,294 / 1,244 |
+| RX 9060 XT, Vulkan | UD-Q6_K_XL | 29.38 / 7.45 | 3.70 / 15.96 | 1,289 / 1,244 |
+| CPU | BGE small | 19.16 / 11.43 | 1.84 / 31.99 | — / — |
+| CPU | Q8_0 | 165.61 / 1.32 | 14.74 / 4.00 | — / — |
+
+### Apple M4 (macOS)
+
+| Device and writer | Model | 219 wall (s) / p/s | 59 wall (s) / p/s | Peak device MiB, 219 / 59 |
+| --- | --- | ---: | ---: | ---: |
+| Metal default (combined) | Q8_0 | 23.76 / 9.22 | 2.64 / 22.35 | — / — |
+| Metal forced stock | Q8_0 | 27.07 / 8.09 | 2.96 / 19.94 | — / — |
+| CPU | BGE small | 22.75 / 9.62 | 2.15 / 27.48 | — / — |
+| CPU | Q8_0 | 196.82 / 1.11 | 16.79 / 3.51 | — / — |

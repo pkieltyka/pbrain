@@ -48,7 +48,7 @@ func TestGemmaGGUFRows(t *testing.T) {
 			fingerprint: "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691",
 			index:       "c346df62410f98848d85f7a3aa18e084fd8fab8138d97515f8045fcd3988be9d",
 			folder:      "embeddinggemma-2-q8-0-49b6c94be1aac068",
-			fp16:        "4c1ace74bf64e6f53f4401a1031007847ec815aed25727b457d4547ff897ca28",
+			fp16:        "d71a5ed51964400da5fdfa5cf2f5c2f99b99f46d04e3396a5b114115883f9982",
 		},
 		{
 			name: q6Name, file: q6File,
@@ -145,7 +145,7 @@ func TestGGUFDevicePolicy(t *testing.T) {
 		row("cuda", "cuda:0", "cuda:GPU-zero", embeddinggemma2.MemoryLive, 8*gib),
 		row("vulkan", "vulkan:0", "vulkan:uuid0", embeddinggemma2.MemoryEstimated, 19*gib),
 	}
-	withVulkan := deviceListing(raw, nil, true)
+	withVulkan := deviceListing(raw, nil, true, false)
 	if len(withVulkan.Devices) != 2 {
 		t.Fatalf("Vulkan-enabled listing = %+v", withVulkan)
 	}
@@ -153,27 +153,19 @@ func TestGGUFDevicePolicy(t *testing.T) {
 		got.Persistent != "vulkan:uuid0" || got.FreeBytes != 19*gib {
 		t.Fatalf("unexpected Vulkan row: %+v", got)
 	}
-	cudaOnly := deviceListing(raw, nil, false)
+	cudaOnly := deviceListing(raw, nil, false, false)
 	if len(cudaOnly.Devices) != 1 || cudaOnly.Devices[0].Backend != "cuda" {
 		t.Fatalf("CUDA-only listing = %+v", cudaOnly)
 	}
 
-	// Both rows accept a Vulkan inventory injected through the shared builder.
-	listing := embed.Listing{Devices: []embed.DeviceInfo{
-		{ID: "cuda:0", Persistent: "cuda:GPU-zero", Backend: "cuda", Name: "CUDA"},
-		{ID: "vulkan:0", Persistent: "vulkan:uuid0", Backend: "vulkan", Name: "Radeon"},
-	}}
-	for _, entry := range ggufEntries(func() embed.Listing { return listing }) {
-		got := entry.Devices()
-		if len(got.Devices) != 2 || got.Devices[1].Backend != "vulkan" {
-			t.Fatalf("%s does not list the Vulkan inventory: %+v", entry.Model.Name, got)
-		}
-	}
-
-	// Production rows use the Vulkan-enabled inventory, not the CUDA-only one.
+	// Both production rows admit Vulkan and only Q8's listing admits Metal.
 	for _, entry := range GGUFEntries() {
-		if got, want := reflect.ValueOf(entry.Devices).Pointer(), reflect.ValueOf(listDevices).Pointer(); got != want {
-			t.Fatalf("%s does not use listDevices", entry.Model.Name)
+		want := listDevices
+		if entry.Model.Name == q8Name {
+			want = listQ8Devices
+		}
+		if reflect.ValueOf(entry.Devices).Pointer() != reflect.ValueOf(want).Pointer() {
+			t.Fatalf("%s uses the wrong GPU inventory", entry.Model.Name)
 		}
 	}
 }

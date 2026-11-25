@@ -1,8 +1,8 @@
 # Release measurements
 
-Measure on Linux before the first release. macOS is deferred: it is not
-tested or supported for now, and Apple silicon Mac measurements are
-tracked separately in architecture §17. Keep the machine idle and
+The first release measurements ran on Linux. Issue #69 adds Apple Silicon
+Q8 indexing and CPU controls. Architecture §17 tracks the remaining
+macOS measurements. Keep the machine idle and
 record its CPU, OS, filesystem, executable revision and cache preparation
 method. The release targets are in functional spec §16 and architecture
 §§8.6–8.7. Publish the first sample separately from the warm samples.
@@ -547,8 +547,11 @@ and [database comparisons](../../tools/phase28/evidence/bge-pax-34/database-comp
 ## Release build and install
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
-amd64 and arm64. The Darwin binaries are only built: running them is
-deferred with macOS (architecture §17). Once a release tag is available,
+amd64 and arm64. Darwin arm64 Metal is qualified for Q8 indexing and CPU
+search on Apple M4. The broader Darwin test and workload coverage remains
+deferred (architecture §17). [Completed M4 qualification](#apple-silicon-metal-q8-indexing-69)
+
+Once a release tag is available,
 verify versioned install in a scratch directory by setting `GOBIN` there
 and running
 `go install github.com/pkieltyka/pbrain/cmd/pbrain@"$PBRAIN_RELEASE_TAG"`.
@@ -1190,3 +1193,115 @@ at this goinfer revision. Switching profiles requires sync to build
 each requested section under the destination fingerprint. Cached vectors
 stay within that profile, and both share the verified model file.
 [Accepted shapes, route receipts and metrics](../../tools/phase28/evidence/q6-cuda-fp16-67/summary.json)
+## Apple Silicon Metal Q8 indexing (#69)
+
+The Apple M4 ran macOS 27.2.1 (26B131) with 24 GiB of unified memory. The
+cgo-free Darwin arm64 build listed one Metal device as `metal:0`. Go
+build information records candidate `c4faeca` and goinfer v0.6.8. Only the
+qualification binary has an overlay that can force stock at the attach
+call. The default arm calls the same bare `metal` selector as the release.
+Both used the pinned Q8_0 GGUF, verified by pbrain in each fresh sync.
+
+Every default Metal run selected `metal-eg2-combined-v1`. On the
+join of all 219 passages, both combined repetitions and both stock
+repetitions matched within their respective profile, bit for bit. Stock
+and combined differed on all 219 vectors and had a minimum cosine of
+0.999999999945 at 768 dimensions. Against the same-file CPU vectors, the
+minimum cosines at 768 and normalized 512 dimensions were
+0.999999999964 / 0.999999999965 for stock and
+0.999999999993 / 0.999999999993 for combined. SQLite `quick_check`
+and ordered item and passage metadata checks passed. The CPU-only binary
+read both completed profiles. All eight frozen queries returned the same
+ordered IDs on stock, combined and CPU indexes.
+
+Switching a populated stock generation to the default selector rebuilt
+all 219 passages. A repeated combined sync attached once with zero
+forwards and kept the generation. Returning to stock reused all 219
+passages from that profile's cache, with the same stored vector bytes.
+
+### Matched device comparison
+
+Each cell summarizes two fresh SQLite syncs from two order-reversed pairs.
+The runs used the frozen 22-note/219-passage and 32-note/59-passage
+fixtures and fresh vector caches. Timing includes the whole sync,
+including strict verification and model load. Both hosts used
+`GOMAXPROCS=4`. On Linux, CPUs 0–3 were pinned throughout the runs, which
+held the timing lock and checked that the machine and RTX were idle. The
+Mac ran sequentially after two samples of at least 95% CPU idle. Compare
+each GPU with the CPU controls on its own host.
+
+Times, rates and trace splits are medians. SQLite sums index read, lookup,
+write, commit and checkpoint spans. Trace totals can overlap. BGE's
+forward spans sum work across its CPU workers. The same-file minimum
+cosine at the stored width uses the CPU index for that model on the same
+host. Separate Linux CPU references cover the Google pack and Q6; BGE
+stores 384 values per vector and Gemma stores 768.
+
+RTX memory is the highest device-used sample on either run. Radeon memory
+is the largest guarded share across the two runs, using process VRAM and
+the increase in device-wide usage. The 120-second guard had a 1 GiB
+workspace request and a 4 GiB total cap, including weights. No run
+reported a device loss or reset. Metal uses unified memory. Discovery
+estimated 16.8 GiB of headroom. Device allocation was unavailable through
+the attached runtime, so the Metal cells omit a device peak. The maximum
+process footprints at 219 passages were 1.98 GiB combined and 2.01 GiB
+stock from macOS `time -l`.
+
+The RTX rows reuse the v0.6.8 arms of the paired upgrade check. That check
+used the same pbrain source apart from pins and the revision in the fp16
+fingerprints. All 2,224 vector comparisons against v0.6.7 matched by bits.
+Sampled peaks were identical at each size and precision. When opened by
+v0.6.8, the existing Q6 and Q8 ordinary indexes embedded zero passages.
+The existing Google and Q8 CUDA fp16 indexes each rebuilt 59 passages.
+
+### Ryzen 9 7950X (Linux)
+
+| Passages | Device and writer | Model | Wall (s) | Passages/s | Peak device (MiB) | Verify / decode / attach / forward / SQLite (ms) | Min CPU cosine |
+| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 219 | RTX PRO 6000, CUDA fp16 | Google pack | 6.06 | 36.13 | 1,782 | 210 / 84 / 2704 / 2388 / 7 | 0.999999817860 |
+| 219 | RTX PRO 6000, CUDA fp16 | Q8_0 | 6.27 | 34.93 | 1,782 | 230 / 272 / 2878 / 2276 / 6 | 0.999999448048 |
+| 219 | RTX PRO 6000, CUDA ordinary | Q8_0 | 6.83 | 32.06 | 2,130 | 227 / 283 / 1114 / 4469 / 6 | 0.999999999991 |
+| 219 | RTX PRO 6000, CUDA ordinary | UD-Q6_K_XL | 6.98 | 31.38 | 2,130 | 207 / 280 / 1100 / 4611 / 7 | 0.999999999981 |
+| 219 | RX 9060 XT, Vulkan | Q8_0 | 29.13 | 7.52 | 1,294 | 258 / 280 / 555 / 27383 / 7 | 0.999999999993 |
+| 219 | RX 9060 XT, Vulkan | UD-Q6_K_XL | 29.38 | 7.45 | 1,289 | 207 / 285 / 557 / 27656 / 6 | 0.999999999996 |
+| 219 | CPU | BGE small | 19.16 | 11.43 | — | 100 / 6 / — / 74236 / 7 | 1.000000000000 |
+| 219 | CPU | Q8_0 | 165.61 | 1.32 | — | 240 / 270 / — / 164786 / 11 | 1.000000000000 |
+| 59 | RTX PRO 6000, CUDA fp16 | Google pack | 3.78 | 15.60 | 1,754 | 208 / 88 / 2719 / 204 / 3 | 0.999999945920 |
+| 59 | RTX PRO 6000, CUDA fp16 | Q8_0 | 4.06 | 14.52 | 1,754 | 221 / 263 / 2863 / 188 / 3 | 0.999999899598 |
+| 59 | RTX PRO 6000, CUDA ordinary | Q8_0 | 2.57 | 22.92 | 2,094 | 218 / 278 / 1101 / 298 / 3 | 0.999999999998 |
+| 59 | RTX PRO 6000, CUDA ordinary | UD-Q6_K_XL | 2.52 | 23.38 | 2,094 | 174 / 279 / 1099 / 291 / 3 | 0.999999999997 |
+| 59 | RX 9060 XT, Vulkan | Q8_0 | 3.73 | 15.84 | 1,244 | 219 / 271 / 566 / 2157 / 4 | 0.999999999998 |
+| 59 | RX 9060 XT, Vulkan | UD-Q6_K_XL | 3.70 | 15.96 | 1,244 | 183 / 285 / 554 / 2188 / 3 | 0.999999999996 |
+| 59 | CPU | BGE small | 1.84 | 31.99 | — | 111 / 6 / — / 6194 / 3 | 1.000000000000 |
+| 59 | CPU | Q8_0 | 14.74 | 4.00 | — | 225 / 280 / — / 14055 / 4 | 1.000000000000 |
+
+### Apple M4 (macOS)
+
+| Passages | Device and writer | Model | Wall (s) | Passages/s | Peak device (MiB) | Verify / decode / attach / forward / SQLite (ms) | Min CPU cosine |
+| ---: | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 219 | Metal default (combined) | Q8_0 | 23.76 | 9.22 | — | 125 / 129 / 62 / 23254 / 7 | 0.999999999993 |
+| 219 | Metal forced stock | Q8_0 | 27.07 | 8.09 | — | 126 / 129 / 83 / 26404 / 7 | 0.999999999964 |
+| 219 | CPU | BGE small | 22.75 | 9.62 | — | 53 / 5 / — / 88554 / 5 | 1.000000000000 |
+| 219 | CPU | Q8_0 | 196.82 | 1.11 | — | 119 / 133 / — / 196286 / 8 | 1.000000000000 |
+| 59 | Metal default (combined) | Q8_0 | 2.64 | 22.35 | — | 118 / 130 / 36 / 2266 / 3 | 0.999999999998 |
+| 59 | Metal forced stock | Q8_0 | 2.96 | 19.94 | — | 119 / 130 / 34 / 2584 / 3 | 0.999999999997 |
+| 59 | CPU | BGE small | 2.15 | 27.48 | — | 54 / 4 / — / 7556 / 2 | 1.000000000000 |
+| 59 | CPU | Q8_0 | 16.79 | 3.51 | — | 119 / 131 / — / 16459 / 3 | 1.000000000000 |
+
+Default Metal delivers 8.28× the M4 Q8 CPU rate on 219 passages and 6.36×
+on 59. On the Linux host the 219-passage Q8 fp16 rate is 26.4× its own CPU
+rate. Ordinary CUDA has the faster short-fixture Q8 sync because it spends
+less time attaching. CPU BGE has the highest 59-passage rate on each host.
+
+The Radeon slowdown per passage is mainly a difference in work per passage.
+The 219-passage fixture averages 503 prepared positions per passage, compared
+with 157 on the 59-passage fixture. Radeon used 14 forwards of 7,391–8,106
+positions on the longer fixture and two forwards of 7,712 and 1,559 on the
+shorter one. These are the same batch shapes as ordinary CUDA. The separate
+4 GiB guard never intervened. At the Vulkan working-set estimate, the full
+8,192-position batch limit fits in the 1 GiB workspace budget. Q8 forward
+rate was about 4,300 positions/s on 59 passages and 4,020 on 219. Q6 moved
+from about 4,240 to 3,980 positions/s. Forward throughput per position fell
+about 6% on the longer fixture. The cause of that difference was not determined.
+
+[Capture and verification](../../tools/phase28/evidence/metal-69/README.md)
