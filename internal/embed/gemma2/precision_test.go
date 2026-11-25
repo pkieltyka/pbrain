@@ -108,7 +108,7 @@ func TestCUDAInventoryProfileEligibility(t *testing.T) {
 }
 
 func TestCUDAProfileFingerprints(t *testing.T) {
-	const qualifiedRevision = "c26c69ed44717d86cf2218370054d5e89886b694"
+	const qualifiedRevision = "fd85e325a50f3f525f4629599ff2a5b9cca4c246"
 	if goinferRevision != qualifiedRevision {
 		t.Fatalf("requalify the fp16 identity for goinfer %s", goinferRevision)
 	}
@@ -121,11 +121,11 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, sum := range map[string]string{
-		"github.com/pkieltyka/goinfer":              "oxahCIZevBqtTJTXE6DIsh0i32U2jNZ4Pw6Kp9LifwU=",
-		"github.com/pkieltyka/goinfer/backend/cuda": "q73SRYrPxf+hi+Olg/A/pPhuBFfwssH6I3+ha2GfY34=",
+		"github.com/pkieltyka/goinfer":              "y5XNgJ25SI8z1LHSixJqr+UnU+SeZ23tHYWNmFoKc8c=",
+		"github.com/pkieltyka/goinfer/backend/cuda": "8n+EtnSLg0da+ANaRc3mKOrV0rf7k3sSoeHAsd/tTE8=",
 	} {
-		if !strings.Contains(string(mod), "\t"+path+" v0.6.7\n") ||
-			!strings.Contains(string(sums), path+" v0.6.7 h1:"+sum+"\n") {
+		if !strings.Contains(string(mod), "\t"+path+" v0.6.8\n") ||
+			!strings.Contains(string(sums), path+" v0.6.8 h1:"+sum+"\n") {
 			t.Errorf("requalify the fp16 identity when %s changes", path)
 		}
 	}
@@ -133,14 +133,14 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		row        embed.Model
 		base, fp16 string
 	}{
-		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "a002b1e0bde5678c269e19debcbeee527dc206a1549f7835a8d733b22f8481f2"},
-		{testGGUFEntry(t, q8Name).Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "4c1ace74bf64e6f53f4401a1031007847ec815aed25727b457d4547ff897ca28"},
+		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "c1173b1fb79db11305c4d0a5b865cacb9d1ed9976a72c842902922cd19dea67e"},
+		{testGGUFEntry(t, q8Name).Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "d71a5ed51964400da5fdfa5cf2f5c2f99b99f46d04e3396a5b114115883f9982"},
 	} {
 		if model.row.Fingerprint != model.base || model.row.CUDAFP16Fingerprint != model.fp16 {
 			t.Errorf("%s has an unexpected identity: %s %s", model.row.Name, model.row.Fingerprint, model.row.CUDAFP16Fingerprint)
 		}
 		updated := model.row
-		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "c0a5159bbff1c2fe5c8624e1399aa7438c820677")
+		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "c26c69ed44717d86cf2218370054d5e89886b694")
 		if updated.CUDAFP16Fingerprint == model.fp16 || embed.FolderName(updated) != embed.FolderName(model.row) {
 			t.Errorf("%s revision did not isolate vector identity from the file folder", model.row.Name)
 		}
