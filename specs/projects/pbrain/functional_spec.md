@@ -710,7 +710,7 @@ Example JSON with the same memory figures:
 ]}
 ```
 
-`memory` describes the free figure as `live`, `estimated` or `unknown`. `memory_kind` is `dedicated`, `shared` or `unknown`. Linux amd64 builds with `-tags cuda,vulkan` include both backends. The v0.2.0 Linux GPU archives include CUDA. The `_cpu` archives, macOS archives and a plain `go install` list only the CPU.
+`memory` describes the free figure as `live`, `estimated` or `unknown`. `memory_kind` is `dedicated`, `shared` or `unknown`. Linux amd64 builds with `-tags cuda,vulkan` include both backends. The v0.2.0 Linux GPU archives include CUDA. The `_cpu` archives, Darwin amd64 and a plain `go install` list only the CPU. The Darwin arm64 Metal archive lists the system-default GPU as `metal:0` with no persistent ID and an estimated shared-memory reading when available.
 
 ## 10. Configuration
 
@@ -740,6 +740,8 @@ ci = "Build and test pipelines"
 - **`model = "embeddinggemma-2-ud-q6-k-xl"`** selects Unsloth’s UD-Q6_K_XL conversion. A first sync fetches one 248,812,032-byte GGUF file. For offline use, set `model_path` to the directory containing `embeddinggemma-2-UD-Q6_K_XL.gguf`.
 - **`model = "none"`**, written exactly so: semantic search is off. `pbrain sync` then fails with `no_model` and `search --semantic` returns its lexical results with `semantic_not_ready`.
 - **`model = ""`** fails every command that reads the configuration with `invalid_config`.
+
+On Darwin arm64 with the Metal build, Q8_0 supports `pbrain sync --device metal` and `--device metal:0`. Auto can choose Metal too. Switching into or out of a Metal profile rebuilds that section's index using the destination profile. Search always embeds the query on the CPU and can use either completed Metal profile.
 
 Both GGUF rows return 768-dimensional vectors, with a separate index and vector cache for each. Setting `semantic.model` opts in. After a model change, `pbrain sync` builds an index for the selected model in each requested section. Until then, semantic search returns lexical results with `semantic_not_ready`.
 

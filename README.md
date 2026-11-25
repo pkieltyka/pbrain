@@ -21,9 +21,10 @@ The standard Linux archives include GPU support. After v0.2.0, the amd64 archive
 NVIDIA GPUs and Vulkan for discrete AMD GPUs, and the arm64 archive has CUDA alone, because the
 Vulkan backend supports Linux amd64 only. The v0.2.0 GPU archives have CUDA alone. A GPU binary
 starts without either driver: with no NVIDIA driver and no Vulkan loader, `pbrain devices` lists
-the CPU and sync runs on the CPU. Use the Linux archives ending in
-`_cpu.tar.gz` for a smaller CPU-only binary. `go install` also gives a CPU-only binary.
-The macOS binaries are CPU-only, untested and unsupported for now.
+the CPU and sync runs on the CPU. Use an archive ending in
+`_cpu.tar.gz` for a CPU-only binary. Plain `go install` also gives a CPU-only binary.
+On Apple Silicon, `darwin_arm64` includes Metal and `darwin_arm64_cpu` is the
+CPU companion. The Darwin amd64 archive remains CPU-only.
 
 For ordinary CUDA support on Linux with `go install`, use
 `go install -tags cuda github.com/pkieltyka/pbrain/cmd/pbrain@latest`.
@@ -34,6 +35,7 @@ On Linux amd64, add `vulkan` to those tags to match the standard archive
 and sync the Google EmbeddingGemma 2 pack on discrete AMD GPUs. The CUDA build loads
 `libcuda.so.1` dynamically at runtime. Set `LD_LIBRARY_PATH` if the driver library is outside the
 default loader search path. Vulkan uses the system Vulkan loader and an AMD driver.
+Build the Apple Silicon variant with `CGO_ENABLED=0 go build -tags metal ./cmd/pbrain`.
 Run `pbrain devices` to see the available devices in automatic selection order.
 The order uses available memory information and gives live figures priority over
 estimates for devices of the same memory kind.
@@ -41,6 +43,10 @@ Use `pbrain sync --device vulkan` to select AMD, or `--device vulkan:<uuid>` to 
 one card by the persistent ID from `pbrain devices --json`. Use `--device cuda`
 to require CUDA or `--device cpu` to request the CPU. `PBRAIN_DEVICE` sets the choice
 when the flag is absent. EmbeddingGemma 2 sync warns when it runs on the CPU.
+With `embeddinggemma-2-q8-0`, use `--device metal` or `--device metal:0` to
+select the system-default Metal device. Auto selection can also choose Metal for
+this row. A switch between Metal profiles or between Metal and another backend
+rebuilds the affected Q8 sections. CPU search can read either Metal profile.
 The default `bge-small-en-v1.5` model always syncs on the CPU without a notice,
 regardless of the device selector.
 
@@ -51,8 +57,8 @@ override the batch budget. Leave headroom for model weights and other GPU
 users, including the display if it shares the card. A passage can run alone
 when it exceeds the batch budget. Sync splits a batch on a retry-safe out-of-memory
 error. With automatic selection, a retry-safe failure on one passage moves
-an fp32 sync to the CPU and prints a notice. An fp16 sync stops at its
-last saved checkpoint.
+an ordinary CUDA or Vulkan sync to the CPU and prints a notice. An fp16 or
+Metal sync stops at its last saved checkpoint. Metal runs one passage at a time.
 
 ## Quick start
 
@@ -112,10 +118,10 @@ model = "embeddinggemma-2"
 ```
 
 Use `model = "embeddinggemma-2-q8-0"` for Unsloth's Q8_0 conversion of
-Google's EmbeddingGemma 2. It syncs on CPU or NVIDIA CUDA and downloads
+Google's EmbeddingGemma 2. It syncs on CPU, CUDA, Vulkan or Apple Silicon Metal and downloads
 a single GGUF file. [Pinned model card and Apache-2.0 license](https://huggingface.co/unsloth/embeddinggemma-2-GGUF/blob/031f0d4b35536f69ab3509d4893c923264fcf253/README.md)
 
-Both Gemma models default to fp16 indexing with a compatible NVIDIA GPU
+The Google pack and Q8_0 default to fp16 indexing with a compatible NVIDIA GPU
 (compute capability 8.0 or newer) and the fast kernel linked in. Older CUDA
 cards use fp32 and sync reports the reason. When upgrading, run `pbrain sync`
 to rebuild the index and add `--personal` if you index a personal section.

@@ -1,13 +1,11 @@
 name: release
 
 # Release binaries (architecture section 16, decision 10): on a pushed v* tag, the suite runs in the
-# release configuration, then GoReleaser builds Linux GPU and CPU-only binaries and untagged
-# macOS binaries on amd64 and arm64. The Linux amd64 GPU binary links CUDA and Vulkan, the arm64
-# one CUDA alone. It checks the device listing and Gemma CPU fallback with the native Linux GPU
-# binary, with and without a Vulkan loader, before uploading the archives and SHA-256 checksums
-# to a draft release. The suite
-# runs on Linux only, and the macOS binaries are untested and unsupported for now
-# (architecture section 17).
+# release configuration, then GoReleaser builds Linux GPU and CPU-only binaries, Darwin arm64
+# Metal and CPU-only binaries, and an untagged Darwin amd64 binary. The Linux amd64 GPU binary
+# links CUDA and Vulkan, the arm64 one CUDA alone. The workflow checks device listing and Gemma CPU
+# fallback with the native Linux GPU binary, with and without a Vulkan loader, before uploading archives and SHA-256 checksums
+# to a draft release. The suite runs on Linux and cross-builds the Darwin targets.
 
 on:
   push:
