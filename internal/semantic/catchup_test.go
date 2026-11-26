@@ -284,6 +284,7 @@ func TestCatchUpLock(t *testing.T) {
 	<-src.indexes
 	e.mustBuild(s)
 	built := s.manifestDB()
+	<-src.model // Count catch-up embeddings after the background query completes.
 	texts = e.kit.Texts.Load()
 	if err := src.CatchUp(ctx); err != nil {
 		t.Fatal(err)
