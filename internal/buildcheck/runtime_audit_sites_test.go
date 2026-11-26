@@ -1,4 +1,4 @@
-package bge
+package buildcheck
 
 // The CLI does not enter goinfer's resident decoder, vision, or KV snapshot
 // paths. These reviewed source sites are accepted once each on auditedPin.

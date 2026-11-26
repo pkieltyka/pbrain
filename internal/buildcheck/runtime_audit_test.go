@@ -1,4 +1,4 @@
-package bge
+package buildcheck
 
 import (
 	"bytes"
@@ -59,7 +59,7 @@ type runtimePackage struct {
 }
 
 func TestRuntimeEnvAndOutput(t *testing.T) {
-	root := filepath.Join("..", "..", "..")
+	root := root(t)
 	release, err := os.ReadFile(filepath.Join(root, ".goreleaser.yaml"))
 	if err != nil {
 		t.Fatal(err)

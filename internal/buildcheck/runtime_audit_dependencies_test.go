@@ -1,4 +1,4 @@
-package bge
+package buildcheck
 
 import "slices"
 
