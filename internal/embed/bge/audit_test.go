@@ -32,7 +32,7 @@ const (
 	vulkanModule  = goinferModule + "/backend/vulkan"
 	metalModule   = goinferModule + "/backend/metal"
 	decoderPkg    = goinferModule + "/decoder"
-	auditedPin    = "v0.6.8"
+	auditedPin    = "v0.6.9"
 )
 
 type runtimeSite struct {

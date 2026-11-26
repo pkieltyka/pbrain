@@ -48,7 +48,7 @@ func TestGemmaGGUFRows(t *testing.T) {
 			fingerprint: "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691",
 			index:       "c346df62410f98848d85f7a3aa18e084fd8fab8138d97515f8045fcd3988be9d",
 			folder:      "embeddinggemma-2-q8-0-49b6c94be1aac068",
-			fp16:        "d71a5ed51964400da5fdfa5cf2f5c2f99b99f46d04e3396a5b114115883f9982",
+			fp16:        "c651a6d559ca693390fc2bb14023fc25171d69fd85bde6e0b73fa4874ba2cef5",
 		},
 		{
 			name: q6Name, file: q6File,

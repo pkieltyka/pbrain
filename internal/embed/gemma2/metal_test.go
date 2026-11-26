@@ -51,7 +51,7 @@ func TestMetalListingAndProfile(t *testing.T) {
 	}
 
 	q8, q6 := GGUFEntries()[0].Model, GGUFEntries()[1].Model
-	prefixes := []string{"573041a119a9", "bd2528339fbe"}
+	prefixes := []string{"c9ee9a472dff", "d5b3af579f21"}
 	for i, profile := range []string{metalStockProfile, metalCombinedProfile} {
 		got, err := attachedMetalProfile(&fakeMetal{device: row, profile: profile})
 		fp := profileFingerprint(q8.Fingerprint, got, goinferRevision)

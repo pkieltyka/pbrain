@@ -108,7 +108,7 @@ func TestCUDAInventoryProfileEligibility(t *testing.T) {
 }
 
 func TestCUDAProfileFingerprints(t *testing.T) {
-	const qualifiedRevision = "fd85e325a50f3f525f4629599ff2a5b9cca4c246"
+	const qualifiedRevision = "a1333cf2b78d7ac00596690085260d68f48f9310"
 	if goinferRevision != qualifiedRevision {
 		t.Fatalf("requalify the fp16 identity for goinfer %s", goinferRevision)
 	}
@@ -121,26 +121,28 @@ func TestCUDAProfileFingerprints(t *testing.T) {
 		t.Fatal(err)
 	}
 	for path, sum := range map[string]string{
-		"github.com/pkieltyka/goinfer":              "y5XNgJ25SI8z1LHSixJqr+UnU+SeZ23tHYWNmFoKc8c=",
-		"github.com/pkieltyka/goinfer/backend/cuda": "8n+EtnSLg0da+ANaRc3mKOrV0rf7k3sSoeHAsd/tTE8=",
+		"github.com/pkieltyka/goinfer":                "ClqJTtaLY1Ju80h5ZEQSNgLJdOAfKZWcwiKxIYEqAfs=",
+		"github.com/pkieltyka/goinfer/backend/cuda":   "cvNKuh9s3hDlrPcvz+M/m2VHG4W/MwoH7ErT3Nvg1tM=",
+		"github.com/pkieltyka/goinfer/backend/metal":  "xBRxik6IiIT7Z+dKSH8LRx+Sb7jRqBEffIP26R1kRmo=",
+		"github.com/pkieltyka/goinfer/backend/vulkan": "gBlpNmArUoWB6v3GXeFX0iWqRqHMHi0iNWMXO5aGO+Y=",
 	} {
-		if !strings.Contains(string(mod), "\t"+path+" v0.6.8\n") ||
-			!strings.Contains(string(sums), path+" v0.6.8 h1:"+sum+"\n") {
-			t.Errorf("requalify the fp16 identity when %s changes", path)
+		if !strings.Contains(string(mod), "\t"+path+" v0.6.9\n") ||
+			!strings.Contains(string(sums), path+" v0.6.9 h1:"+sum+"\n") {
+			t.Errorf("requalify the vector profiles when %s changes", path)
 		}
 	}
 	for _, model := range []struct {
 		row        embed.Model
 		base, fp16 string
 	}{
-		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "c1173b1fb79db11305c4d0a5b865cacb9d1ed9976a72c842902922cd19dea67e"},
-		{testGGUFEntry(t, q8Name).Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "d71a5ed51964400da5fdfa5cf2f5c2f99b99f46d04e3396a5b114115883f9982"},
+		{Entry().Model, "79cd8cb6d605c915fb0ea74c3680816bd15df66e5db70ad0de1bf13df463de48", "c5108585a655e515c6630e69de8716b65573b95308c5b49884c0375b508aa982"},
+		{testGGUFEntry(t, q8Name).Model, "9ebb0de1d547aee1abffec1288639ce596a06b0c32447d502782a474118cf691", "c651a6d559ca693390fc2bb14023fc25171d69fd85bde6e0b73fa4874ba2cef5"},
 	} {
 		if model.row.Fingerprint != model.base || model.row.CUDAFP16Fingerprint != model.fp16 {
 			t.Errorf("%s has an unexpected identity: %s %s", model.row.Name, model.row.Fingerprint, model.row.CUDAFP16Fingerprint)
 		}
 		updated := model.row
-		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "c26c69ed44717d86cf2218370054d5e89886b694")
+		updated.CUDAFP16Fingerprint = fp16Fingerprint(updated.Fingerprint, "fd85e325a50f3f525f4629599ff2a5b9cca4c246")
 		if updated.CUDAFP16Fingerprint == model.fp16 || embed.FolderName(updated) != embed.FolderName(model.row) {
 			t.Errorf("%s revision did not isolate vector identity from the file folder", model.row.Name)
 		}
