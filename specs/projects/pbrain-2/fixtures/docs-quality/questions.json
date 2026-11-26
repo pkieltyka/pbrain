@@ -1,0 +1,483 @@
+[
+  {
+    "id": "k01",
+    "kind": "keyword",
+    "q": "lexical gate prefetch",
+    "expect": [
+      "docs/research/memory-providers-and-hooks.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/memory-providers-and-hooks.md",
+        "location_line": 98,
+        "snippet_offset": 12712,
+        "evidence_lines": [
+          99,
+          99
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k02",
+    "kind": "keyword",
+    "q": "turn-completion-nudge",
+    "expect": [
+      "docs/research/memory-providers-and-hooks.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/memory-providers-and-hooks.md",
+        "location_line": 123,
+        "snippet_offset": 15627,
+        "evidence_lines": [
+          125,
+          125
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k03",
+    "kind": "keyword",
+    "q": "world-readable permissions",
+    "expect": [
+      "docs/research/failure-modes-from-the-tracker.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/failure-modes-from-the-tracker.md",
+        "location_line": 55,
+        "snippet_offset": 14952,
+        "evidence_lines": [
+          56,
+          56
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k04",
+    "kind": "keyword",
+    "q": "stale-snapshot overwrites",
+    "expect": [
+      "docs/research/failure-modes-from-the-tracker.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/failure-modes-from-the-tracker.md",
+        "location_line": 49,
+        "snippet_offset": 13474,
+        "evidence_lines": [
+          50,
+          50
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k05",
+    "kind": "keyword",
+    "q": "corrections stick",
+    "expect": [
+      "docs/research/borrow-and-refuse.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/borrow-and-refuse.md",
+        "location_line": 82,
+        "snippet_offset": 13003,
+        "evidence_lines": [
+          85,
+          85
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k06",
+    "kind": "keyword",
+    "q": "write_approval pending directory",
+    "expect": [
+      "docs/research/borrow-and-refuse.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/borrow-and-refuse.md",
+        "location_line": 69,
+        "snippet_offset": 11430,
+        "evidence_lines": [
+          73,
+          73
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k07",
+    "kind": "keyword",
+    "q": "curator stale archived idle",
+    "expect": [
+      "docs/research/learning-loop-background-review.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/learning-loop-background-review.md",
+        "location_line": 75,
+        "snippet_offset": 11465,
+        "evidence_lines": [
+          75,
+          75
+        ]
+      }
+    ]
+  },
+  {
+    "id": "k08",
+    "kind": "keyword",
+    "q": "bundled pinned-skill protection",
+    "expect": [
+      "docs/research/learning-loop-background-review.md"
+    ],
+    "rank": 3,
+    "results": [
+      {
+        "path": "docs/research/learning-loop-background-review.md",
+        "location_line": 81,
+        "snippet_offset": 12470,
+        "evidence_lines": [
+          82,
+          82
+        ]
+      }
+    ],
+    "note": "docs/skills/research_summary.md also holds every word, on different lines"
+  },
+  {
+    "id": "k09",
+    "kind": "keyword",
+    "q": "automatic skill creation",
+    "expect": [
+      "docs/skills/research_summary.md"
+    ],
+    "rank": 1,
+    "results": [
+      {
+        "path": "docs/skills/research_summary.md",
+        "location_line": 1,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          1,
+          1
+        ]
+      }
+    ],
+    "note": "every word is in this title, so it comes before docs/research/learning-loop-background-review.md, which holds them in its body only"
+  },
+  {
+    "id": "k10",
+    "kind": "keyword",
+    "q": "rotation calendar",
+    "expect": [
+      "docs/ops/README.md",
+      "docs/site/README.md"
+    ],
+    "rank": 2,
+    "results": [
+      {
+        "path": "docs/ops/README.md",
+        "location_line": 1,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          3,
+          3
+        ]
+      },
+      {
+        "path": "docs/site/README.md",
+        "location_line": 1,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          3,
+          3
+        ]
+      }
+    ],
+    "note": "two files with one name: both are returned, each with its own path"
+  },
+  {
+    "id": "k11",
+    "kind": "keyword",
+    "q": "preview deployments",
+    "expect": [
+      "docs/site/preview-deployments.md"
+    ],
+    "rank": 1,
+    "results": [
+      {
+        "path": "docs/site/preview-deployments.md",
+        "location_line": 8,
+        "snippet_offset": 0
+      }
+    ],
+    "note": "the words are only in the title taken from a foreign header, so no clause is in the body and the snippet is the start of the body: line 8, after the header and the one empty line that follows it"
+  },
+  {
+    "id": "k12",
+    "kind": "keyword",
+    "q": "harbor-team",
+    "expect": [
+      "docs/ops/broken-header.md"
+    ],
+    "rank": 1,
+    "results": [
+      {
+        "path": "docs/ops/broken-header.md",
+        "location_line": 1,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          2,
+          2
+        ]
+      }
+    ],
+    "note": "an unclosed header is plain text from line 1; the title is the first heading, \"Tide table export\""
+  },
+  {
+    "id": "k13",
+    "kind": "keyword",
+    "q": "ledger cutover",
+    "expect": [
+      "docs/ops/imitates-standing.md"
+    ],
+    "rank": 1,
+    "results": [
+      {
+        "path": "docs/ops/imitates-standing.md",
+        "location_line": 9,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          9,
+          9
+        ]
+      }
+    ],
+    "note": "returned as a document with no kind, status or decider, and absent from prime"
+  },
+  {
+    "id": "k14",
+    "kind": "keyword-nothing",
+    "q": "fjordgrid",
+    "note": "the word is only in a foreign header key that is not the title"
+  },
+  {
+    "id": "k15",
+    "kind": "keyword-nothing",
+    "q": "quartermaster",
+    "note": "the word is only in a header key that imitates standing"
+  },
+  {
+    "id": "k16",
+    "kind": "keyword",
+    "q": "evidence user reports",
+    "expect": [
+      "docs/evidence/research_summary.md"
+    ],
+    "rank": 1,
+    "results": [
+      {
+        "path": "docs/evidence/research_summary.md",
+        "location_line": 1,
+        "snippet_offset": 0,
+        "evidence_lines": [
+          1,
+          1
+        ]
+      }
+    ],
+    "note": "three other documents hold the words in their bodies; the title match comes first"
+  },
+  {
+    "id": "s01",
+    "kind": "question",
+    "q": "Which plugin hook fires after every turn even though its name says the session ended?",
+    "expect": [
+      "docs/research/memory-providers-and-hooks.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      109,
+      118
+    ]
+  },
+  {
+    "id": "s02",
+    "kind": "question",
+    "q": "What test must a stored memory pass before it is silently injected ahead of a turn?",
+    "expect": [
+      "docs/research/memory-providers-and-hooks.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      99,
+      99
+    ]
+  },
+  {
+    "id": "s03",
+    "kind": "question",
+    "q": "Which files were created readable by every local user and exposed conversation history?",
+    "expect": [
+      "docs/research/failure-modes-from-the-tracker.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      56,
+      56
+    ]
+  },
+  {
+    "id": "s04",
+    "kind": "question",
+    "q": "How can a background review overwrite newer memory entries written by another session?",
+    "expect": [
+      "docs/research/failure-modes-from-the-tracker.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      50,
+      50
+    ]
+  },
+  {
+    "id": "s05",
+    "kind": "question",
+    "q": "What should happen when a person corrects how a whole class of work is done?",
+    "expect": [
+      "docs/research/borrow-and-refuse.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      85,
+      85
+    ]
+  },
+  {
+    "id": "s06",
+    "kind": "question",
+    "q": "Why did users start keeping their memory file in a Git repository afterwards?",
+    "expect": [
+      "docs/research/borrow-and-refuse.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      80,
+      80
+    ]
+  },
+  {
+    "id": "s07",
+    "kind": "question",
+    "q": "After how many days is an unused agent-created skill moved to the archive?",
+    "expect": [
+      "docs/research/learning-loop-background-review.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      75,
+      75
+    ]
+  },
+  {
+    "id": "s08",
+    "kind": "question",
+    "q": "When were the review prompts moved out of the main agent file into a module of their own?",
+    "expect": [
+      "docs/research/learning-loop-background-review.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      81,
+      81
+    ]
+  },
+  {
+    "id": "s09",
+    "kind": "question",
+    "q": "How long does a copy of the site stay up after the last push to its merge request?",
+    "expect": [
+      "docs/site/preview-deployments.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      8,
+      8
+    ]
+  },
+  {
+    "id": "s10",
+    "kind": "question",
+    "q": "At what time does the tide table export run?",
+    "expect": [
+      "docs/ops/broken-header.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      6,
+      6
+    ]
+  },
+  {
+    "id": "s11",
+    "kind": "question",
+    "q": "Who compares the trial balance with the bank statement before the new ledger opens?",
+    "expect": [
+      "docs/ops/imitates-standing.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      9,
+      9
+    ]
+  },
+  {
+    "id": "s12",
+    "kind": "question",
+    "q": "Where is the duty rota for the operations team kept, and when does it change?",
+    "expect": [
+      "docs/ops/README.md"
+    ],
+    "rank": 5,
+    "evidence_lines": [
+      3,
+      3
+    ]
+  },
+  {
+    "id": "u01",
+    "kind": "unanswerable",
+    "q": "What is the retention period for Quillfeather audit exports?"
+  },
+  {
+    "id": "u02",
+    "kind": "unanswerable",
+    "q": "Who approves a change to the Marrowgate billing schedule?"
+  },
+  {
+    "id": "u03",
+    "kind": "unanswerable",
+    "q": "Which region hosts the Tansy replica set?"
+  },
+  {
+    "id": "u04",
+    "kind": "unanswerable",
+    "q": "What colour is the Orrery status lamp when a batch stalls?"
+  }
+]
