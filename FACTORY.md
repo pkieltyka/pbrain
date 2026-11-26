@@ -18,12 +18,12 @@ Only a person moves an issue into Todo. That column means the operator may assig
 
 @pm owns tracker writes, or the operator when there is no @pm. Members report discoveries to that owner, who records them in Backlog. Record owner, criteria, branch or commit, verdict and next step on the issue, as comments. Integrated work is closed (`todos close N --reason completed --comment '<commit>'`) and moves to Done.
 
-Check the board with `todos board --json`; pass `--project pkieltyka/3` if it shows another. Check failures with `todos doctor --json`; reconcile an uncertain write before retrying. Never run `todos rm`; close instead, after confirmed integration. A change counts as integrated only when its GitHub Actions run is green on Linux and on macOS. Native Mac measurements (#9) and binary signing (#70) are tracked on the board.
+Check the board with `todos board --json`; pass `--project pkieltyka/3` if it shows another. Check failures with `todos doctor --json`; reconcile an uncertain write before retrying. Never run `todos rm`; close instead, after confirmed integration. A change counts as integrated only when its GitHub Actions run is green on Linux and on macOS. Binary signing (#70) is deferred on the board.
 
 ## Workflow
 
 1. The operator assigns tasks with acceptance criteria. @pm records owner, criteria, branch or commit, verdict and next step on the issue, and only @pm updates the tracker.
-2. Consult an architect before deciding a shared interface, the storage format or the CLI surface. Architects' plans are advice; the operator decides.
+2. Consult an architect before deciding a shared interface, the storage format or the CLI surface. Every plan in `docs/plans/` is reviewed by the other architect, a lead-dev and @reviewer before it is approved, and the approved plan text is posted on its GitHub issue as the reference. Architects' plans are advice; the operator decides.
 3. Developers agree shared interfaces before parallel work, implement, then ask @reviewer with the task, criteria and exact diff or commit. They fix findings until approved; after three rounds on one task the operator decides how to go on.
 4. The operator reviews the result and integrates it into `master`. Work goes straight to `master`; there are no pull requests.
 5. One feature or issue is in progress at a time. Its tasks may run in parallel when each writer has its own worktree; in a shared checkout only one task writes at a time.
