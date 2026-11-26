@@ -114,8 +114,8 @@ notes may go faster, and a small brain still takes minutes. A plain `go install`
 archives have no GPU support.
 
 Search uses the CPU in every build and loads the model each time, which takes half a second or
-more and a gigabyte of memory or more. On that brain the warm medians of four queries were 459–484 ms on an Apple M4
-and 684–729 ms on four Ryzen 9 7950X cores, with up to 1.5 GB of memory.
+more and a gigabyte of memory or more. On that brain the warm medians of four queries were 459–484 ms on an Apple M4.
+On four Ryzen 9 7950X cores under Linux they were 684–729 ms, with up to 1.5 GB of memory.
 
 `embeddinggemma-2` is Google's own pack of the same model: a 1.52 GB download that syncs on CPU,
 CUDA or Vulkan and has no Metal path. To use it, set the model in `docs/brain/pbrain.toml` and run
