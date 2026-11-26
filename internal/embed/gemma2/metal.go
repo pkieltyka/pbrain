@@ -25,10 +25,6 @@ func systemDefaultMetal(device embeddinggemma2.DeviceInfo) bool {
 	return metalDefault(device) && !device.TextBatching
 }
 
-func attachMetal(model *embeddinggemma2.Encoder, batch bool, override int64) (string, int64, bool, error) {
-	return attachMetalRoute(model.UseAccelerator, batch, override)
-}
-
 func attachMetalRoute(use func(string) (embeddinggemma2.Accelerator, error), batch bool, override int64) (string, int64, bool, error) {
 	if batch {
 		acc, err := use(metalBatchSelector)

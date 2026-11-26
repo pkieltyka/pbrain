@@ -134,6 +134,12 @@ func open(ctx context.Context, a *embed.Artifact, opt embed.OpenOptions) (embed.
 }
 
 func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[string]string, opt embed.OpenOptions, fp string, allowMetal bool) (embed.Embedder, error) {
+	return newRuntimeWithMetalAttach(ctx, m, prompts, opt, fp, allowMetal, (*embeddinggemma2.Encoder).UseAccelerator)
+}
+
+func newRuntimeWithMetalAttach(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[string]string, opt embed.OpenOptions, fp string, allowMetal bool,
+	useMetal func(*embeddinggemma2.Encoder, string) (embeddinggemma2.Accelerator, error),
+) (embed.Embedder, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -168,7 +174,10 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 		}
 		attach := trace.Start(ctx, trace.DeviceAttach)
 		if allowMetal && device.Backend == "metal" {
-			metalProfile, budget, metalBatch, err = attachMetal(candidate, !opt.MetalSingleton, opt.MemoryBudget)
+			use := func(selector string) (embeddinggemma2.Accelerator, error) {
+				return useMetal(candidate, selector)
+			}
+			metalProfile, budget, metalBatch, err = attachMetalRoute(use, !opt.MetalSingleton, opt.MemoryBudget)
 		} else {
 			budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
 		}

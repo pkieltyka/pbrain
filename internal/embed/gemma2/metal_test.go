@@ -187,7 +187,7 @@ func TestMetalBatchAttachError(t *testing.T) {
 	}
 	_, model := tinyEncoderForTest(t)
 	for _, batch := range []bool{true, false} {
-		_, _, _, err := attachMetal(model, batch, 0)
+		_, _, _, err := attachMetalRoute(model.UseAccelerator, batch, 0)
 		if !errors.Is(err, embed.ErrAccelerator) || !errors.Is(err, embeddinggemma2.ErrBackendUnavailable) ||
 			strings.Contains(err.Error(), metalBatchSelector) != batch {
 			t.Fatalf("Metal batch=%v attach without a backend: %v", batch, err)
@@ -298,19 +298,56 @@ func TestMetalAttachRoutes(t *testing.T) {
 }
 
 func TestMetalRuntimeRoute(t *testing.T) {
-	if metalCompiled {
-		t.Skip("requires a build without the real Metal backend")
-	}
-	for _, singleton := range []bool{false, true} {
-		_, m := tinyEncoderForTest(t)
-		opt := embed.OpenOptions{Device: metalDeviceID, MetalSingleton: singleton,
-			Writer: embed.WriteProfile{Inventory: &embed.Listing{Devices: []embed.DeviceInfo{
-				{ID: metalDeviceID, Backend: "metal"},
-			}}}}
-		prompts := map[string]string{"query": queryPrompt, "document": docPrompt}
-		_, err := newRuntime(t.Context(), m, prompts, opt, q8Fingerprint, true)
-		if !errors.Is(err, embed.ErrAccelerator) || strings.Contains(err.Error(), metalBatchSelector) == singleton {
-			t.Fatalf("runtime singleton=%v attachment error = %v", singleton, err)
-		}
+	for _, tc := range []struct {
+		name, device string
+		singleton    bool
+		refusesBatch bool
+		selectors    []string
+		window       int
+		budget       int64
+	}{
+		{name: "named default", device: metalDeviceID, selectors: []string{metalBatchSelector}, window: batchInputs, budget: gib},
+		{name: "named opt-out", device: metalDeviceID, singleton: true, selectors: []string{"metal"}, window: 1},
+		{name: "auto default", device: "auto", selectors: []string{metalBatchSelector}, window: batchInputs, budget: gib},
+		{name: "auto opt-out", device: "auto", singleton: true, selectors: []string{"metal"}, window: 1},
+		{name: "auto refusal", device: "auto", refusesBatch: true, selectors: []string{metalBatchSelector, "metal"}, window: 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, m := tinyEncoderForTest(t)
+			opt := embed.OpenOptions{Device: tc.device, MetalSingleton: tc.singleton,
+				Writer: embed.WriteProfile{Inventory: &embed.Listing{Devices: []embed.DeviceInfo{
+					{ID: metalDeviceID, Backend: "metal"},
+				}}}}
+			prompts := map[string]string{"query": queryPrompt, "document": docPrompt}
+			var selectors []string
+			fake := &fakeMetal{profile: metalCombinedProfile}
+			fake.device.Backend = "metal"
+			embeddinggemma2.RegisterAccelerator(t.Name(), func(*embeddinggemma2.Model) (embeddinggemma2.Accelerator, error) {
+				return fake, nil
+			})
+			use := func(candidate *embeddinggemma2.Encoder, selector string) (embeddinggemma2.Accelerator, error) {
+				selectors = append(selectors, selector)
+				if tc.refusesBatch && selector == metalBatchSelector {
+					return nil, embeddinggemma2.ErrUnsupportedSelector
+				}
+				fake.device.TextBatching = selector == metalBatchSelector
+				return candidate.UseAccelerator(t.Name())
+			}
+			e, err := newRuntimeWithMetalAttach(t.Context(), m, prompts, opt, q8Fingerprint, true, use)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := e.Close(); err != nil || fake.closed != 1 {
+					t.Errorf("Metal close = %v, calls = %d", err, fake.closed)
+				}
+			})
+			if info := e.Info(); !slices.Equal(selectors, tc.selectors) || info.Device != metalDeviceID ||
+				info.Fallback != "" || info.Budget != tc.budget || e.(embed.Windowed).Window() != tc.window ||
+				e.Fingerprint() != profileFingerprint(q8Fingerprint, metalCombinedProfile, goinferRevision) {
+				t.Fatalf("Metal selectors = %v, run = %+v, window = %d, fingerprint = %s",
+					selectors, info, e.(embed.Windowed).Window(), e.Fingerprint())
+			}
+		})
 	}
 }
