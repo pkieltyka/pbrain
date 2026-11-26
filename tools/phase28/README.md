@@ -43,6 +43,10 @@ On the old machine the two model directories were `/tmp/pbrain-phase24.IV8b37/mo
 
 ## Recreate the retained fixtures and measurements
 
+The `bge` commands require a source tree or candidate that still supports
+bge-small, such as pbrain v0.4.7 or earlier. This harness keeps that choice
+for reproducing the historical runs.
+
 The original BGE run exited 0. The committed BGE report is in [README.measure.md](../../internal/cli/README.measure.md), and `evidence/bge-full.log` preserves the detailed row data. A new BGE build supplies the retained BGE index for the final-pins warm check when the old index is unavailable. It can also give a second host's full-size data. Record host, CPU affinity, filesystem, and Go version with the new results.
 
 ```sh

@@ -12,7 +12,7 @@ The final `summary` records per-span counts and total durations, plus
 model-open and accelerator-attach call counts. `share` is a fraction of
 sync wall time. Times are inclusive, so `model_open` overlaps
 `model_decode` and `device_attach`, and `publish` overlaps
-`sqlite_checkpoint`. BGE forwards may also overlap on worker threads.
+`sqlite_checkpoint`.
 Only sync writes the trace. A traced sync handles SIGINT and SIGTERM through
 normal context cancellation, which lets it write the summary after cleanup.
 A failed trace append leaves the sync outcome intact and can leave an
