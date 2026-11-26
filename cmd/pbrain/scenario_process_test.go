@@ -51,7 +51,13 @@ func (d *scenarioDir) LinkNew(temp, name string) error {
 	killItem := d.mode == "kill" && strings.HasSuffix(name, ".md")
 	killIndex := d.mode == "kill-index" && d.name == "index" && strings.HasSuffix(name, ".db")
 	if err == nil && (killItem || killIndex) {
-		return syscall.Kill(os.Getpid(), syscall.SIGKILL)
+		if err := syscall.Kill(os.Getpid(), syscall.SIGKILL); err != nil {
+			return fmt.Errorf("scenario publication SIGKILL: %w", err)
+		}
+		// Darwin can deliver the signal on another thread. Wait here so the
+		// command cannot finish publication and exit before the signal lands.
+		time.Sleep(5 * time.Second)
+		return errors.New("scenario child survived SIGKILL")
 	}
 	return err
 }
