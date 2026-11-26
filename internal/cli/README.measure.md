@@ -1615,3 +1615,47 @@ run. That comparison spans two goinfer releases. The nine-run
 The bit-equality checks cover the 59- and 219-passage fixtures.
 
 [Capture and verification](../../tools/phase28/evidence/metal-batch-72/README.md)
+
+## Q8_0 default on the 5,000-note Linux fixture (#77)
+
+The Linux amd64 CPU and GPU archives came from a GoReleaser snapshot of
+`b77d8ad`. The GPU build carried `cuda,vulkan,eg2_combined,eg2_fp16`.
+Both used goinfer v0.6.9 and ran with `GOMAXPROCS=4` on CPUs 8–11 of
+pax's Ryzen 9 7950X. Both builds embedded search queries on the CPU.
+The Q8_0 file lived in the managed cache on btrfs and sync sealed it
+with fs-verity. These warm results apply to that cache path.
+
+The corpus hash matched #22's 4,500 shared and 500 personal notes,
+50,000,000 Markdown bytes and 48,511 passages. The candidate reported
+the retained v0.6.8 index stale. A fresh RTX PRO 6000 CUDA fp16 sync
+rebuilt both sections in 524.2 s with 1,788 MiB peak sampled VRAM.
+This rebuild was outside the search timings. Both binaries then reported
+every item indexed. Both manifests recorded the same v0.6.9 fp16 index
+fingerprint, `1269c73dba12c2e75f48902f45921e3528ef52c8ab4dbbea0de03bae27df73fa`.
+
+Each row uses one untimed priming read and five fresh processes.
+The CPU and GPU builds alternate order within each pair. The two
+queries are #32's `readbenchrare` and `where is login state kept`,
+with `--personal` for the 5,000-note view. The timing lock held across
+the run. Each preflight needed two quiet five-second samples with no
+foreign NVIDIA compute. RSS comes from the child process's kernel
+high-water mark.
+
+| Binary | View | Query | Five samples (ms) | Median (ms) | Range (ms) | <1 s | Peak RSS (MiB) |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: |
+| CPU | shared | exact | 696.8, 684.5, 684.9, 692.8, 674.3 | 684.9 | 674.3–696.8 | 5/5 | 1,373.3 |
+| GPU | shared | exact | 705.0, 679.7, 682.1, 683.6, 690.0 | 683.6 | 679.7–705.0 | 5/5 | 1,376.2 |
+| CPU | shared | paraphrase | 680.2, 678.1, 728.3, 729.4, 699.9 | 699.9 | 678.1–729.4 | 5/5 | 1,371.0 |
+| GPU | shared | paraphrase | 698.4, 706.7, 759.4, 721.1, 706.3 | 706.7 | 698.4–759.4 | 5/5 | 1,374.5 |
+| CPU | personal | exact | 706.7, 729.0, 708.1, 729.7, 714.5 | 714.5 | 706.7–729.7 | 5/5 | 1,412.7 |
+| GPU | personal | exact | 718.5, 738.1, 723.4, 740.2, 724.3 | 724.3 | 718.5–740.2 | 5/5 | 1,419.1 |
+| CPU | personal | paraphrase | 714.0, 716.9, 735.9, 716.8, 727.4 | 716.9 | 714.0–735.9 | 5/5 | 1,413.3 |
+| GPU | personal | paraphrase | 713.6, 733.4, 678.4, 738.1, 729.2 | 729.2 | 678.4–738.1 | 5/5 | 1,417.2 |
+
+All forty timed runs were under 1 s. On the 5,000-note view the four
+medians were 714.5–729.2 ms and peak RSS was 1,419.1 MiB across both
+builds. All runs returned the same ordered IDs between builds for their
+query, with empty stderr. The databases and manifests were unchanged
+after search.
+
+[Capture and verification](../../tools/phase28/evidence/q8-default-77/README.md)
