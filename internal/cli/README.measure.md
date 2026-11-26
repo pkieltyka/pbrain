@@ -1,8 +1,9 @@
 # Release measurements
 
 The first release measurements ran on Linux. Issue #69 adds Apple Silicon
-Q8 indexing and CPU controls. Architecture §17 tracks the remaining
-macOS measurements. Keep the machine idle and
+Q8 indexing and CPU controls. The #32 refresh adds rule 3, the full-size
+sync and warm semantic search on an Apple M4 (issue #9). Architecture §17
+lists what has not been measured on macOS. Keep the machine idle and
 record its CPU, OS, filesystem, executable revision and cache preparation
 method. The release targets are in functional spec §16 and architecture
 §§8.6–8.7. Publish the first sample separately from the warm samples.
@@ -548,8 +549,10 @@ and [database comparisons](../../tools/phase28/evidence/bge-pax-34/database-comp
 
 Build the release binary with `CGO_ENABLED=0` for Linux and Darwin on both
 amd64 and arm64. Darwin arm64 Metal is qualified for Q8 indexing and CPU
-search on Apple M4. The broader Darwin test and workload coverage remains
-deferred (architecture §17). [Completed M4 qualification](#apple-silicon-metal-q8-indexing-69)
+search on Apple M4. CI runs the suite on macOS arm64 for every change, and
+the full-size M4 runs are in the #32 refresh; architecture §17 lists what
+is still unmeasured on macOS. [M4 qualification](#apple-silicon-metal-q8-indexing-69) ·
+[M4 full-size runs](#apple-m4-macos-1)
 
 Once a release tag is available,
 verify versioned install in a scratch directory by setting `GOBIN` there
