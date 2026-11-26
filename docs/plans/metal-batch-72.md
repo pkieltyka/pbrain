@@ -2,6 +2,8 @@
 
 Based on master `0fa255a` and on goinfer v0.6.9 (`a1333cf2b78d`) read from the module cache: `backend/metal/embeddinggemma2_batch.go`, `embeddinggemma2_ffn.go`, the diff of `embeddinggemma2.go`, `embeddinggemma2/batch_memory.go`, `docs/use-from-go.md` and goinfer PR #99. The pin bump (step 1 of #72, @lead-dev) lands first; this plan starts from its head.
 
+**Superseded in part (2026-11-26).** The owner made batching the default and folded #73 into this issue. The [addendum](#addendum-batching-is-the-default-2026-11-26) at the end replaces decisions 1, 2 and 5, the rejection of "Applying it under `auto`", the 5,000-note pair of step 6 and "After qualification". The rest stands.
+
 ## Decision
 
 1. **The opt-in is an environment variable, `PBRAIN_METAL_BATCH=1`, read by `pbrain sync`.** It takes effect only when the device selector names Metal: `--device metal`, `--device metal:0` or the same in `PBRAIN_DEVICE`. Under `auto`, `cpu`, another device or a model with no Metal path it changes nothing. Unset or empty is off; any value other than `1` is `invalid_config`. Without it, `metal` and `metal:0` stay singleton, and nothing about the default changes.
@@ -156,3 +158,120 @@ The default stays singleton in #72 (operator's decision). The bar for a later de
 - **No hosted coverage of the real route.** GitHub's macOS runners cannot run it; steps 1 and 2 cover pbrain's logic with fakes, and the route itself is covered only by step 3's test, run on the owner's M4 in step 5.
 - **One machine class.** The selector refuses everything but a base M4, so no other Mac can show a problem or a gain.
 - **`PBRAIN_METAL_BATCH` under `auto` is silently ignored.** The notice shows the route (a batch budget appears only on the batch route), and the protocol always names the device.
+
+## Addendum: batching is the default (2026-11-26)
+
+Owner's decision: Metal batching is the default wherever goinfer supports it. Faster is enough and the extra memory is accepted. #73 is folded into #72. The M4 is reserved for goinfer #92, so this change is built and tested with fakes only and no new device run is made. It is written against `peter/lead-dev` at `b2f4e92`, where steps 1 to 4 are implemented.
+
+### The evidence it rests on
+
+These are @lead-dev's M4 runs with the opt-in binary at `b2f4e92`, as reported; I did not rerun them.
+
+- **Same vectors.** On 59 and 219 passages the batch route matched the singleton route bit for bit at 768 values and at the normalised first 512, in every layout. The 219 stored vectors of the batch and singleton indexes were identical.
+- **219 passages, nine interleaved runs.** v0.6.9 singleton 9.443 passages/s, batch 10.230: 8.34% more. Median wall time 23.193 s against 21.408 s. Peak footprint 2,129.8 MB against 2,333.2 MB: 203.4 MB more.
+- **5,000 notes, one batch run.** 4,864.81 s at 9.97 passages/s, against 5,288.0 s at 9.17 for the v0.6.8 singleton.
+
+The v0.6.9 singleton run at 5,000 notes was stopped, so the pair of step 6 does not exist and the full-size comparison includes the staged kernel's gain. The bar in "After qualification" (5% on that pair, 300 MB) is replaced by the owner's decision on the figures above.
+
+### Decision
+
+1. **Every Metal attachment of a Q8_0 sync asks for `metal-eg2-batch` first**, whether `auto`, `metal` or `metal:0` selected the device. When goinfer accepts, the sync runs the batch route exactly as steps 1 to 3 built it: window 256, groups of at most 4 documents and 2,748 positions, the budget rule, the split on OOM.
+2. **A refusal is not an error.** The adapter then attaches with `UseAccelerator("metal")` and runs the singleton route as v0.4.6 does: window 1, no budget, stock or combined profile as the device reports. Two things count as a refusal:
+   - `UseAccelerator("metal-eg2-batch")` returns an error that is `embeddinggemma2.ErrUnsupportedSelector`. In goinfer v0.6.9 that is every Mac but a base Apple M4.
+   - It attaches, but `attachedMetalProfile(acc, true)` rejects the attachment: no `TextBatching`, a profile other than `metal-eg2-combined-v1`, or not the system default. v0.6.9 never does this; the rule keeps pbrain from batching on something it has not qualified. The attachment is closed first.
+3. **Any other failure of the batch attach is the device's attach error, as today.** No fallback. Up to the point where goinfer refuses, the batch and plain selectors run the same code (device open, pipeline build, matrix set-up), and after it the same weight upload. So an error that is not a refusal would fail the singleton attach too, and retrying would only hide it.
+4. **No notice for the fallback.** It is the normal case on most Macs. `embedding_device` already tells the routes apart: `metal:0 (Apple M4), 1024 MiB a batch` on the batch route, `metal:0 (<name>)` on the singleton route.
+5. **`PBRAIN_METAL_BATCH` stays, as an opt-out.** `PBRAIN_METAL_BATCH=0` keeps every Metal sync on the singleton route. Unset or empty is the default. Any other value, `1` included, is `invalid_config`. No explicit opt-in remains, so a refusal is never an error.
+6. **The fingerprint does not change.** The batch route reports `metal-eg2-combined-v1` and writes the combined fingerprint. Upgrading, falling back and `PBRAIN_METAL_BATCH=0` all reuse the same index and vector cache on a base M4. On other Macs the profile and fingerprint are what the singleton reports, as before.
+
+| Selection | Base Apple M4 | Any other Apple Silicon Mac | With `PBRAIN_METAL_BATCH=0` |
+| --- | --- | --- | --- |
+| `auto` choosing Metal, `metal`, `metal:0` | batch route | singleton route, no error and no notice | singleton route |
+
+After the route is chosen nothing changes: a failed attach under a named selector is `io` and ends the sync before publication; under `auto` it moves to the next candidate, which on a Mac is the CPU with `cpu_fallback`. A Metal forward failure stops the section at its last checkpoint on either route.
+
+### Rejected
+
+- **Dropping the variable.** A fair comparison of the two routes needs one binary, which is how the 219-passage recheck was made and how goinfer #92's work will be judged. It is also the way back for a base M4 where the extra 200 MB or the 256-passage window is a problem, at no cost in rebuilds.
+- **Keeping `=1` as a strict opt-in that fails on a refusal.** Nothing needs it: the device test asserts the route it opened, and a measurement reads the route from the notice and the `forward` spans. It would also bring back the hazard under `auto`, where a failed attach means the CPU.
+- **Choosing the route from the inventory row's name.** That copies goinfer's hardware rule (name, architecture and the staged kernel) into pbrain, to go stale at the next pin.
+- **Falling back on any batch attach error.** See decision 3.
+
+### Changes against `b2f4e92`
+
+**`internal/cli/devices.go`, `syncRuntimeOptions`.** `""`: nothing. `"0"`: `opt.MetalSingleton = true`. Anything else: `invalid_config`, `PBRAIN_METAL_BATCH must be 0 when set`, exit 1, before any scan and whatever the device and model are.
+
+**`internal/embed/embed.go`.** Replace `MetalBatch` with `MetalSingleton bool // PBRAIN_METAL_BATCH=0: Metal stays on one passage a forward`. The zero value has to be the default, because every other caller builds `OpenOptions` without it.
+
+**`internal/semantic/semantic.go`, `build.go`, `internal/cli/semantic.go`.** The same rename: `Options.MetalSingleton`, copied through `openEmbedder`. Still no part of the writer profile, the manifest or a fingerprint.
+
+**`internal/embed/gemma2/metal.go`.**
+
+```go
+func attachMetal(model *embeddinggemma2.Encoder, batch bool, override int64) (profile string, budget int64, batched bool, err error) {
+	return attachMetalRoute(model.UseAccelerator, batch, override)
+}
+
+// attachMetalRoute is attachMetal over the attach call, so a test can supply the accelerators.
+func attachMetalRoute(use func(selector string) (embeddinggemma2.Accelerator, error), batch bool, override int64) (profile string, budget int64, batched bool, err error)
+```
+
+In order:
+
+1. Without `batch`, go to 4.
+2. `use(metalBatchSelector)`. An error that is `ErrUnsupportedSelector`: go to 4. Any other error: `attach metal:0: <cause>` wrapping `embed.ErrAccelerator`, as today. The `cannot run selector` message goes away.
+3. `attachedMetalProfile(acc, true)`. If it passes, `deviceBudget(acc, metalDeviceID, override)` and return `(profile, budget, true, nil)`; a budget error closes the attachment through `closeRejectedAttachment` and is returned, with no fallback. If it fails, close the attachment: a failed close returns the `attachCleanupError` that `closeRejectedAttachment` builds, which ends the open under `auto` too; a clean close goes to 4.
+4. `use("metal")` and `attachedMetalProfile(acc, false)`, as today, returning `(profile, 0, false, err)`.
+
+Both calls use the same encoder. goinfer's `UseAccelerator` leaves the encoder unchanged on an error and replaces the accelerator on success (`embeddinggemma2/accel.go`, v0.6.9).
+
+**`internal/embed/gemma2/gemma2.go`, `newRuntime`.** `batch := !opt.MetalSingleton`, with the `selector == metalDeviceID` condition removed so that `auto` follows the same rule. `metalProfile, budget, batched, err = attachMetal(candidate, batch, opt.MemoryBudget)`, and `e.metalBatch = batched`: the route taken, not the route asked for.
+
+**Not changed.** The inventory and `pbrain devices` (the row still reports no batching), `ResolveWriter`, `Window`, `batchSize`, `embedBatch`, the caps and the budget rule.
+
+| Case | Result |
+| --- | --- |
+| `PBRAIN_METAL_BATCH=1`, `yes` or `true` | `invalid_config: PBRAIN_METAL_BATCH must be 0 when set`, exit 1, before any scan |
+| goinfer refuses the batch selector | singleton route, exit 0, no notice |
+| the batch attach fails another way, named selector | `io: … attach metal:0: <cause>`, nothing published |
+| the same under `auto` | the next candidate: the CPU with `cpu_fallback` |
+| the singleton attach fails after a refusal | today's singleton error; it does not mention the batch selector |
+| `PBRAIN_METAL_BATCH=0` with another device, model or build | nothing |
+
+### Steps
+
+**A. Code and tests, one change.** All tests run on Linux with fakes.
+
+- `TestMetalAttachRoutes` (new, `metal_test.go`), over `attachMetalRoute` with a `use` that records its selectors and returns fake attachments:
+  - accepted: one call, `metal-eg2-batch`; combined profile, a budget above 0, `batched` true;
+  - refused with a wrapped `ErrUnsupportedSelector`: calls `metal-eg2-batch` then `metal`; the singleton's profile (one row stock, one combined), budget 0, `batched` false, no error;
+  - the batch selector attaches without `TextBatching`, and in another row with the stock profile: that attachment is closed once, then `metal` is attached; result as the row above;
+  - the same with a failing close: an `attachCleanupError`, and `metal` is never asked;
+  - the batch selector fails with `ErrDeviceOutOfMemory`: `embed.ErrAccelerator` wrapping the cause, and `metal` is never asked;
+  - an accepted batch attachment whose memory reading fails: the `read memory of metal:0` error, the attachment closed, `metal` never asked;
+  - refused, and `metal` fails too: the singleton's `attach metal:0` error, without `metal-eg2-batch` in it;
+  - `batch` false: one call, `metal`.
+- `TestMetalBatchAttachError` (keep): a build without Metal answers `ErrBackendUnavailable`, which is not a refusal, so the error still names `metal-eg2-batch`. Add that `attachMetal(tiny, false, 0)` fails without naming it.
+- `TestMetalRuntimeRoute` (new, skipped when `metalCompiled`): `newRuntime` with `allowMetal` true, `Device: "metal:0"` and a `Writer.Inventory` holding one Metal row fails with an error naming `metal-eg2-batch`; with `MetalSingleton: true` it fails without that name. This shows the option reaches the attach.
+- `TestSyncDeviceOptions` (rework): `PBRAIN_METAL_BATCH=0` reaches the opener as `MetalSingleton: true` under `--device metal` and under `auto`; unset reaches it as false; `1`, `true` and `yes` fail with the new text and no open; a project on the default model syncs normally with `0` set.
+- `TestMetalIndexProfiles` (rework the two toggle rows): a sync with `MetalSingleton` set over a combined index built without it embeds nothing and keeps the generation, and the reverse.
+- `TestMetalBatchDispatch`, `TestMetalSingletonDispatch`, `TestGemmaPacker`, `TestAttachedBudget` and `TestMetalListingAndProfile` pass unchanged.
+- `TestGemmaMetalBatchLayouts` (`gguf_metal_test.go`): open the singleton route with `MetalSingleton: true` and the batch route with the default options. It cannot run until the M4 is free; the macOS CI job that vets the `metal` build must still compile it.
+
+**B. Text, with A.**
+
+- `components/semantic.md`, "Devices". The inventory paragraph ends at "It has no persistent UUID. Only Q8_0 can select Metal, including under auto." The opt-in paragraph becomes: "Whether `auto`, `metal` or `metal:0` selected it, a Metal attachment first calls `Encoder.UseAccelerator("metal-eg2-batch")`, which goinfer v0.6.9 accepts on a base Apple M4 only. The batch route is used when the attachment reports the system-default device, `TextBatching: true` and `metal-eg2-combined-v1`. When goinfer refuses the selector with `ErrUnsupportedSelector`, or the attachment does not report all three and has been closed, the adapter attaches with `Encoder.UseAccelerator("metal")` instead. That singleton route validates the system-default device and a stock or combined profile, and uses a window of one with `EmbedIDs`. The fallback is not an error and prints no notice; `embedding_device` shows a batch budget on the batch route only. Any other attach failure is the device's attach error. `PBRAIN_METAL_BATCH=0` skips the batch selector. Empty is the default, and any other value yields `invalid_config` before scanning, whatever the device and model." The paragraph on windows, caps and budget stays.
+- The same file: "The opt-in Metal batch route" becomes "The Metal batch route"; the `Options` listing shows `MetalSingleton bool // PBRAIN_METAL_BATCH=0`; the test-plan row names the tests of step A and says "falls back to the singleton route on a refusal" in place of the opt-in sentence.
+- `functional_spec.md` 9.4, after "Auto can choose Metal too.": "On a base Apple M4 the sync embeds up to four passages in one pass on the GPU; other Apple Silicon Macs embed one at a time. The vectors and the index are the same either way." In the paragraph on environment variables (the one naming `PBRAIN_GPU_MEMORY`): "`PBRAIN_METAL_BATCH=0` keeps a Metal sync at one passage at a time."
+- `architecture.md`: the dependency row for `backend/metal` ends "for Q8_0: up to four passages a forward on a base Apple M4, one at a time on other Macs."; "Batches" gains "On Metal a base Apple M4 packs up to 4 texts and 2,748 positions a forward, and other Macs run one text a forward."
+- `README.md`: "Metal runs one passage at a time." becomes "On a base Apple M4, Metal sync batches up to four passages; other Apple Silicon Macs run one passage at a time. `PBRAIN_METAL_BATCH=0` turns the batching off."
+- `docs/release-notes/next.md`, a new entry: "**Metal sync batches on a base Apple M4.** `embeddinggemma-2-q8-0` sync there now embeds up to four passages in one GPU pass. On the 219-passage fixture it ran at 10.23 passages a second against 9.44 (8% more), with about 200 MB more memory at peak, and the first index of the 5,000-item brain took 1 h 21 m against 1 h 28 m in v0.4.6. The vectors are identical bit for bit, so this needs no rebuild of its own. Other Apple Silicon Macs keep one passage at a time. `PBRAIN_METAL_BATCH=0` turns the batching off. (#72)"
+- `internal/cli/README.measure.md`, the #72 section: retitle it without "Opt-in"; say that the runs used the opt-in binary at `b2f4e92` with `PBRAIN_METAL_BATCH=1` and that the released default takes the same route with nothing set; replace "The default remains singleton."; add the 5,000-note batch run with its peak memory; and say what was not run (below).
+
+### Risks and gaps
+
+- **The fallback has never run on a real Mac.** No Mac other than a base M4 has run v0.6.9 through pbrain. goinfer's refusal is read from its source, and pbrain's handling is tested with fakes. Until now such a Mac attached once with `metal`; it now depends on the refusal being `ErrUnsupportedSelector`.
+- **The cost of a refusal is not measured.** goinfer refuses after opening the device and building its pipelines and before uploading weights, closes the device, and the singleton attach then repeats that set-up, once a section. A whole attach on the base M4 took 40 ms, 167 ms the first time; other Macs are unknown.
+- **The final binary has not run on the M4.** Its batch attach makes the same calls as the measured one; only the choice before it differs. The default with nothing set, `auto`, and `PBRAIN_METAL_BATCH=0` are untested on a device, and so is the stored route flag that sets the window. Recommended before a release: `TestGemmaMetalBatchLayouts` and one 219-passage sync each for `auto`, `metal` and `=0` on the M4, a few minutes once goinfer #92 frees it. Owner: @operator to decide, @pm to track.
+- **Full size.** Bit equality was shown on 59 and 219 passages, not on 5,000. There is no v0.6.9 singleton run at 5,000, so the gain there is against v0.6.8. The warm search and the one-note update on the batch-built index were not run.
+- **Every base M4 now stores in windows of up to 256 passages**, about 25 s of work, where it stored after each passage.
