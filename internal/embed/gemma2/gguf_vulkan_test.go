@@ -15,21 +15,6 @@ import (
 
 const q6Fixture = "PBRAIN_TEST_GEMMA2_Q6"
 
-// layoutReceipt is what the device acceptance runner verifies without parsing
-// test output. It records same-device layout differences and CPU/Vulkan cosine
-// for one quant.
-type layoutReceipt struct {
-	Model         string         `json:"model"`
-	Alias         string         `json:"alias"`
-	Persistent    string         `json:"persistent"`
-	Passages      int            `json:"passages"`
-	Differing     map[string]int `json:"differing"`
-	MinCosine768  float64        `json:"min_cpu_cosine_768"`
-	MinCosine512  float64        `json:"min_cpu_cosine_512"`
-	WorstPassage  int            `json:"worst_passage"`
-	ReferenceBits string         `json:"reference_bits"`
-}
-
 // TestGemmaVulkanLayouts checks the Q8_0 and UD-Q6_K_XL rows on one named
 // Vulkan device: same-device layouts must be identical by bits, and CPU/Vulkan
 // vectors must meet rule 2. It writes a receipt when PBRAIN_VULKAN_LAYOUT_DIR
