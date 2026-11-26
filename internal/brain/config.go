@@ -17,7 +17,7 @@ import (
 )
 
 // DefaultModel is the release model used when pbrain.toml omits semantic.model.
-const DefaultModel = "bge-small-en-v1.5"
+const DefaultModel = "embeddinggemma-2-q8-0"
 
 const defaultCUDAPrecision = "fp16"
 

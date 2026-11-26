@@ -13,7 +13,6 @@ import (
 
 	"github.com/pkieltyka/pbrain/internal/cli"
 	"github.com/pkieltyka/pbrain/internal/embed"
-	"github.com/pkieltyka/pbrain/internal/embed/bge"
 	"github.com/pkieltyka/pbrain/internal/embed/gemma2"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/sys"
@@ -23,7 +22,7 @@ import (
 func main() { os.Exit(run()) }
 
 func releaseModels() embed.Registry {
-	return embed.NewRegistry(append([]embed.Entry{bge.Entry(), gemma2.Entry()}, gemma2.GGUFEntries()...)...)
+	return embed.NewRegistry(append([]embed.Entry{gemma2.Entry()}, gemma2.GGUFEntries()...)...)
 }
 
 func run() int { return runWith(cli.Run) }

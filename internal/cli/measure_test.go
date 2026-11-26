@@ -39,7 +39,7 @@ const (
 // The caller supplies and documents that method. Without it, the first sample's
 // cache state is uncontrolled. The warm samples always follow a priming read.
 //
-// PBRAIN_TEST_BGE_MODEL or PBRAIN_TEST_GEMMA2_PACK adds model cases using
+// PBRAIN_TEST_GEMMA2_Q8 or PBRAIN_TEST_GEMMA2_PACK adds model cases using
 // the pinned local directory. Select one model per run. Use a test timeout
 // long enough for two first index builds. See README.measure.md for details.
 func TestMeasureReads(t *testing.T) {
@@ -48,7 +48,7 @@ func TestMeasureReads(t *testing.T) {
 	}
 	model := measureModelFromEnv(t)
 	if model == nil {
-		t.Log("set PBRAIN_TEST_BGE_MODEL or PBRAIN_TEST_GEMMA2_PACK to add index and semantic timings")
+		t.Log("set PBRAIN_TEST_GEMMA2_Q8 or PBRAIN_TEST_GEMMA2_PACK to add index and semantic timings")
 	}
 	root, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {

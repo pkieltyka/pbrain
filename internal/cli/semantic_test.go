@@ -123,6 +123,15 @@ func TestCLISemanticCommands(t *testing.T) {
 	if status != 1 || !strings.HasPrefix(errOut, "invalid_config: the model \"nope\" is not supported; supported models: test-model") {
 		t.Fatalf("index with an unknown model: %d %q", status, errOut)
 	}
+	if err := os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte(`semantic.model = "bge-small-en-v1.5"`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	status, out, errOut = rb.run("sync")
+	retired := `invalid_config: the model "bge-small-en-v1.5" was removed in pbrain v0.5.0: delete semantic.model from pbrain.toml to use the default, embeddinggemma-2-q8-0, or set one of: ` +
+		strings.Join(kit.Registry.Names(), ", ") + "; then run pbrain sync"
+	if status != 1 || out != "" || strings.TrimSuffix(errOut, "\n") != retired {
+		t.Fatalf("index with the retired model: %d %q %q", status, out, errOut)
+	}
 	// Turning semantic off takes precedence even over an unavailable local model folder.
 	if err := os.WriteFile(filepath.Join(rb.dir, "pbrain.toml"), []byte(`semantic.model = "none"`), 0o644); err != nil {
 		t.Fatal(err)

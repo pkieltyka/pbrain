@@ -155,19 +155,19 @@ exec sh -c 'printf "corrupt" > "$WORK/test-model-packed/keywords.txt"'
 status 1 pbrain-test sync --json
 stderr '"code":"invalid_config"'
 
-# Exercise two fresh builds with the same verified offline BGE fixture, one
+# Exercise two fresh builds with the same verified offline fixture, one
 # with the model key omitted and one explicitly naming the release default.
-testmodel bge-small-en-v1.5
+testmodel $PBRAIN_DEFAULT_MODEL
 cp docs/brain/pbrain.toml $WORK/named-default
 cp $WORK/no-model-key docs/brain/pbrain.toml
 rm -r docs/brain/.pbrain/index
 env PBRAIN_CACHE=$WORK/default-cache
 pbrain-test sync --status --json
-stdout '"model":"bge-small-en-v1\.5"'
+stdout '"model":"'${PBRAIN_DEFAULT_MODEL@R}'"'
 stdout '"model_present":true'
 cp stdout $WORK/unnamed-status
 pbrain-test sync --json
-stdout '"model":"bge-small-en-v1\.5"'
+stdout '"model":"'${PBRAIN_DEFAULT_MODEL@R}'"'
 stdout '"passages_embedded":3'
 cp stdout $WORK/unnamed-build
 pbrain-test search 'gamma sense' --semantic --json

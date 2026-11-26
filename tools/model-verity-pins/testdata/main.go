@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
-	"github.com/pkieltyka/pbrain/internal/embed/bge"
 	"github.com/pkieltyka/pbrain/internal/embed/gemma2"
 	"github.com/pkieltyka/pbrain/internal/sys"
 )
@@ -27,7 +26,7 @@ func printPins(name, dir string) error {
 	if dir == "" {
 		return fmt.Errorf("supply -dir with locally verified release files")
 	}
-	entries := append([]embed.Entry{bge.Entry(), gemma2.Entry()}, gemma2.GGUFEntries()...)
+	entries := append([]embed.Entry{gemma2.Entry()}, gemma2.GGUFEntries()...)
 	model, ok := embed.NewRegistry(entries...).Lookup(name)
 	if !ok {
 		return fmt.Errorf("unknown release model %q", name)

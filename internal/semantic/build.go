@@ -25,6 +25,12 @@ const (
 	indexLockName = "lock"
 )
 
+// The old default was removed in v0.5.0. Its name gets migration instructions.
+const (
+	retiredModel   = "bge-small-en-v1.5"
+	retiredDefault = "embeddinggemma-2-q8-0" // TestReleaseModelSelection checks this against brain.DefaultModel.
+)
+
 // waitNotice is how long a build waits for the index lock before it reports Waiting; a variable
 // for the tests.
 var waitNotice = 2 * time.Second
@@ -63,8 +69,13 @@ func Build(ctx context.Context, opt Options, sec SectionDir, scan ScanFunc, dl e
 	}
 	m, ok := opt.Registry.Lookup(opt.ModelName)
 	if !ok {
+		supported := strings.Join(opt.Registry.Names(), ", ")
+		if opt.ModelName == retiredModel {
+			return res, configErr(fmt.Sprintf("the model %q was removed in pbrain v0.5.0: delete semantic.model from pbrain.toml to use the default, %s, or set one of: %s; then run pbrain sync",
+				retiredModel, retiredDefault, supported))
+		}
 		return res, configErr(fmt.Sprintf("the model %q is not supported; supported models: %s",
-			opt.ModelName, strings.Join(opt.Registry.Names(), ", ")))
+			opt.ModelName, supported))
 	}
 	if opt.CacheErr != nil {
 		return res, configErr("the cache folder is exposed to Git or lies in the brain; set PBRAIN_CACHE to another folder")

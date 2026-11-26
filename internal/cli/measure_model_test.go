@@ -12,11 +12,11 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 )
 
 const (
-	measureBGEName       = "bge-small-en-v1.5"
 	measureGemmaName     = "embeddinggemma-2"
 	measurePartialQuery  = "readbenchrare readbenchsignpost readbenchlease readbenchwork readbenchrenew readbenchabsent"
 	measureSemanticBody  = "Login state is kept in the local session store. The session cookie preserves the login state.\n"
@@ -30,17 +30,17 @@ type measureModelOptions struct {
 
 func measureModelFromEnv(t *testing.T) *measureModelOptions {
 	t.Helper()
-	name, path, wait := measureBGEName, os.Getenv("PBRAIN_TEST_BGE_MODEL"), 4*time.Hour
-	if gemma := os.Getenv("PBRAIN_TEST_GEMMA2_PACK"); gemma != "" {
-		embedtest.SkipGemma2(t)
+	name, path, wait := brain.DefaultModel, os.Getenv("PBRAIN_TEST_GEMMA2_Q8"), 8*time.Hour
+	if pack := os.Getenv("PBRAIN_TEST_GEMMA2_PACK"); pack != "" {
 		if path != "" {
 			t.Fatal("select one pinned release model per measurement run")
 		}
-		name, path, wait = measureGemmaName, gemma, 8*time.Hour
+		name, path = measureGemmaName, pack
 	}
 	if path == "" {
 		return nil
 	}
+	embedtest.SkipGemma2(t)
 	absolute, err := filepath.Abs(path)
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +284,7 @@ func (h readMeasureHarness) checkMeasuredIndex(t *testing.T, f readMeasureFixtur
 	}
 }
 
-func indexProgressOnly(stderr []byte) error {
+func checkMeasuredIndexNotices(stderr []byte) error {
 	decoder := json.NewDecoder(bytes.NewReader(stderr))
 	for {
 		var line struct {
@@ -295,7 +295,9 @@ func indexProgressOnly(stderr []byte) error {
 		} else if err != nil {
 			return err
 		}
-		if line.Notice.Code != "index_progress" {
+		switch line.Notice.Code {
+		case "index_progress", "embedding_device", "cpu_fallback":
+		default:
 			return fmt.Errorf("unexpected index diagnostic %q", line.Notice.Code)
 		}
 	}
@@ -304,7 +306,7 @@ func indexProgressOnly(stderr []byte) error {
 func (h readMeasureHarness) timeIndex(t *testing.T, f readMeasureFixture, model measureModelOptions, incremental bool) {
 	t.Helper()
 	got, sample := h.measureCLI(t, f, model.indexTimeout, f.viewArgs([]string{"sync", "--json"}))
-	if err := indexProgressOnly(got.stderr); err != nil {
+	if err := checkMeasuredIndexNotices(got.stderr); err != nil {
 		t.Fatalf("measured index: %v", err)
 	}
 	if sample.peakBytes == 0 || sample.git == 0 {

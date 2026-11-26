@@ -1,21 +1,13 @@
 package semantic
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
 	"fmt"
-	"os"
-	"path/filepath"
-	"runtime"
 	"slices"
 	"testing"
-	"time"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
-	"github.com/pkieltyka/pbrain/internal/embed/bge"
 	"github.com/pkieltyka/pbrain/internal/item"
-	"github.com/pkieltyka/pbrain/internal/sys"
 )
 
 type windowTestRegistry struct {
@@ -66,44 +58,5 @@ func TestBuildUsesEmbedderWindow(t *testing.T) {
 	e.mustBuild(s)
 	if e.kit.Opens.Load() != 1 {
 		t.Fatalf("runtime opened %d times", e.kit.Opens.Load())
-	}
-}
-
-func TestBuildWorkersSameDatabase(t *testing.T) {
-	const env = "PBRAIN_TEST_BGE_MODEL"
-	path := os.Getenv(env)
-	if path == "" {
-		t.Skipf("set %s to the verified BGE model folder", env)
-	}
-	modelDir, err := sys.OpenDir(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer modelDir.Close()
-	entry := bge.Entry()
-	opt := Options{
-		Files: sys.Native(), Registry: embed.NewRegistry(entry), ModelName: entry.Model.Name,
-		ModelDir: modelDir, Rand: rand.Reader, Now: func() time.Time { return time.Unix(1_800_000_000, 0) },
-	}
-	previous := runtime.GOMAXPROCS(1)
-	defer runtime.GOMAXPROCS(previous)
-	want := BuildResult{Section: item.Personal, Items: 130, PassagesEmbedded: 130}
-	var baseline []byte
-	for _, workers := range []int{1, 4, 32} {
-		runtime.GOMAXPROCS(workers)
-		s := windowTestSection(t)
-		got, err := Build(t.Context(), opt, s.sectionDir(), s.scan, nil, nil, nil)
-		if err != nil || got != want {
-			t.Fatalf("%d workers: Build = %+v, %v, want %+v", workers, got, err, want)
-		}
-		data, err := os.ReadFile(filepath.Join(s.index(), s.manifestDB()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if workers == 1 {
-			baseline = data
-		} else if !bytes.Equal(data, baseline) {
-			t.Fatalf("%d workers changed published database bytes", workers)
-		}
 	}
 }

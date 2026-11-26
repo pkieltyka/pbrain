@@ -505,9 +505,9 @@ func TestReadProjectSettings(t *testing.T) {
 		c.Semantic.CUDAPrecision != "fp16" {
 		t.Fatalf("defaults: %+v %v", c, err)
 	}
-	c, err = decodeProject([]byte("search = { limit = 50, max_chars = 9000 }\nlist = { limit = 200 }\nsemantic = { model = \"bge-small-en-v1.5\" }\n[tags]\n"))
+	c, err = decodeProject([]byte("search = { limit = 50, max_chars = 9000 }\nlist = { limit = 200 }\nsemantic = { model = \"embeddinggemma-2\" }\n[tags]\n"))
 	if err != nil || c.Search != (Limits{50, 9000}) || c.List.Limit != 200 || c.List.MaxChars != 2000 ||
-		!c.HasTags || len(c.Tags) != 0 || c.Semantic.Model != "bge-small-en-v1.5" {
+		!c.HasTags || len(c.Tags) != 0 || c.Semantic.Model != "embeddinggemma-2" {
 		t.Fatalf("set values: %+v %v", c, err)
 	}
 	c, err = decodeProject([]byte("[tags]\ncache = \"Caching layers\"\nci = \"Pipelines\"\n"))
@@ -516,7 +516,7 @@ func TestReadProjectSettings(t *testing.T) {
 	}
 	for _, tc := range []struct{ setting, want string }{
 		{"[semantic]", DefaultModel},
-		{`semantic.model = "bge-small-en-v1.5"`, DefaultModel},
+		{`semantic.model = "embeddinggemma-2-q8-0"`, DefaultModel},
 		{`semantic.model = "embeddinggemma-2"`, "embeddinggemma-2"},
 		{`semantic.model = "none"`, ""},
 		{`semantic.model = "None"`, "None"},

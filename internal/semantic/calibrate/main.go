@@ -15,7 +15,6 @@ import (
 
 	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/embed"
-	"github.com/pkieltyka/pbrain/internal/embed/bge"
 	"github.com/pkieltyka/pbrain/internal/embed/gemma2"
 )
 
@@ -32,7 +31,7 @@ func main() {
 }
 
 func run(ctx context.Context, args []string, out, diag io.Writer) int {
-	models := embed.NewRegistry(append([]embed.Entry{bge.Entry(), gemma2.Entry()}, gemma2.GGUFEntries()...)...)
+	models := embed.NewRegistry(append([]embed.Entry{gemma2.Entry()}, gemma2.GGUFEntries()...)...)
 	return runWithRegistry(ctx, args, out, diag, models)
 }
 

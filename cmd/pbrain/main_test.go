@@ -19,20 +19,22 @@ func TestReleaseModelSelection(t *testing.T) {
 	if _, ok := models.Lookup(brain.DefaultModel); !ok {
 		t.Fatalf("release registry lacks the default %q", brain.DefaultModel)
 	}
-	if names := models.Names(); !slices.Equal(names, []string{"bge-small-en-v1.5", "embeddinggemma-2", "embeddinggemma-2-q8-0", "embeddinggemma-2-ud-q6-k-xl"}) {
+	if names := models.Names(); !slices.Equal(names, []string{"embeddinggemma-2", "embeddinggemma-2-q8-0", "embeddinggemma-2-ud-q6-k-xl"}) {
 		t.Fatalf("unexpected release models: %v", names)
 	}
 	root := t.TempDir()
 	cache := filepath.Join(t.TempDir(), "cache")
 	const absent = "the model is not on this machine: run pbrain sync, or set model_path"
+	const unsupported = "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"
+	const retired = `semantic.model = "bge-small-en-v1.5"`
 	for _, tc := range []struct{ config, status, notice string }{
-		{"", "bge-small-en-v1.5, not on this machine", absent},
+		{"", "embeddinggemma-2-q8-0, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2"`, "embeddinggemma-2, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2-q8-0"`, "embeddinggemma-2-q8-0, not on this machine", absent},
 		{`semantic.model = "embeddinggemma-2-ud-q6-k-xl"`, "embeddinggemma-2-ud-q6-k-xl, not on this machine", absent},
-		{`semantic.model = "bge-small-en-v1.5"`, "bge-small-en-v1.5, not on this machine", absent},
+		{retired, "bge-small-en-v1.5, not supported by this pbrain", unsupported},
 		{`semantic.model = "none"`, "none", `semantic search is off: pbrain.toml sets model = "none"`},
-		{`semantic.model = "None"`, "None, not supported by this pbrain", "this pbrain does not support the model pbrain.toml names: pbrain sync lists the supported names"},
+		{`semantic.model = "None"`, "None, not supported by this pbrain", unsupported},
 	} {
 		if err := os.WriteFile(filepath.Join(root, "pbrain.toml"), []byte(tc.config), 0o600); err != nil {
 			t.Fatal(err)
@@ -57,6 +59,32 @@ func TestReleaseModelSelection(t *testing.T) {
 		env.Args = []string{"--brain", root, "search", "absent", "--semantic"}
 		if code := cli.Run(t.Context(), env); code != 0 || diag.String() != "semantic_not_ready: "+tc.notice+"\n" {
 			t.Errorf("semantic search with settings %q: exit %d, stdout %q, stderr %q", tc.config, code, out.String(), diag.String())
+		}
+		if tc.config == retired {
+			out.Reset()
+			diag.Reset()
+			syncCache := filepath.Join(t.TempDir(), "cache")
+			env.Getenv = func(key string) string {
+				if key == "PBRAIN_CACHE" {
+					return syncCache
+				}
+				return ""
+			}
+			env.Args = []string{"--brain", root, "sync"}
+			want := `invalid_config: the model "bge-small-en-v1.5" was removed in pbrain v0.5.0: delete semantic.model from pbrain.toml to use the default, ` +
+				brain.DefaultModel + ", or set one of: " + strings.Join(models.Names(), ", ") + "; then run pbrain sync\n"
+			if code := cli.Run(t.Context(), env); code != 1 || out.Len() != 0 || diag.String() != want {
+				t.Fatalf("retired model sync: exit %d, stdout %q, stderr %q", code, out.String(), diag.String())
+			}
+			for _, path := range []string{
+				filepath.Join(syncCache, "models"),
+				filepath.Join(syncCache, "vectors"),
+				filepath.Join(root, ".pbrain", "index"),
+			} {
+				if _, err := os.Stat(path); !os.IsNotExist(err) {
+					t.Errorf("retired model sync touched %s: %v", path, err)
+				}
+			}
 		}
 	}
 	if _, err := os.Stat(cache); !os.IsNotExist(err) {

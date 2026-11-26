@@ -121,7 +121,7 @@ func TestReleaseBinaryOutput(t *testing.T) {
 	if modelName == "" {
 		modelName = brain.DefaultModel
 	}
-	if modelName != "embeddinggemma-2" && modelName != "bge-small-en-v1.5" {
+	if _, ok := releaseModels().Lookup(modelName); !ok {
 		t.Fatalf("unknown release model %q", modelName)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "docs/brain/pbrain.toml"), []byte(fmt.Sprintf("semantic.model = %q\n", modelName)), 0600); err != nil {
@@ -140,12 +140,9 @@ func TestReleaseBinaryOutput(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &build); err != nil || len(build.Sections) != 1 || build.Sections[0].Passages <= 8 {
 		t.Fatalf("index: %s", out)
 	}
-	wantDeviceNotice := ""
-	if modelName == "embeddinggemma-2" {
-		wantDeviceNotice = "embedding_device"
-		if build.Sections[0].Device == "cpu" {
-			wantDeviceNotice = "cpu_fallback"
-		}
+	wantDeviceNotice := "embedding_device"
+	if build.Sections[0].Device == "cpu" {
+		wantDeviceNotice = "cpu_fallback"
 	}
 	for line := range strings.SplitSeq(strings.TrimSuffix(diag, "\n"), "\n") {
 		if line == "" {
