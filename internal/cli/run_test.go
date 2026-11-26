@@ -244,7 +244,7 @@ func TestCLISingleInstantAndZone(t *testing.T) {
 
 func diagnosticCode(t *testing.T, stderr, field string) string {
 	t.Helper()
-	var got map[string]diagnostic
+	var got map[string]Diagnostic
 	oneJSON(t, stderr, &got)
 	if len(got) != 1 || got[field].Code == "" {
 		t.Fatalf("wrong diagnostic: %q", stderr)
@@ -351,9 +351,9 @@ func TestCommandOutputDelivery(t *testing.T) {
 func TestDiagnosticLineShape(t *testing.T) {
 	var stderr bytes.Buffer
 	emitNotice(&stderr, true, errs.Notice{Code: "destination", Message: "personal <other>\nconfigured"})
-	var m map[string]diagnostic
+	var m map[string]Diagnostic
 	oneJSON(t, stderr.String(), &m)
-	want := map[string]diagnostic{"notice": {Code: "destination", Message: "personal <other> configured"}}
+	want := map[string]Diagnostic{"notice": {Code: "destination", Message: "personal <other> configured"}}
 	if !reflect.DeepEqual(m, want) || strings.Contains(stderr.String(), `\u003c`) {
 		t.Errorf("unexpected notice %s", stderr.String())
 	}

@@ -103,11 +103,6 @@ func textOrJSON(jsonMode bool, text string, value any) outcome {
 	return outcome{data: []byte(text)}
 }
 
-type diagnostic struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
-
 func emitError(w io.Writer, jsonMode bool, err error) int {
 	e := domainError(err)
 	emitDiagnostic(w, jsonMode, false, e.Code, e.Message)
@@ -141,10 +136,10 @@ func emitDiagnostic(w io.Writer, jsonMode, notice bool, code, message string) {
 		_, _ = fmt.Fprintf(w, "%s: %s\n", code, message)
 		return
 	}
-	d := diagnostic{Code: code, Message: message}
+	d := Diagnostic{Code: code, Message: message}
 	value := struct {
-		Notice *diagnostic `json:"notice,omitempty"`
-		Error  *diagnostic `json:"error,omitempty"`
+		Notice *Diagnostic `json:"notice,omitempty"`
+		Error  *Diagnostic `json:"error,omitempty"`
 	}{}
 	if notice {
 		value.Notice = &d
