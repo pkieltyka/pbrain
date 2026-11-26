@@ -9,7 +9,7 @@ import (
 //go:embed core.md topics/*.md
 var documents embed.FS
 
-var names = [...]string{"import", "claude-artifacts", "google-docs", "browser-use", "semantic"}
+var names = [...]string{"import", "claude-artifacts", "google-docs", "browser-use", "semantic", "schema"}
 
 // Core returns the exact embedded Markdown, including its final LF.
 func Core() string { return embeddedText("core.md") }

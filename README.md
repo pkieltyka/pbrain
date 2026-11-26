@@ -82,6 +82,12 @@ Plain search reads the Markdown directly, so a new item is searchable immediatel
 Use `--json` for machine-readable results. Run `pbrain skill` for the agent guide
 or `pbrain skill list` for its topics.
 
+Use `pbrain schema search` to see search's exact flags, JSON fields, errors and
+notices. Omit the command name to list every callable tool in this build. Use
+`--inputs-only` for a smaller description and `--format=mcp` for MCP tool
+descriptors. The command works before a brain exists. `pbrain skill schema`
+shows how to turn a description into a CLI call.
+
 ## Semantic search
 
 Use `pbrain search --semantic 'where is login state kept'` to find related wording.

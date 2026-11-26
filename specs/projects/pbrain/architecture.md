@@ -319,7 +319,7 @@ A file that fails any of the first checks is a `Skipped` entry with reason `bad_
 
 ### 6.1 Commands that need no brain
 
-`init`, `skill`, `--help` and `--version` are dispatched before anything below. They never call `brain.Open`, so `pbrain skill` works in an empty directory and `init` can run where no brain exists yet.
+`init`, `skill`, `schema`, `devices`, `--help` and `--version` are dispatched before `brain.Open`. The skill and catalog work in an empty directory. Init uses its own discovery path.
 
 ### 6.2 Discovery
 

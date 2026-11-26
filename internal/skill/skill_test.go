@@ -20,7 +20,7 @@ func TestSkillResourcesAndLimits(t *testing.T) {
 	}
 	core := Core()
 	checkText("core", core, 400)
-	for _, guidance := range []string{"'cach*'", "six or more words", "--bm25", "5/6", "Read semantic and partial hits", "path:line", "get <id> --offset <n>", "--outline", "--context 2", "--color", "before the first, read pbrain skill semantic"} {
+	for _, guidance := range []string{"'cach*'", "six or more words", "--bm25", "5/6", "Read semantic and partial hits", "path:line", "get <id> --offset <n>", "--outline", "--context 2", "--color", "before the first, read pbrain skill semantic", "pbrain schema"} {
 		if !strings.Contains(core, guidance) {
 			t.Errorf("core is missing %q", guidance)
 		}
@@ -29,6 +29,12 @@ func TestSkillResourcesAndLimits(t *testing.T) {
 	for _, guidance := range []string{"first pbrain sync on a machine is a person's step", "about 1.5 GB", "model_download", "pbrain sync --status"} {
 		if !strings.Contains(semantic, guidance) {
 			t.Errorf("semantic topic is missing %q", guidance)
+		}
+	}
+	schema, _ := Topic("schema")
+	for _, guidance := range []string{"pbrain schema <command>", "pbrain --json <command> --flag=value -- operands", "--format=mcp", "pass --personal for that call"} {
+		if !strings.Contains(schema, guidance) {
+			t.Errorf("schema topic is missing %q", guidance)
 		}
 	}
 	files, err := fs.Glob(documents, "topics/*.md")
@@ -51,7 +57,7 @@ func TestSkillResourcesAndLimits(t *testing.T) {
 }
 
 func TestSkillListOrder(t *testing.T) {
-	want := []string{"import", "claude-artifacts", "google-docs", "browser-use", "semantic"}
+	want := []string{"import", "claude-artifacts", "google-docs", "browser-use", "semantic", "schema"}
 	names := Topics()
 	if !slices.Equal(names, want) {
 		t.Fatalf("got %v; want %v", names, want)

@@ -1,6 +1,7 @@
 # Functional spec §15, scenario 23. The skill also works without a brain.
 pbrain skill
 stdout 'pbrain skill import'
+stdout 'pbrain schema <command>'
 cp stdout $WORK/core
 exec sh -c 'test "$(wc -w < "$1")" -le 400' sh $WORK/core
 pbrain skill --help
@@ -23,7 +24,13 @@ pbrain skill browser-use
 cp stdout $WORK/browser-use
 pbrain skill semantic
 cp stdout $WORK/semantic
-exec sh -c 'for topic do test -s "$topic" && test "$(wc -w < "$topic")" -le 300 || exit 1; done' sh $WORK/import $WORK/claude-artifacts $WORK/google-docs $WORK/browser-use $WORK/semantic
+pbrain skill schema
+stdout 'pbrain schema --format=mcp'
+stdout 'pass --personal for that call'
+cp stdout $WORK/schema
+pbrain skill list --json
+stdout '"schema"'
+exec sh -c 'for topic do test -s "$topic" && test "$(wc -w < "$topic")" -le 300 || exit 1; done' sh $WORK/import $WORK/claude-artifacts $WORK/google-docs $WORK/browser-use $WORK/semantic $WORK/schema
 
 -- topics --
 import
@@ -31,3 +38,4 @@ claude-artifacts
 google-docs
 browser-use
 semantic
+schema
