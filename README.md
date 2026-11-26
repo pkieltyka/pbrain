@@ -151,14 +151,14 @@ with bge. [Calibration results and method](internal/semantic/calibrate/README.md
 
 ## Measured speed
 
-| Release measurement (5,000 items, 50 MB) | Linux (Intel Core Ultra 7 255H) | Apple silicon Mac (untested, deferred) |
+| Release measurement (5,000 items, 50 MB) | Linux (Intel Core Ultra 7 255H) | Apple M4, 24 GiB (v0.4.6) |
 | --- | --- | --- |
-| Lexical search / get, personal view | 135–189 ms / 134 ms | Not yet measured |
-| BGE semantic search, shared view (4,500 visible items) | 302–309 ms | Not yet measured |
-| BGE semantic search, personal view | 332–333 ms | Not yet measured |
-| BGE semantic + BM25, shared / personal view | 298 ms / 335 ms | Not yet measured |
-| BGE first index / one-note update | 1 h 41 m / 0.77 s | Not yet measured |
-| EmbeddingGemma 2 first index, CPUs only | Projected 15 h (not run to the end) | Not yet measured |
+| Lexical search / get, personal view | 135–189 ms / 134 ms | Not measured |
+| BGE semantic search, shared view (4,500 visible items) | 302–309 ms | 274–277 ms |
+| BGE semantic search, personal view | 332–333 ms | 295–297 ms |
+| BGE semantic + BM25, shared / personal view | 298 ms / 335 ms | Not measured |
+| BGE first index / one-note update | 1 h 41 m / 0.77 s | 51 m on ten cores / not measured |
+| EmbeddingGemma 2 first index, CPUs only | Projected 15 h (not run to the end) | Not measured |
 
 Search and get figures are warm medians on four CPUs. The BGE first-index figure is also from four
 CPUs, before `pbrain sync` ran the default model on every core. On a Ryzen 9 7950X the first index
@@ -166,4 +166,9 @@ now takes 20 m 25 s on 32 threads and 21 m 1 s on 16 cores; it took 1 h 18 m on 
 that change. The semantic search medians there were 291–298 ms in the shared view and 321–326 ms in the
 personal view. On that machine with its RTX PRO 6000, EmbeddingGemma 2's first index took 1 h 1 m with
 the CUDA build. Its CPU semantic search medians were 773–820 ms on four cores.
+
+The Apple M4 column is from the v0.4.6 archives. Its search figures are warm medians of five fresh
+processes on four cores. With `embeddinggemma-2-q8-0` on that Mac, the first index took 1 h 28 m
+with `--device metal`, an update after one note took 1.15 s, and the CPU semantic search medians were
+459–484 ms.
 [Method, both machines and peak memory](internal/cli/README.measure.md)
