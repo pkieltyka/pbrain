@@ -1,0 +1,56 @@
+{
+  "more": 1,
+  "next": 2,
+  "replaced_matched": 1,
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 18,
+      "body_line": 13,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 278,
+      "file_lines": 13,
+      "id": "fetched",
+      "kind": "source",
+      "occurrences": 2,
+      "path": "sources/fetched.md",
+      "snippet": "lantern reference ",
+      "snippet_line": 13,
+      "snippet_offset": 0,
+      "source": "https://example.org/fetched",
+      "status": "provisional",
+      "title": "fetched"
+    },
+    {
+      "author": "agent:fixture",
+      "body_chars": 18,
+      "body_line": 13,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 217,
+      "file_lines": 13,
+      "id": "link-new",
+      "kind": "source",
+      "linked": true,
+      "occurrences": 2,
+      "path": "sources/link-new.md",
+      "related": [
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "lantern-old",
+          "kind": "note",
+          "link": "to",
+          "replaced": true,
+          "review_due": true,
+          "standing": "provisional",
+          "title": "lantern-old"
+        }
+      ],
+      "snippet": "lantern reference ",
+      "snippet_line": 13,
+      "snippet_offset": 0,
+      "source": "https://example.org/new",
+      "status": "provisional",
+      "title": "link-new"
+    }
+  ]
+}

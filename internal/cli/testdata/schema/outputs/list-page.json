@@ -1,0 +1,24 @@
+{
+  "more": 28,
+  "next": 2,
+  "outside_window": 3,
+  "results": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "fetched",
+      "kind": "source",
+      "source": "https://example.org/fetched",
+      "status": "provisional",
+      "title": "fetched"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-00",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-00"
+    }
+  ]
+}

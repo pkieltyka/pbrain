@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -18,6 +19,7 @@ import (
 
 	"github.com/pkieltyka/pbrain/internal/brain"
 	"github.com/pkieltyka/pbrain/internal/cli"
+	"github.com/pkieltyka/pbrain/internal/cli/schematest"
 	"github.com/pkieltyka/pbrain/internal/embed/embedtest"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/rogpeppe/go-internal/testscript"
@@ -25,7 +27,11 @@ import (
 
 func TestMain(m *testing.M) {
 	testscript.Main(m, map[string]func(){
-		"pbrain":       func() { os.Exit(run()) },
+		"pbrain": func() {
+			os.Exit(runWith(func(ctx context.Context, e cli.Env) int {
+				return checkedScenarioCLI(ctx, e, cli.Release)
+			}))
+		},
 		"pbrain-test":  func() { os.Exit(runWith(scenarioCLI)) },
 		"pbrain-stray": func() { os.Exit(runWith(strayCLI)) },
 	})
@@ -64,9 +70,27 @@ func scenarioCLI(ctx context.Context, e cli.Env) int {
 	if e.Getenv("PBRAIN_TEST_NO_GIT") == "1" {
 		e.Git = gitx.NewRunner("/missing-scenario-git", nil)
 	}
-	code := cli.RunWith(ctx, e, cli.Features{BM25: e.Getenv("PBRAIN_TEST_BM25") != "off"})
+	code := checkedScenarioCLI(ctx, e, cli.Features{BM25: e.Getenv("PBRAIN_TEST_BM25") != "off"})
 	if n.unexpected.Load() {
 		fmt.Fprintln(e.Stderr, "scenario: attempted unconfigured network access")
+		return 99
+	}
+	return code
+}
+
+func checkedScenarioCLI(ctx context.Context, e cli.Env, features cli.Features) int {
+	tool, variant, ok := cli.ToolOutputForArgs(e.Args, features)
+	if !ok {
+		return cli.RunWith(ctx, e, features)
+	}
+	var stdout, stderr bytes.Buffer
+	report := e.Stderr
+	e.Stdout = io.MultiWriter(e.Stdout, &stdout)
+	e.Stderr = io.MultiWriter(e.Stderr, &stderr)
+	code := cli.RunWith(ctx, e, features)
+	if err := schematest.Check(variant, cli.DiagnosticSchema(), tool.Errors, tool.Notices, tool.DocumentOnExit1,
+		code, stdout.String(), stderr.String()); err != nil {
+		fmt.Fprintln(report, "scenario JSON contract:", err)
 		return 99
 	}
 	return code

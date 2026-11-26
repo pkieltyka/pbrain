@@ -1,0 +1,5 @@
+{
+  "hint": "outside the brain, use --brain or PBRAIN_DIR (from this directory)",
+  "path": "outside",
+  "selector": "../outside"
+}

@@ -1,0 +1,9 @@
+{
+  "tags": [
+    {
+      "items": 1,
+      "tag": "redis-cache",
+      "undeclared": true
+    }
+  ]
+}

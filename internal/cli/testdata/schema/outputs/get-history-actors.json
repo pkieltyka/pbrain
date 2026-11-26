@@ -1,0 +1,25 @@
+{
+  "history": [
+    {
+      "created": "2026-10-01T10:15:00Z",
+      "decided": "human:pkieltyka",
+      "id": "20261001-101500-cache-uses-memcached-x7b2",
+      "kind": "decision",
+      "status": "verified",
+      "title": "Cache layer uses memcached"
+    },
+    {
+      "author": "agent:lead-dev",
+      "created": "2026-11-19T18:21:09Z",
+      "decided": "human:pkieltyka",
+      "id": "20261119-182109-cache-uses-redis-k3f9",
+      "kind": "decision",
+      "replaces": [
+        "20261001-101500-cache-uses-memcached-x7b2"
+      ],
+      "source": "task 42, commit 3f2a9c1",
+      "status": "verified",
+      "title": "Cache layer uses Redis"
+    }
+  ]
+}

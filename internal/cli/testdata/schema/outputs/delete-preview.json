@@ -1,0 +1,32 @@
+{
+  "current_again": [
+    "predecessor-00",
+    "predecessor-01",
+    "predecessor-02",
+    "predecessor-03",
+    "predecessor-04",
+    "predecessor-05",
+    "predecessor-06",
+    "predecessor-07",
+    "predecessor-08",
+    "predecessor-09"
+  ],
+  "current_again_more": 2,
+  "dangling": [
+    "related-00",
+    "related-01",
+    "related-02",
+    "related-03",
+    "related-04",
+    "related-05",
+    "related-06",
+    "related-07",
+    "related-08",
+    "related-09"
+  ],
+  "dangling_more": 2,
+  "id": "copy",
+  "original": "removed",
+  "path": "sources/copy.md",
+  "section": "shared"
+}

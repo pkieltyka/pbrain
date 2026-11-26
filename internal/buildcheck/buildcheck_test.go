@@ -96,6 +96,7 @@ func TestDirectivesFindsBothForms(t *testing.T) {
 // allowed is the import table of architecture section 3: for each package, the pbrain packages it
 // may import. cli may import all of them. cmd/pbrain also wires native process inputs.
 var allowed = map[string][]string{
+	"internal/cli/schematest":     nil,                                             // shared JSON contract assertions for test binaries
 	"internal/cli":                nil,                                             // may import every package
 	"cmd/pbrain":                  {"cli", "gitx", "sys", "embed", "embed/gemma2"}, // process adapter in cli.md §1; the release registry (architecture 3: model sub-packages are imported where the registry is built)
 	"internal/check":              {"graph", "item", "secretscan"},

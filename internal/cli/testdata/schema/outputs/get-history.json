@@ -1,0 +1,181 @@
+{
+  "history": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-00",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-00"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-01",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-01"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-02",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-02"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-03",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-03"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-04",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-04"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-05",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-05"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-06",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-06"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-07",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-07"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-08",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-08"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-09",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-09"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-10",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-10"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-11",
+      "kind": "note",
+      "status": "provisional",
+      "title": "predecessor-11"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-old",
+      "kind": "note",
+      "replaces": [
+        "predecessor-00",
+        "predecessor-01",
+        "predecessor-02",
+        "predecessor-03",
+        "predecessor-04",
+        "predecessor-05",
+        "predecessor-06",
+        "predecessor-07",
+        "predecessor-08",
+        "predecessor-09"
+      ],
+      "replaces_more": 2,
+      "review_due": true,
+      "source": "written elsewhere",
+      "status": "provisional",
+      "title": "lantern-old",
+      "verified": "human:test"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-00",
+      "kind": "note",
+      "replaces": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "lantern-next-00"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-01",
+      "kind": "note",
+      "replaces": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "lantern-next-01"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-02",
+      "kind": "note",
+      "replaces": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "lantern-next-02"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-03",
+      "kind": "note",
+      "replaces": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "lantern-next-03"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-04",
+      "kind": "note",
+      "replaces": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "lantern-next-04"
+    }
+  ],
+  "more": 7,
+  "next": 18
+}

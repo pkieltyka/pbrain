@@ -1,0 +1,24 @@
+{
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 33,
+      "body_line": 9,
+      "clauses": 6,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 146,
+      "file_lines": 9,
+      "id": "partial-match",
+      "kind": "note",
+      "matched": 5,
+      "occurrences": 5,
+      "partial": true,
+      "path": "notes/partial-match.md",
+      "snippet": "queue retry backoff worker lease ",
+      "snippet_line": 9,
+      "snippet_offset": 0,
+      "status": "provisional",
+      "title": "partial-match"
+    }
+  ]
+}

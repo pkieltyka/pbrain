@@ -1,0 +1,27 @@
+{
+  "history": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "link-old",
+      "kind": "source",
+      "linked": true,
+      "source": "https://example.org/old",
+      "status": "provisional",
+      "title": "link-old"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "link-new",
+      "kind": "source",
+      "linked": true,
+      "replaces": [
+        "link-old"
+      ],
+      "source": "https://example.org/new",
+      "status": "provisional",
+      "title": "link-new"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "decisions": 2,
+  "items": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "decided": "human:test",
+      "id": "private-decision",
+      "kind": "decision",
+      "personal": true,
+      "status": "verified",
+      "title": "private-decision"
+    }
+  ],
+  "learnings": 2,
+  "more": 3,
+  "next": 1
+}

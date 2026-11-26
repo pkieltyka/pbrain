@@ -1,0 +1,10 @@
+{
+  "more": 1,
+  "next": 1,
+  "rules": [
+    {
+      "match": "example.net",
+      "to": "shared"
+    }
+  ]
+}

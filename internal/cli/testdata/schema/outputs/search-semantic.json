@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "author": "agent:x",
+      "body_chars": 33,
+      "body_line": 7,
+      "created": "2026-11-01T00:00:00Z",
+      "file_chars": 116,
+      "file_lines": 7,
+      "id": "20261101-000000-alpha-a1a1",
+      "kind": "note",
+      "occurrences": 1,
+      "path": "notes/20261101-000000-alpha-a1a1.md",
+      "semantic": true,
+      "snippet": "This note is about alpha topics. ",
+      "snippet_line": 7,
+      "snippet_offset": 0,
+      "status": "provisional",
+      "title": "First note"
+    }
+  ]
+}

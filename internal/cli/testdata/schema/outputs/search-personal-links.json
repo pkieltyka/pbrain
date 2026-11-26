@@ -1,0 +1,55 @@
+{
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 25,
+      "body_line": 12,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 229,
+      "file_lines": 12,
+      "id": "private",
+      "kind": "learning",
+      "occurrences": 4,
+      "path": "personal/learnings/private.md",
+      "personal": true,
+      "related": [
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "lantern-old",
+          "kind": "note",
+          "link": "to",
+          "replaced": true,
+          "review_due": true,
+          "standing": "provisional",
+          "title": "lantern-old"
+        },
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "link-old",
+          "kind": "source",
+          "link": "to",
+          "linked": true,
+          "replaced": true,
+          "standing": "provisional",
+          "title": "link-old"
+        },
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "private-decision",
+          "kind": "decision",
+          "link": "to",
+          "personal": true,
+          "standing": "decided",
+          "title": "private-decision"
+        }
+      ],
+      "review_due": true,
+      "snippet": "private lantern learning ",
+      "snippet_line": 12,
+      "snippet_offset": 0,
+      "status": "verified",
+      "title": "private",
+      "verified": "human:test"
+    }
+  ]
+}

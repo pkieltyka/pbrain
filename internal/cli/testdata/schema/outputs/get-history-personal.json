@@ -1,0 +1,15 @@
+{
+  "history": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "private",
+      "kind": "learning",
+      "personal": true,
+      "review_due": true,
+      "status": "verified",
+      "title": "private",
+      "verified": "human:test"
+    }
+  ]
+}

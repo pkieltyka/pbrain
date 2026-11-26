@@ -1,0 +1,489 @@
+{
+  "results": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "fetched",
+      "kind": "source",
+      "source": "https://example.org/fetched",
+      "status": "provisional",
+      "title": "fetched"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-00",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-00"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-01",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-01"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-02",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-02"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-03",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-03"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-04",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-04"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-05",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-05"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-06",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-06"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-07",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-07"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-08",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-08"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-09",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-09"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-10",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-10"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-next-11",
+      "kind": "note",
+      "status": "provisional",
+      "title": "lantern-next-11"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-old",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-next-00",
+        "lantern-next-01",
+        "lantern-next-02",
+        "lantern-next-03",
+        "lantern-next-04",
+        "lantern-next-05",
+        "lantern-next-06",
+        "lantern-next-07",
+        "lantern-next-08",
+        "lantern-next-09"
+      ],
+      "replacement_more": 2,
+      "review_due": true,
+      "source": "written elsewhere",
+      "status": "provisional",
+      "title": "lantern-old",
+      "verified": "human:test"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "link-new",
+      "kind": "source",
+      "linked": true,
+      "source": "https://example.org/new",
+      "status": "provisional",
+      "title": "link-new"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "link-old",
+      "kind": "source",
+      "linked": true,
+      "replaced": true,
+      "replacement": [
+        "link-new"
+      ],
+      "source": "https://example.org/old",
+      "status": "provisional",
+      "title": "link-old"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "long-section",
+      "kind": "note",
+      "status": "provisional",
+      "title": "long-section"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "partial-match",
+      "kind": "note",
+      "status": "provisional",
+      "title": "partial-match"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-00",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-00"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-01",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-01"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-02",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-02"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-03",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-03"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-04",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-04"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-05",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-05"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-06",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-06"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-07",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-07"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-08",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-08"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-09",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-09"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-10",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-10"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "predecessor-11",
+      "kind": "note",
+      "replaced": true,
+      "replacement": [
+        "lantern-old"
+      ],
+      "status": "provisional",
+      "title": "predecessor-11"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "private",
+      "kind": "learning",
+      "personal": true,
+      "review_due": true,
+      "status": "verified",
+      "title": "private",
+      "verified": "human:test"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "decided": "human:test",
+      "id": "private-decision",
+      "kind": "decision",
+      "personal": true,
+      "status": "verified",
+      "title": "private-decision"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-00",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-00"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-01",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-01"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-02",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-02"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-03",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-03"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-04",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-04"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-05",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-05"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-06",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-06"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-07",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-07"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-08",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-08"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-09",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-09"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-10",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-10"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-11",
+      "kind": "note",
+      "status": "provisional",
+      "title": "related-11"
+    },
+    {
+      "author": "agent:x",
+      "created": "2026-11-21T00:00:00Z",
+      "id": "20261121-000000-secret-n0n0",
+      "kind": "note",
+      "status": "provisional",
+      "title": "Token note"
+    },
+    {
+      "created": "2026-11-20T09:15:00Z",
+      "id": "20261203-091500-redis-memory-cost-m2x8",
+      "kind": "note",
+      "status": "provisional",
+      "title": "Redis memory cost is high"
+    },
+    {
+      "author": "agent:lead-dev",
+      "created": "2026-11-19T18:21:09Z",
+      "decided": "human:pkieltyka",
+      "id": "20261119-182109-cache-uses-redis-k3f9",
+      "kind": "decision",
+      "source": "task 42, commit 3f2a9c1",
+      "status": "verified",
+      "title": "Cache layer uses Redis"
+    },
+    {
+      "author": "agent:lead-dev",
+      "created": "2026-11-02T09:03:01Z",
+      "id": "20261102-090301-ci-needs-docker-28-p0qz",
+      "kind": "learning",
+      "review_due": true,
+      "status": "verified",
+      "title": "CI needs Docker 28",
+      "verified": "human:pk"
+    },
+    {
+      "created": "2026-10-01T10:15:00Z",
+      "decided": "human:pkieltyka",
+      "id": "20261001-101500-cache-uses-memcached-x7b2",
+      "kind": "decision",
+      "replaced": true,
+      "replacement": [
+        "20261119-182109-cache-uses-redis-k3f9"
+      ],
+      "status": "verified",
+      "title": "Cache layer uses memcached"
+    },
+    {
+      "created": "unknown",
+      "id": "broken",
+      "kind": "note",
+      "status": "provisional",
+      "title": "Broken"
+    }
+  ]
+}

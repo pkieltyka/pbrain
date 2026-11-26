@@ -1,0 +1,19 @@
+{
+  "errors": 4,
+  "findings": [
+    {
+      "code": "missing_field",
+      "message": "author is missing",
+      "path": "decisions/20261001-101500-cache-uses-memcached-x7b2.md",
+      "severity": "error"
+    },
+    {
+      "code": "missing_field",
+      "message": "author is missing",
+      "path": "notes/20261203-091500-redis-memory-cost-m2x8.md",
+      "severity": "error"
+    }
+  ],
+  "more": 22,
+  "next": 2
+}

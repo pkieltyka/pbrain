@@ -1,0 +1,47 @@
+{
+  "decisions": 2,
+  "items": [
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "decided": "human:test",
+      "id": "private-decision",
+      "kind": "decision",
+      "personal": true,
+      "status": "verified",
+      "title": "private-decision"
+    },
+    {
+      "author": "agent:lead-dev",
+      "created": "2026-11-19T18:21:09Z",
+      "decided": "human:pkieltyka",
+      "id": "20261119-182109-cache-uses-redis-k3f9",
+      "kind": "decision",
+      "source": "task 42, commit 3f2a9c1",
+      "status": "verified",
+      "title": "Cache layer uses Redis"
+    },
+    {
+      "author": "agent:fixture",
+      "created": "2026-11-21T12:34:56Z",
+      "id": "private",
+      "kind": "learning",
+      "personal": true,
+      "review_due": true,
+      "status": "verified",
+      "title": "private",
+      "verified": "human:test"
+    },
+    {
+      "author": "agent:lead-dev",
+      "created": "2026-11-02T09:03:01Z",
+      "id": "20261102-090301-ci-needs-docker-28-p0qz",
+      "kind": "learning",
+      "review_due": true,
+      "status": "verified",
+      "title": "CI needs Docker 28",
+      "verified": "human:pk"
+    }
+  ],
+  "learnings": 2
+}

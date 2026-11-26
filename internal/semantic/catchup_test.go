@@ -251,6 +251,11 @@ func TestCatchUpBounds(t *testing.T) {
 	if !ok || late {
 		t.Fatalf("published: t0 %v, t1 %v", ok, late)
 	}
+	db = s.manifestDB()
+	res, err = e.search(ctx, e.opts(), "alpha", s)
+	if err != nil || res.Missing != 1 || !hit(res, "new/t1.md") || s.manifestDB() == db {
+		t.Fatalf("identical follow-up query did not advance the manifest: %+v %v", res, err)
+	}
 }
 
 func TestCatchUpLock(t *testing.T) {

@@ -1,0 +1,12 @@
+{
+  "model": "test-model",
+  "model_present": true,
+  "sections": [
+    {
+      "indexed": 0,
+      "items": 2,
+      "section": "shared",
+      "stale": true
+    }
+  ]
+}

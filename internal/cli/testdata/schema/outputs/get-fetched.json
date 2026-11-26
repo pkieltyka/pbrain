@@ -1,0 +1,20 @@
+{
+  "author": "agent:fixture",
+  "body": "lantern reference\n",
+  "body_chars": 18,
+  "body_line": 13,
+  "created": "2026-11-21T12:34:56Z",
+  "fetched": "2026-11-21T12:34:56Z",
+  "file_chars": 278,
+  "file_lines": 13,
+  "id": "fetched",
+  "kind": "source",
+  "line_from": 13,
+  "line_to": 13,
+  "offset": 0,
+  "origin": "url",
+  "path": "sources/fetched.md",
+  "source": "https://example.org/fetched",
+  "status": "provisional",
+  "title": "fetched"
+}

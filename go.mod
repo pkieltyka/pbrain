@@ -11,6 +11,7 @@ require (
 	github.com/pkieltyka/goinfer/backend/metal v0.6.9
 	github.com/pkieltyka/goinfer/backend/vulkan v0.6.9
 	github.com/rogpeppe/go-internal v1.16.0
+	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/pflag v1.1.0
 	go.yaml.in/yaml/v3 v3.0.6
 	golang.org/x/net v0.63.0

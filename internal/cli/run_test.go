@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkieltyka/pbrain/internal/cli/schematest"
 	"github.com/pkieltyka/pbrain/internal/errs"
 	"github.com/pkieltyka/pbrain/internal/gitx"
 	"github.com/pkieltyka/pbrain/internal/sys"
@@ -30,6 +31,12 @@ func invoke(t *testing.T, env Env, features Features, args ...string) (int, stri
 	var stdout, stderr bytes.Buffer
 	env.Args, env.Stdout, env.Stderr = args, &stdout, &stderr
 	status := RunWith(context.Background(), env, features)
+	if tool, variant, ok := ToolOutputForArgs(args, features); ok {
+		if err := schematest.Check(variant, DiagnosticSchema(), tool.Errors, tool.Notices, tool.DocumentOnExit1,
+			status, stdout.String(), stderr.String()); err != nil {
+			t.Errorf("%v: JSON contract: %v\nstdout: %s\nstderr: %s", args, err, &stdout, &stderr)
+		}
+	}
 	return status, stdout.String(), stderr.String()
 }
 

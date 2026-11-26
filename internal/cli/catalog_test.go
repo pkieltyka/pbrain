@@ -13,8 +13,18 @@ import (
 func TestCatalogCoversCommands(t *testing.T) {
 	var got []string
 	for _, tool := range Catalog(Release) {
-		if tool.Name != "pbrain_"+tool.Command || tool.Description == "" || len(strings.Fields(tool.Description)) > 80 {
+		if tool.Name != "pbrain_"+tool.Command || tool.Description == "" || len(tool.Output) == 0 || len(strings.Fields(tool.Description)) > 80 {
 			t.Fatalf("invalid tool description or name: %+v", tool)
+		}
+		for _, code := range tool.Errors {
+			if errorDescriptions[code] == "" {
+				t.Errorf("%s references unknown error %q", tool.Command, code)
+			}
+		}
+		for _, code := range tool.Notices {
+			if noticeDescriptions[code] == "" {
+				t.Errorf("%s references unknown notice %q", tool.Command, code)
+			}
 		}
 		got = append(got, tool.Command)
 	}

@@ -1,0 +1,35 @@
+{
+  "author": "agent:lead-dev",
+  "body": "# Cache\n\nSessions expire through the cache TTL, so Redis replaces memcached for sessions.\n",
+  "body_chars": 90,
+  "body_line": 12,
+  "created": "2026-11-19T18:21:09Z",
+  "decided": "human:pkieltyka",
+  "file_chars": 374,
+  "file_lines": 14,
+  "id": "20261119-182109-cache-uses-redis-k3f9",
+  "kind": "decision",
+  "line_from": 12,
+  "line_to": 14,
+  "offset": 0,
+  "path": "decisions/20261119-182109-cache-uses-redis-k3f9.md",
+  "related": [
+    {
+      "created": "2026-11-20T09:15:00Z",
+      "id": "20261203-091500-redis-memory-cost-m2x8",
+      "kind": "note",
+      "link": "to",
+      "standing": "provisional",
+      "title": "Redis memory cost is high"
+    }
+  ],
+  "relates": [
+    "20261203-091500-redis-memory-cost-m2x8"
+  ],
+  "replaces": [
+    "20261001-101500-cache-uses-memcached-x7b2"
+  ],
+  "source": "task 42, commit 3f2a9c1",
+  "status": "verified",
+  "title": "Cache layer uses Redis"
+}

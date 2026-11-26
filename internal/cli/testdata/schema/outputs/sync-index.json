@@ -1,0 +1,13 @@
+{
+  "model": "test-model",
+  "sections": [
+    {
+      "device": "cuda:GPU-test",
+      "items": 2,
+      "items_removed": 0,
+      "passages_embedded": 2,
+      "passages_reused": 0,
+      "section": "shared"
+    }
+  ]
+}

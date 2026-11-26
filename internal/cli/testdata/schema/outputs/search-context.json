@@ -1,0 +1,92 @@
+{
+  "replaced_matched": 1,
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 1915,
+      "body_line": 13,
+      "context": [
+        {
+          "line": 13,
+          "text": "# Lantern"
+        },
+        {
+          "line": 14
+        },
+        {
+          "line": 15,
+          "text": "lantern index keywords"
+        },
+        {
+          "line": 16
+        },
+        {
+          "line": 17,
+          "text": "## Another heading"
+        },
+        {
+          "line": 18
+        },
+        {
+          "line": 19,
+          "text": "catalog details and transcript catalog details and transcript catalog details and transcript catalog details and transcript catalog details and t…"
+        }
+      ],
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 2475,
+      "file_lines": 19,
+      "id": "lantern-old",
+      "kind": "note",
+      "occurrences": 5,
+      "path": "notes/lantern-old.md",
+      "related": [
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "related-00",
+          "kind": "note",
+          "link": "to",
+          "standing": "provisional",
+          "title": "related-00"
+        },
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "related-01",
+          "kind": "note",
+          "link": "to",
+          "standing": "provisional",
+          "title": "related-01"
+        },
+        {
+          "created": "2026-11-21T12:34:56Z",
+          "id": "related-02",
+          "kind": "note",
+          "link": "to",
+          "standing": "provisional",
+          "title": "related-02"
+        }
+      ],
+      "replaced": true,
+      "replacement": [
+        "lantern-next-00",
+        "lantern-next-01",
+        "lantern-next-02",
+        "lantern-next-03",
+        "lantern-next-04",
+        "lantern-next-05",
+        "lantern-next-06",
+        "lantern-next-07",
+        "lantern-next-08",
+        "lantern-next-09"
+      ],
+      "replacement_more": 2,
+      "review_due": true,
+      "snippet": "# Lantern  lantern index keywords  ## Another heading  catalog details and transcript catalog details and transcript catalog details and transcript catalog details and transcript catalog details and t…",
+      "snippet_line": 13,
+      "snippet_offset": 0,
+      "source": "written elsewhere",
+      "status": "provisional",
+      "title": "lantern-old",
+      "verified": "human:test"
+    }
+  ]
+}

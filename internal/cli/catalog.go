@@ -47,6 +47,7 @@ type Result struct {
 
 type jsonSchema struct {
 	Type                 string                 `json:"type,omitempty"`
+	Title                string                 `json:"title,omitempty"`
 	Description          string                 `json:"description,omitempty"`
 	Properties           map[string]*jsonSchema `json:"properties,omitempty"`
 	Required             []string               `json:"required,omitempty"`
@@ -165,6 +166,11 @@ func Catalog(features Features) []Tool {
 		for _, arg := range cmd.args {
 			tool.Operands = append(tool.Operands, arg.name)
 		}
+		if variants := outputFor(cmd.name); len(variants) != 0 {
+			tool.Output = schemaJSON(publishedOutput(variants))
+		}
+		tool.Errors, tool.Notices = toolDiagnostics(cmd.name)
+		tool.DocumentOnExit1 = cmd.name == "check" || cmd.name == "delete"
 		for _, rule := range rules {
 			if rule.applies(cmd.name) {
 				tool.Rules = append(tool.Rules, ToolRule{Properties: append([]string(nil), rule.properties...), Text: rule.message})

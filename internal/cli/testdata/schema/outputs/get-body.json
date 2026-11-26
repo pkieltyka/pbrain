@@ -1,0 +1,89 @@
+{
+  "author": "agent:fixture",
+  "body": "# Lantern\n\nlantern index keyw",
+  "body_chars": 1915,
+  "body_line": 13,
+  "created": "2026-11-21T12:34:56Z",
+  "current": [
+    "lantern-next-00",
+    "lantern-next-01",
+    "lantern-next-02",
+    "lantern-next-03",
+    "lantern-next-04",
+    "lantern-next-05",
+    "lantern-next-06",
+    "lantern-next-07",
+    "lantern-next-08",
+    "lantern-next-09"
+  ],
+  "current_more": 2,
+  "file_chars": 2475,
+  "file_lines": 19,
+  "id": "lantern-old",
+  "kind": "note",
+  "line_from": 13,
+  "line_to": 15,
+  "more": 1886,
+  "next": 29,
+  "offset": 0,
+  "path": "notes/lantern-old.md",
+  "related": [
+    {
+      "created": "2026-11-21T12:34:56Z",
+      "id": "related-00",
+      "kind": "note",
+      "link": "to",
+      "standing": "provisional",
+      "title": "related-00"
+    }
+  ],
+  "relates": [
+    "related-00",
+    "related-01",
+    "related-02",
+    "related-03",
+    "related-04",
+    "related-05",
+    "related-06",
+    "related-07",
+    "related-08",
+    "related-09"
+  ],
+  "relates_more": 3,
+  "replacement": [
+    "lantern-next-00",
+    "lantern-next-01",
+    "lantern-next-02",
+    "lantern-next-03",
+    "lantern-next-04",
+    "lantern-next-05",
+    "lantern-next-06",
+    "lantern-next-07",
+    "lantern-next-08",
+    "lantern-next-09"
+  ],
+  "replacement_more": 2,
+  "replaces": [
+    "predecessor-00",
+    "predecessor-01",
+    "predecessor-02",
+    "predecessor-03",
+    "predecessor-04",
+    "predecessor-05",
+    "predecessor-06",
+    "predecessor-07",
+    "predecessor-08",
+    "predecessor-09"
+  ],
+  "replaces_more": 2,
+  "review_due": true,
+  "source": "written elsewhere",
+  "stale_after": "2026-11-01T00:00:00Z",
+  "status": "provisional",
+  "tags": [
+    "cache"
+  ],
+  "title": "lantern-old",
+  "unresolved": 1,
+  "verified": "human:test"
+}

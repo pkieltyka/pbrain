@@ -1,0 +1,35 @@
+{
+  "more": 2,
+  "next": 1,
+  "results": [
+    {
+      "author": "agent:lead-dev",
+      "body_chars": 90,
+      "body_line": 12,
+      "created": "2026-11-19T18:21:09Z",
+      "decided": "human:pkieltyka",
+      "file_chars": 374,
+      "file_lines": 14,
+      "id": "20261119-182109-cache-uses-redis-k3f9",
+      "kind": "decision",
+      "occurrences": 2,
+      "path": "decisions/20261119-182109-cache-uses-redis-k3f9.md",
+      "related": [
+        {
+          "created": "2026-11-20T09:15:00Z",
+          "id": "20261203-091500-redis-memory-cost-m2x8",
+          "kind": "note",
+          "link": "to",
+          "standing": "provisional",
+          "title": "Redis memory cost is high"
+        }
+      ],
+      "snippet": "# Cache  Sessions expire through the cache TTL, so Redis replaces memcached for sessions. ",
+      "snippet_line": 12,
+      "snippet_offset": 0,
+      "source": "task 42, commit 3f2a9c1",
+      "status": "verified",
+      "title": "Cache layer uses Redis"
+    }
+  ]
+}

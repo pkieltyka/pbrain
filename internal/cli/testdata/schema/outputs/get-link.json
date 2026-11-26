@@ -1,0 +1,41 @@
+{
+  "author": "agent:fixture",
+  "body": "lantern reference\n",
+  "body_chars": 18,
+  "body_line": 12,
+  "created": "2026-11-21T12:34:56Z",
+  "current": [
+    "link-new"
+  ],
+  "file_chars": 196,
+  "file_lines": 12,
+  "id": "link-old",
+  "kind": "source",
+  "line_from": 12,
+  "line_to": 12,
+  "linked": true,
+  "offset": 0,
+  "origin": "link",
+  "path": "sources/link-old.md",
+  "related": [
+    {
+      "created": "2026-11-21T12:34:56Z",
+      "id": "lantern-old",
+      "kind": "note",
+      "link": "to",
+      "replaced": true,
+      "review_due": true,
+      "standing": "provisional",
+      "title": "lantern-old"
+    }
+  ],
+  "relates": [
+    "lantern-old"
+  ],
+  "replacement": [
+    "link-new"
+  ],
+  "source": "https://example.org/old",
+  "status": "provisional",
+  "title": "link-old"
+}

@@ -1,0 +1,42 @@
+{
+  "more": 14,
+  "next": 2,
+  "outside_window": 0,
+  "replaced_matched": 2,
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 16,
+      "body_line": 10,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 155,
+      "file_lines": 10,
+      "id": "lantern-next-00",
+      "kind": "note",
+      "occurrences": 2,
+      "path": "notes/lantern-next-00.md",
+      "snippet": "lantern updates ",
+      "snippet_line": 10,
+      "snippet_offset": 0,
+      "status": "provisional",
+      "title": "lantern-next-00"
+    },
+    {
+      "author": "agent:fixture",
+      "body_chars": 16,
+      "body_line": 10,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 155,
+      "file_lines": 10,
+      "id": "lantern-next-01",
+      "kind": "note",
+      "occurrences": 2,
+      "path": "notes/lantern-next-01.md",
+      "snippet": "lantern updates ",
+      "snippet_line": 10,
+      "snippet_offset": 0,
+      "status": "provisional",
+      "title": "lantern-next-01"
+    }
+  ]
+}

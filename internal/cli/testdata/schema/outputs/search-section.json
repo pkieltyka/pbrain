@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "author": "agent:fixture",
+      "body_chars": 10603,
+      "body_line": 9,
+      "created": "2026-11-21T12:34:56Z",
+      "file_chars": 10715,
+      "file_lines": 153,
+      "id": "long-section",
+      "kind": "note",
+      "occurrences": 1,
+      "path": "notes/long-section.md",
+      "section": "Intro",
+      "snippet": "…d background background   intro background background background background background background background background background background background background background   ## Lookup  uniquephrase…",
+      "snippet_line": 147,
+      "snippet_offset": 10402,
+      "status": "provisional",
+      "title": "long-section"
+    }
+  ]
+}

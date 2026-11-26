@@ -1,0 +1,19 @@
+{
+  "devices": [
+    {
+      "backend": "cuda",
+      "free_bytes": 8192,
+      "id": "cuda:0",
+      "memory": "live",
+      "memory_kind": "dedicated",
+      "name": "Test GPU",
+      "persistent": "cuda:GPU-test",
+      "total_bytes": 16384
+    },
+    {
+      "backend": "cpu",
+      "id": "cpu",
+      "threads": 4
+    }
+  ]
+}
