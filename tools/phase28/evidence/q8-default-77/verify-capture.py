@@ -77,6 +77,7 @@ def main():
         median = statistics.median(samples)
         low, high = min(samples), max(samples)
         under = sum(t < 1000 for t in samples)
+        assert under == 5, f"{key}: only {under}/5 searches finished under 1 s"
         peak = max(rss)
         assert (samples, median, [low, high], under, peak) == (
             row["samples_ms"],
