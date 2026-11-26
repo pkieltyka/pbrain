@@ -1,0 +1,30 @@
+# Schema is available from a fresh directory and ignores view selectors.
+pbrain --brain=missing --personal schema get
+stdout '^  "schema": "pbrain-tools/1",'
+stdout '^      "name": "pbrain_get",'
+! stdout 'pbrain_search'
+! stderr .
+
+pbrain schema --json --inputs-only search
+stdout '^\{.*"schema":"pbrain-tools/1".*"name":"pbrain_search".*\}$'
+stdout '"bm25":\{'
+! stdout '"output":'
+! stderr .
+
+pbrain schema --json --format=mcp devices
+stdout '^\{"tools":\[\{"name":"pbrain_devices",'
+stdout '"inputSchema":\{"type":"object"'
+stdout '"outputSchema":\{"type":"object"'
+stdout '"readOnlyHint":true'
+! stderr .
+
+status 2 pbrain schema skill
+stderr '^usage: unknown or uncallable command; run pbrain schema$'
+! stdout .
+status 2 pbrain schema unknown
+stderr '^usage: unknown or uncallable command; run pbrain schema$'
+status 2 pbrain schema --json --format=xml
+stderr '^\{"error":\{"code":"usage","message":"--format requires pbrain or mcp"\}\}$'
+! stdout .
+! exists docs/brain
+! exists $PBRAIN_CACHE

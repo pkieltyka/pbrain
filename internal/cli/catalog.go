@@ -113,7 +113,7 @@ func optionSchema(cmd command, o option) *jsonSchema {
 		}
 		if modePage {
 			value.Description += pageHelpDefault(cmd.name, o.name)
-		} else if o.name != "context" {
+		} else if def >= lo && (hi == 0 || def <= hi) {
 			value.Default = def
 		}
 		switch {
@@ -170,7 +170,7 @@ func Catalog(features Features) []Tool {
 			tool.Output = schemaJSON(publishedOutput(variants))
 		}
 		tool.Errors, tool.Notices = toolDiagnostics(cmd.name)
-		tool.DocumentOnExit1 = cmd.name == "check" || cmd.name == "delete"
+		tool.DocumentOnExit1 = documentOnExit1(cmd.name)
 		for _, rule := range rules {
 			if rule.applies(cmd.name) {
 				tool.Rules = append(tool.Rules, ToolRule{Properties: append([]string(nil), rule.properties...), Text: rule.message})

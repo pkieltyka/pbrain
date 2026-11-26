@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
 func TestCatalogCoversCommands(t *testing.T) {
@@ -93,7 +95,11 @@ func TestCatalogInputs(t *testing.T) {
 				}
 				bindParsed(t, tool.Name, arguments, features, "")
 				for _, arg := range cmd.args {
-					if arg.form == choice && !slices.Equal(schema.Properties[arg.name].Enum, arg.choices()) {
+					property := schema.Properties[arg.name]
+					if property.Type != "string" || len(strings.Fields(property.Description)) > 30 {
+						t.Fatalf("%s: invalid operand schema", arg.name)
+					}
+					if arg.form == choice && !slices.Equal(property.Enum, arg.choices()) {
 						t.Fatalf("%s: operand has wrong choices", arg.name)
 					}
 				}
@@ -130,10 +136,23 @@ func testNumericProperty(t *testing.T, cmd command, o option, prop *jsonSchema, 
 		if o.name == "limit" && cmd.name == "get" && mode == "" {
 			continue // this flag requires a paginated get
 		}
-		lo, hi, _ := bounds(cmd.name, o.name, mode == "history", mode == "outline")
+		lo, hi, def := bounds(cmd.name, o.name, mode == "history", mode == "outline")
 		if prop.Type != "integer" || prop.Minimum == nil || *prop.Minimum != lo ||
 			hi == 0 && prop.Maximum != nil || hi != 0 && (prop.Maximum == nil || *prop.Maximum != hi) {
 			t.Fatalf("%s %s %s: schema bounds %+v, want %d..%d", cmd.name, mode, o.name, prop, lo, hi)
+		}
+		if cmd.name == "get" && (o.name == "limit" || o.name == "max-chars") {
+			if prop.Default != nil || !strings.Contains(prop.Description, fmt.Sprintf("%d", def)) {
+				t.Fatalf("get %s lacks the %s default %d in its description: %+v", o.name, mode, def, prop)
+			}
+		} else {
+			var want any
+			if def >= lo && (hi == 0 || def <= hi) {
+				want = float64(def)
+			}
+			if prop.Default != want {
+				t.Fatalf("%s %s default = %v, want %v", cmd.name, o.name, prop.Default, want)
+			}
 		}
 		args := maps.Clone(minimal)
 		if mode != "" {
@@ -165,12 +184,18 @@ func bindParsed(t *testing.T, tool string, args any, features Features, message 
 		t.Fatal(err)
 	}
 	_, err = parseOptions(argv, features)
+	env := Env{Models: embed.NewRegistry()}
+	exit, _, stderr := invoke(t, env, features, argv...)
 	if message == "" {
-		if err != nil {
-			t.Fatalf("%v: %v", argv, err)
+		if err != nil || exit == 2 {
+			t.Fatalf("%v: parse %v, CLI exit %d: %s", argv, err, exit, stderr)
 		}
-	} else if err == nil || domainError(err).Code != "usage" || domainError(err).Message != message {
-		t.Fatalf("%v: got %v, want usage %q", argv, err, message)
+		return
+	}
+	want, _ := encodeLine(map[string]Diagnostic{"error": {Code: "usage", Message: message}})
+	if err == nil || domainError(err).Code != "usage" || domainError(err).Message != message ||
+		exit != 2 || stderr != string(want) {
+		t.Fatalf("%v: parse %v, exit %d, stderr %s, want usage %q", argv, err, exit, stderr, message)
 	}
 }
 
@@ -190,6 +215,9 @@ func TestCatalogRules(t *testing.T) {
 		{"sync", `{"status":true,"device":"cpu"}`, "--device cannot be used with --status"},
 		{"search", `{"query":"text","kind":["invalid"]}`, "--kind requires an item kind"},
 		{"search", `{"query":"text","status":"invalid"}`, "--status requires provisional or verified"},
+		{"list", `{"kind":["invalid"]}`, "--kind requires an item kind"},
+		{"list", `{"status":"invalid"}`, "--status requires provisional or verified"},
+		{"import", `{"input":"path","shared":true,"personal":true}`, "--shared cannot be used with --personal"},
 		{"audience", `{"action":"set","match":"x","to":"invalid"}`, "audience set requires a match and shared or personal"},
 		{"audience", `{"action":"invalid"}`, "unknown audience operation"},
 		{"add", `{}`, "add requires --title and takes no operands"},
@@ -231,12 +259,14 @@ func TestBindStrictArguments(t *testing.T) {
 
 func TestCallMatchesCLI(t *testing.T) {
 	rb, _ := semanticBrain(t)
+	rb.put("notes/broken.md", []string{"kind: invalid", "title: Broken"}, "")
 	id := "20261101-000000-alpha-a1a1"
 	for _, tc := range []struct{ tool, args string }{
 		{"search", `{"query":"alpha","semantic":true}`},
 		{"search", `{"query":"alpha","limit":51}`},
 		{"get", fmt.Sprintf(`{"id":%q,"outline":true}`, id)},
 		{"get", `{"id":"missing"}`},
+		{"check", `{}`},
 		{"delete", fmt.Sprintf(`{"id":%q}`, id)},
 	} {
 		tool := "pbrain_" + tc.tool
@@ -261,6 +291,19 @@ func TestCallMatchesCLI(t *testing.T) {
 			diagnostics.String() != stderr || !slices.Equal(live, got.Notices) {
 			t.Fatalf("%s: %+v live %+v; CLI = %d %q %q", tc.args, got, live, exit, out, stderr)
 		}
+	}
+}
+
+func TestCallClearsStdin(t *testing.T) {
+	env := writeEnv(t)
+	env.Rand = rand.New(rand.NewSource(80))
+	env.Stdin = readerFunc(func([]byte) (int, error) {
+		t.Fatal("a tool read the launch standard input")
+		return 0, nil
+	})
+	result := Call(t.Context(), env, "pbrain_add", json.RawMessage(`{"title":"Through the catalog"}`), Release, nil)
+	if result.Exit != 0 || len(result.Output) == 0 || result.Error != nil {
+		t.Fatalf("add through Call: %+v", result)
 	}
 }
 

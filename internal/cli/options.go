@@ -140,6 +140,13 @@ var commands = []command{
 	},
 	{name: "skill", operands: "[list|TOPIC]", summary: "print the skill or a topic"},
 	{
+		name: "schema", operands: "[COMMAND…]", summary: "print tool inputs, outputs and diagnostics",
+		options: []option{
+			{name: "format", value: "pbrain|mcp", help: "choose the tool document format (default pbrain)", kind: text, form: choice, choices: schemaFormats},
+			boolOption("inputs-only", "omit the output schemas"),
+		},
+	},
+	{
 		name: "search", operands: "QUERY…", summary: "find matching items", callable: true,
 		about: "Find matching items with IDs and cited snippets. Read a result with get. Semantic search may update the index and vector cache for recent changes.",
 		args:  []operand{{name: "query", help: "the whole query, including any quoted phrases", required: true}},
@@ -489,6 +496,8 @@ func (in *invocation) validate() error {
 		if n != len(in.cmd.args) {
 			return usage(in.cmd.name + " requires one id")
 		}
+	case "schema":
+		return validateSchema(in)
 	case "skill":
 		if n > 1 {
 			return usage("skill accepts at most one topic")

@@ -87,10 +87,17 @@ func Check(variant, diagnostic []byte, errorCodes, noticeCodes []string, documen
 		if !strings.HasPrefix(line, "{") {
 			continue // native diagnostics can share stderr
 		}
-		if err := Validate(diagnostic, false, []byte(line)); err != nil {
+		doc, err := jsonschema.UnmarshalJSON(strings.NewReader(line))
+		if err != nil {
+			continue // native diagnostics are not guaranteed to be JSON
+		}
+		shape, err := Compile(diagnostic, false)
+		if err != nil {
+			return err
+		}
+		if err := shape.Validate(doc); err != nil {
 			return fmt.Errorf("stderr: %w", err)
 		}
-		doc, _ := jsonschema.UnmarshalJSON(strings.NewReader(line))
 		for kind, value := range doc.(map[string]any) {
 			code := value.(map[string]any)["code"].(string)
 			allowed := noticeCodes

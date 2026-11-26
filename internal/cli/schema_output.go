@@ -293,20 +293,31 @@ func toolDiagnostics(cmd string) (errors, notices []string) {
 	return errors, notices
 }
 
-// ToolOutputForArgs selects the JSON output variant for a parsed tool invocation.
-// On a parser error it still returns the tool's diagnostic codes, with no output schema.
-func ToolOutputForArgs(args []string, features Features) (tool Tool, output json.RawMessage, ok bool) {
+// OutputContract is the document variant and diagnostics for one JSON invocation.
+type OutputContract struct {
+	Variant         json.RawMessage
+	Errors, Notices []string
+	DocumentOnExit1 bool
+}
+
+// JSONOutputContract selects the variant for a callable JSON invocation.
+// On a parser error it returns the diagnostic codes with no variant.
+func JSONOutputContract(args []string, features Features) (OutputContract, bool) {
 	in, err := parseOptions(args, features)
 	if !in.json || !in.cmd.callable || (in.flags != nil && (in.boolean("help") || in.boolean("version"))) {
-		return Tool{}, nil, false
+		return OutputContract{}, false
 	}
-	tool.Command = in.cmd.name
-	tool.Errors, tool.Notices = toolDiagnostics(in.cmd.name)
-	tool.DocumentOnExit1 = in.cmd.name == "check" || in.cmd.name == "delete"
+	errors, notices := toolDiagnostics(in.cmd.name)
+	contract := OutputContract{
+		Errors: errors, Notices: notices,
+		DocumentOnExit1: documentOnExit1(in.cmd.name),
+	}
 	if err == nil {
-		variants := outputFor(in.cmd.name)
-		output = schemaJSON(selectedOutput(in, variants).schema)
-		tool.Output = schemaJSON(publishedOutput(variants))
+		contract.Variant = schemaJSON(selectedOutput(in, outputFor(in.cmd.name)).schema)
 	}
-	return tool, output, true
+	return contract, true
+}
+
+func documentOnExit1(command string) bool {
+	return command == "check" || command == "delete"
 }

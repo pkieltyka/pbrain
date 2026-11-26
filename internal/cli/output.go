@@ -56,7 +56,7 @@ func helpText(cmd command) string {
 
 func printOptions(out *strings.Builder, command string, options []option) {
 	for _, o := range options {
-		if (command == "skill" || command == "devices") && (o.name == "brain" || o.name == "personal") {
+		if (command == "skill" || command == "devices" || command == "schema") && (o.name == "brain" || o.name == "personal") {
 			continue
 		}
 		name := "--" + o.name

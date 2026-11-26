@@ -122,6 +122,9 @@ func execute(ctx context.Context, env Env, in *invocation, features Features) ou
 		value := helpText(in.cmd)
 		return textOrJSON(in.json, value, helpOutput{Help: value})
 	}
+	if in.cmd.name == "schema" {
+		return runSchema(in, features)
+	}
 	if in.cmd.name == "skill" {
 		return runSkill(in)
 	}

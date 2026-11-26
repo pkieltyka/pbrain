@@ -105,6 +105,9 @@ func auditRuntimeTarget(t *testing.T, root, main, osName, arch string, tags []st
 	for _, finding := range findings {
 		t.Error(finding)
 	}
+	if checked["github.com/santhosh-tekuri/jsonschema/v6"] != 0 {
+		t.Fatalf("the test JSON Schema validator is linked for release tags %v", tags)
+	}
 	if checked[aikitModule] != 0 {
 		t.Fatalf("retired aikit code is linked for tags %v: %v", tags, checked)
 	}

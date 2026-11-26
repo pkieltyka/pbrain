@@ -1,0 +1,1899 @@
+{
+  "tools": [
+    {
+      "name": "pbrain_init",
+      "title": "create or complete a brain",
+      "description": "Create or complete a brain. Use path to choose a destination when there is no selected brain.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "path": {
+            "type": "string",
+            "description": "create the brain at DIR (default docs/brain when no brain is selected)"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "hint": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "selector": {
+            "type": "string"
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_search",
+      "title": "find matching items",
+      "description": "Find matching items with IDs and cited snippets. Read a result with get. Semantic search may update the index and vector cache for recent changes.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "description": "include replaced items",
+            "default": false
+          },
+          "bm25": {
+            "type": "boolean",
+            "description": "include results matching part of the query",
+            "default": false
+          },
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "context": {
+            "type": "integer",
+            "description": "include 1 to 3 nearby lines on each side",
+            "minimum": 1,
+            "maximum": 3
+          },
+          "kind": {
+            "type": "array",
+            "description": "include items of a kind (repeatable)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "decision",
+                "learning",
+                "observation",
+                "note",
+                "source"
+              ]
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum number of results. Project configuration can change the default.",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 5
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response. Project configuration can change the default.",
+            "minimum": 1,
+            "default": 3000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "query": {
+            "type": "string",
+            "description": "the whole query, including any quoted phrases"
+          },
+          "semantic": {
+            "type": "boolean",
+            "description": "include results found by meaning",
+            "default": false
+          },
+          "since": {
+            "type": "string",
+            "description": "include items created at or after WHEN"
+          },
+          "status": {
+            "type": "string",
+            "description": "match the recorded status",
+            "enum": [
+              "provisional",
+              "verified"
+            ]
+          },
+          "tag": {
+            "type": "array",
+            "description": "filter by tag (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "until": {
+            "type": "string",
+            "description": "include items created through WHEN"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "alone": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "clause": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "clause",
+                "count"
+              ]
+            }
+          },
+          "more": {
+            "type": "integer"
+          },
+          "next": {
+            "type": "integer"
+          },
+          "outside_window": {
+            "type": "integer"
+          },
+          "replaced_matched": {
+            "type": "integer"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "body_chars": {
+                  "type": "integer"
+                },
+                "body_line": {
+                  "type": "integer"
+                },
+                "clauses": {
+                  "type": "integer"
+                },
+                "context": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "line": {
+                        "type": "integer"
+                      },
+                      "text": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "line"
+                    ]
+                  }
+                },
+                "created": {
+                  "type": "string"
+                },
+                "decided": {
+                  "type": "string"
+                },
+                "file_chars": {
+                  "type": "integer"
+                },
+                "file_lines": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "linked": {
+                  "type": "boolean"
+                },
+                "matched": {
+                  "type": "integer"
+                },
+                "occurrences": {
+                  "type": "integer"
+                },
+                "partial": {
+                  "type": "boolean"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "personal": {
+                  "type": "boolean",
+                  "description": "True for an item from the personal section."
+                },
+                "related": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "created": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "link": {
+                        "type": "string"
+                      },
+                      "linked": {
+                        "type": "boolean"
+                      },
+                      "personal": {
+                        "type": "boolean",
+                        "description": "True for an item from the personal section."
+                      },
+                      "replaced": {
+                        "type": "boolean"
+                      },
+                      "review_due": {
+                        "type": "boolean"
+                      },
+                      "standing": {
+                        "type": "string"
+                      },
+                      "title": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "link",
+                      "id",
+                      "kind",
+                      "standing",
+                      "created",
+                      "title"
+                    ]
+                  }
+                },
+                "replaced": {
+                  "type": "boolean"
+                },
+                "replacement": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "replacement_more": {
+                  "type": "integer"
+                },
+                "review_due": {
+                  "type": "boolean"
+                },
+                "section": {
+                  "type": "string"
+                },
+                "semantic": {
+                  "type": "boolean"
+                },
+                "snippet": {
+                  "type": "string"
+                },
+                "snippet_line": {
+                  "type": "integer"
+                },
+                "snippet_offset": {
+                  "type": "integer"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "title",
+                "created",
+                "body_line",
+                "body_chars",
+                "file_lines",
+                "file_chars",
+                "occurrences"
+              ]
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_list",
+      "title": "list items",
+      "description": "List items without a search query. Narrow the list with kind, tag, status or a time window.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean",
+            "description": "include replaced items",
+            "default": false
+          },
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "kind": {
+            "type": "array",
+            "description": "include items of a kind (repeatable)",
+            "items": {
+              "type": "string",
+              "enum": [
+                "decision",
+                "learning",
+                "observation",
+                "note",
+                "source"
+              ]
+            }
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum number of results. Project configuration can change the default.",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response. Project configuration can change the default.",
+            "minimum": 1,
+            "default": 2000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "since": {
+            "type": "string",
+            "description": "include items created at or after WHEN"
+          },
+          "status": {
+            "type": "string",
+            "description": "match the recorded status",
+            "enum": [
+              "provisional",
+              "verified"
+            ]
+          },
+          "tag": {
+            "type": "array",
+            "description": "filter by tag (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "until": {
+            "type": "string",
+            "description": "include items created through WHEN"
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "more": {
+            "type": "integer"
+          },
+          "next": {
+            "type": "integer"
+          },
+          "outside_window": {
+            "type": "integer"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "created": {
+                  "type": "string"
+                },
+                "decided": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "linked": {
+                  "type": "boolean"
+                },
+                "personal": {
+                  "type": "boolean",
+                  "description": "True for an item from the personal section."
+                },
+                "replaced": {
+                  "type": "boolean"
+                },
+                "replacement": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "replacement_more": {
+                  "type": "integer"
+                },
+                "review_due": {
+                  "type": "boolean"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "title",
+                "created"
+              ]
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_get",
+      "title": "read an item, its history or its outline",
+      "description": "Read an item by ID. Use outline for section offsets and history for replacement lineage. Keep the same options when following next. --history cannot be used with --outline. --limit requires --history or --outline on get.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "history": {
+            "type": "boolean",
+            "description": "show replacement lineage",
+            "default": false
+          },
+          "id": {
+            "type": "string",
+            "description": "the exact item ID"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum entries with --history or --outline (default 20 with --history, 50 with --outline)",
+            "minimum": 1,
+            "maximum": 200
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response (default 6000 for the body, 2000 with --history, 2000 with --outline). Project configuration can change the default.",
+            "minimum": 1
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "outline": {
+            "type": "boolean",
+            "description": "show body sections",
+            "default": false
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "history",
+            "description": "With history.",
+            "properties": {
+              "history": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "author": {
+                      "type": "string"
+                    },
+                    "created": {
+                      "type": "string"
+                    },
+                    "decided": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "personal": {
+                      "type": "boolean",
+                      "description": "True for an item from the personal section."
+                    },
+                    "replaces": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    "replaces_more": {
+                      "type": "integer"
+                    },
+                    "review_due": {
+                      "type": "boolean"
+                    },
+                    "source": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    },
+                    "verified": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "kind",
+                    "status",
+                    "title",
+                    "created"
+                  ]
+                }
+              },
+              "more": {
+                "type": "integer"
+              },
+              "next": {
+                "type": "integer"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "title": "outline",
+            "description": "With outline.",
+            "properties": {
+              "body_chars": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "more": {
+                "type": "integer"
+              },
+              "next": {
+                "type": "integer"
+              },
+              "outline": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "chars": {
+                      "type": "integer"
+                    },
+                    "file_line": {
+                      "type": "integer"
+                    },
+                    "level": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "offset",
+                    "chars",
+                    "file_line",
+                    "level"
+                  ]
+                }
+              },
+              "sections": {
+                "type": "integer"
+              }
+            },
+            "required": [
+              "id",
+              "sections",
+              "body_chars"
+            ]
+          },
+          {
+            "type": "object",
+            "title": "body",
+            "description": "Without history or outline.",
+            "properties": {
+              "author": {
+                "type": "string"
+              },
+              "body": {
+                "type": "string"
+              },
+              "body_chars": {
+                "type": "integer"
+              },
+              "body_line": {
+                "type": "integer"
+              },
+              "created": {
+                "type": "string"
+              },
+              "current": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "current_more": {
+                "type": "integer"
+              },
+              "decided": {
+                "type": "string"
+              },
+              "fetched": {
+                "type": "string"
+              },
+              "file_chars": {
+                "type": "integer"
+              },
+              "file_lines": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "line_from": {
+                "type": "integer"
+              },
+              "line_to": {
+                "type": "integer"
+              },
+              "linked": {
+                "type": "boolean"
+              },
+              "more": {
+                "type": "integer"
+              },
+              "next": {
+                "type": "integer"
+              },
+              "offset": {
+                "type": "integer"
+              },
+              "origin": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "personal": {
+                "type": "boolean",
+                "description": "True for an item from the personal section."
+              },
+              "related": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "link": {
+                      "type": "string"
+                    },
+                    "linked": {
+                      "type": "boolean"
+                    },
+                    "personal": {
+                      "type": "boolean",
+                      "description": "True for an item from the personal section."
+                    },
+                    "replaced": {
+                      "type": "boolean"
+                    },
+                    "review_due": {
+                      "type": "boolean"
+                    },
+                    "standing": {
+                      "type": "string"
+                    },
+                    "title": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "link",
+                    "id",
+                    "kind",
+                    "standing",
+                    "created",
+                    "title"
+                  ]
+                }
+              },
+              "relates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "relates_more": {
+                "type": "integer"
+              },
+              "replacement": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "replacement_more": {
+                "type": "integer"
+              },
+              "replaces": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "replaces_more": {
+                "type": "integer"
+              },
+              "review_due": {
+                "type": "boolean"
+              },
+              "source": {
+                "type": "string"
+              },
+              "stale_after": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "tags": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "title": {
+                "type": "string"
+              },
+              "unresolved": {
+                "type": "integer"
+              },
+              "verified": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "status",
+              "title",
+              "created",
+              "body_line",
+              "body_chars",
+              "file_lines",
+              "file_chars",
+              "offset"
+            ]
+          }
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_prime",
+      "title": "show current decisions and verified learnings",
+      "description": "Read the current decisions and verified learnings before work. Use tag to stay on topic.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response. Project configuration can change the default.",
+            "minimum": 1,
+            "default": 2000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "tag": {
+            "type": "array",
+            "description": "filter by tag (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "decisions": {
+            "type": "integer"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "author": {
+                  "type": "string"
+                },
+                "created": {
+                  "type": "string"
+                },
+                "decided": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "personal": {
+                  "type": "boolean",
+                  "description": "True for an item from the personal section."
+                },
+                "review_due": {
+                  "type": "boolean"
+                },
+                "source": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "verified": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "title",
+                "created"
+              ]
+            }
+          },
+          "learnings": {
+            "type": "integer"
+          },
+          "more": {
+            "type": "integer"
+          },
+          "next": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "decisions",
+          "learnings"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_tags",
+      "title": "list tags",
+      "description": "List tags and their visible item counts. Prefer an existing tag when adding an item.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum number of results",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 50
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response",
+            "minimum": 1,
+            "default": 2000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "more": {
+            "type": "integer"
+          },
+          "next": {
+            "type": "integer"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "description": {
+                  "type": "string"
+                },
+                "items": {
+                  "type": "integer"
+                },
+                "tag": {
+                  "type": "string"
+                },
+                "undeclared": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "tag",
+                "items"
+              ]
+            }
+          }
+        }
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_check",
+      "title": "report findings about the brain",
+      "description": "Report problems with the brain without changing files. A report with errors is still a result.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum number of results",
+            "minimum": 1,
+            "default": 50
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response",
+            "minimum": 1,
+            "default": 4000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "integer"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "severity": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "severity",
+                "code",
+                "path",
+                "message"
+              ]
+            }
+          },
+          "more": {
+            "type": "integer"
+          },
+          "next": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "errors"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_add",
+      "title": "add a first-party item",
+      "description": "Add a decision, learning, observation or note. Supply a title and use body or body-file for its text. Name replaced items with replaces. --body cannot be used with --body-file. --body-file requires a nonempty path. a decision requires --decided and refuses --verified. --decided is only for a decision. --shared cannot be used with --personal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "set the item author"
+          },
+          "body": {
+            "type": "string",
+            "description": "use TEXT as the body"
+          },
+          "body-file": {
+            "type": "string",
+            "description": "read the body from FILE"
+          },
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "decided": {
+            "type": "string",
+            "description": "name the decision maker"
+          },
+          "kind": {
+            "type": "string",
+            "description": "set the item kind (default note)",
+            "enum": [
+              "decision",
+              "learning",
+              "observation",
+              "note"
+            ]
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "relates": {
+            "type": "array",
+            "description": "record a related item (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "replaces": {
+            "type": "array",
+            "description": "record a replaced item (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "write to the shared section",
+            "default": false
+          },
+          "source": {
+            "type": "string",
+            "description": "name the source"
+          },
+          "stale-after": {
+            "type": "string",
+            "description": "set the review date"
+          },
+          "tag": {
+            "type": "array",
+            "description": "add a tag to the item (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string",
+            "description": "set the item title (required)"
+          },
+          "verified": {
+            "type": "string",
+            "description": "name the verifier"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_import",
+      "title": "copy a source or record a link",
+      "description": "Import outside material from a file or URL. Use link-only to record a URL without fetching it. Audience rules select a destination. --source is only for a file import. --link-only requires a URL. --summary requires --link-only. --shared cannot be used with --personal.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "author": {
+            "type": "string",
+            "description": "set the item author"
+          },
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "input": {
+            "type": "string",
+            "description": "the file path or HTTP(S) URL"
+          },
+          "link-only": {
+            "type": "boolean",
+            "description": "record a URL without fetching it",
+            "default": false
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "replaces": {
+            "type": "array",
+            "description": "record a replaced item (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "shared": {
+            "type": "boolean",
+            "description": "write to the shared section",
+            "default": false
+          },
+          "source": {
+            "type": "string",
+            "description": "name the source"
+          },
+          "stale-after": {
+            "type": "string",
+            "description": "set the review date"
+          },
+          "summary": {
+            "type": "string",
+            "description": "set the body of a linked source"
+          },
+          "tag": {
+            "type": "array",
+            "description": "add a tag to the item (repeatable)",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string",
+            "description": "override the title"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "pbrain_verify",
+      "title": "verify a learning or other first-party item",
+      "description": "Mark a first-party item as verified. Supply the verifying actor with by when needed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "by": {
+            "type": "string",
+            "description": "name the verifier"
+          },
+          "id": {
+            "type": "string",
+            "description": "the exact item ID"
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "section": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "section"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_delete",
+      "title": "preview or delete an item",
+      "description": "Preview removal and its effects before deleting. Set yes only after the person authorizes deletion.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "id": {
+            "type": "string",
+            "description": "the exact item ID"
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "yes": {
+            "type": "boolean",
+            "description": "authorize deletion",
+            "default": false
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "deleted",
+            "description": "With yes.",
+            "properties": {
+              "current_again": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "current_again_more": {
+                "type": "integer"
+              },
+              "dangling": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dangling_more": {
+                "type": "integer"
+              },
+              "deleted": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "original": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "section": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "section",
+              "deleted"
+            ]
+          },
+          {
+            "type": "object",
+            "title": "preview",
+            "description": "Without yes.",
+            "properties": {
+              "current_again": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "current_again_more": {
+                "type": "integer"
+              },
+              "dangling": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "dangling_more": {
+                "type": "integer"
+              },
+              "id": {
+                "type": "string"
+              },
+              "original": {
+                "type": "string"
+              },
+              "path": {
+                "type": "string"
+              },
+              "section": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "section"
+            ]
+          }
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_audience",
+      "title": "list or edit audience rules",
+      "description": "List audience rules with no action. Set a rule to route future writes, or unset an existing rule. paging options are only for audience listing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "leave absent to list rules",
+            "enum": [
+              "set",
+              "unset"
+            ]
+          },
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "maximum number of results",
+            "minimum": 1,
+            "maximum": 200,
+            "default": 20
+          },
+          "match": {
+            "type": "string",
+            "description": "the match key for set or unset"
+          },
+          "max-chars": {
+            "type": "integer",
+            "description": "maximum code points in the response",
+            "minimum": 1,
+            "default": 2000
+          },
+          "offset": {
+            "type": "integer",
+            "description": "start at offset N",
+            "minimum": 0,
+            "default": 0
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "to": {
+            "type": "string",
+            "description": "the destination for set",
+            "enum": [
+              "shared",
+              "personal"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "edit",
+            "description": "With a set or unset operand.",
+            "properties": {
+              "match": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "match"
+            ]
+          },
+          {
+            "type": "object",
+            "title": "listing",
+            "description": "Without operands.",
+            "properties": {
+              "more": {
+                "type": "integer"
+              },
+              "next": {
+                "type": "integer"
+              },
+              "rules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "match": {
+                      "type": "string"
+                    },
+                    "to": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "match",
+                    "to"
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "pbrain_sync",
+      "title": "build or update the semantic index, or report its state",
+      "description": "Report semantic index state with status. A build may download model files and take hours on CPU. Start a first build only when requested. --device cannot be used with --status.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "brain": {
+            "type": "string",
+            "description": "use the brain at DIR"
+          },
+          "device": {
+            "type": "string",
+            "description": "run embedding on SELECTOR (default PBRAIN_DEVICE or auto)"
+          },
+          "personal": {
+            "type": "boolean",
+            "description": "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services.",
+            "default": false
+          },
+          "status": {
+            "type": "boolean",
+            "description": "report index state without building",
+            "default": false
+          }
+        },
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "anyOf": [
+          {
+            "type": "object",
+            "title": "status",
+            "description": "With status.",
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "model_present": {
+                "type": "boolean"
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "indexed": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "integer"
+                    },
+                    "section": {
+                      "type": "string"
+                    },
+                    "stale": {
+                      "type": "boolean"
+                    },
+                    "unreadable": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "section",
+                    "items",
+                    "indexed"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "sections"
+            ]
+          },
+          {
+            "type": "object",
+            "title": "build",
+            "description": "Without status.",
+            "properties": {
+              "model": {
+                "type": "string"
+              },
+              "sections": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "device": {
+                      "type": "string"
+                    },
+                    "items": {
+                      "type": "integer"
+                    },
+                    "items_removed": {
+                      "type": "integer"
+                    },
+                    "passages_embedded": {
+                      "type": "integer"
+                    },
+                    "passages_reused": {
+                      "type": "integer"
+                    },
+                    "section": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "section",
+                    "items",
+                    "items_removed",
+                    "passages_embedded",
+                    "passages_reused"
+                  ]
+                }
+              }
+            },
+            "required": [
+              "model",
+              "sections"
+            ]
+          }
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "pbrain_devices",
+      "title": "list devices available for embedding",
+      "description": "List the CPU and available accelerators for embedding. Use a device selector when building a semantic index.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false
+      },
+      "outputSchema": {
+        "type": "object",
+        "properties": {
+          "devices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "backend": {
+                  "type": "string"
+                },
+                "free_bytes": {
+                  "type": "integer"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "memory": {
+                  "type": "string"
+                },
+                "memory_kind": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "persistent": {
+                  "type": "string"
+                },
+                "threads": {
+                  "type": "integer"
+                },
+                "total_bytes": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "id",
+                "backend"
+              ]
+            }
+          }
+        },
+        "required": [
+          "devices"
+        ]
+      },
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false
+      }
+    }
+  ]
+}

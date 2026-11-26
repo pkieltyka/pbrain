@@ -31,8 +31,8 @@ func invoke(t *testing.T, env Env, features Features, args ...string) (int, stri
 	var stdout, stderr bytes.Buffer
 	env.Args, env.Stdout, env.Stderr = args, &stdout, &stderr
 	status := RunWith(context.Background(), env, features)
-	if tool, variant, ok := ToolOutputForArgs(args, features); ok {
-		if err := schematest.Check(variant, DiagnosticSchema(), tool.Errors, tool.Notices, tool.DocumentOnExit1,
+	if contract, ok := JSONOutputContract(args, features); ok {
+		if err := schematest.Check(contract.Variant, DiagnosticSchema(), contract.Errors, contract.Notices, contract.DocumentOnExit1,
 			status, stdout.String(), stderr.String()); err != nil {
 			t.Errorf("%v: JSON contract: %v\nstdout: %s\nstderr: %s", args, err, &stdout, &stderr)
 		}

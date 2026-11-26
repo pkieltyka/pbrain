@@ -79,7 +79,7 @@ func scenarioCLI(ctx context.Context, e cli.Env) int {
 }
 
 func checkedScenarioCLI(ctx context.Context, e cli.Env, features cli.Features) int {
-	tool, variant, ok := cli.ToolOutputForArgs(e.Args, features)
+	contract, ok := cli.JSONOutputContract(e.Args, features)
 	if !ok {
 		return cli.RunWith(ctx, e, features)
 	}
@@ -88,7 +88,7 @@ func checkedScenarioCLI(ctx context.Context, e cli.Env, features cli.Features) i
 	e.Stdout = io.MultiWriter(e.Stdout, &stdout)
 	e.Stderr = io.MultiWriter(e.Stderr, &stderr)
 	code := cli.RunWith(ctx, e, features)
-	if err := schematest.Check(variant, cli.DiagnosticSchema(), tool.Errors, tool.Notices, tool.DocumentOnExit1,
+	if err := schematest.Check(contract.Variant, cli.DiagnosticSchema(), contract.Errors, contract.Notices, contract.DocumentOnExit1,
 		code, stdout.String(), stderr.String()); err != nil {
 		fmt.Fprintln(report, "scenario JSON contract:", err)
 		return 99
