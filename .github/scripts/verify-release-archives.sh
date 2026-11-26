@@ -23,12 +23,12 @@ check_archive() {
     local binary="$scratch/pbrain_${os}_${arch}${suffix}"
     tar -xOzf "$archive" pbrain > "$binary"
     local notice
-    for notice in LICENSE NOTICE; do
-        if ! tar -xOzf "$archive" "licenses/aikit/$notice" | cmp -s "$repo/internal/embed/bge/bert/$notice"; then
-            echo "$archive: missing or mismatched aikit $notice" >&2
+    while IFS= read -r -d '' notice; do
+        if ! tar -xOzf "$archive" "${notice#"$repo"/}" | cmp -s "$notice"; then
+            echo "$archive: missing or mismatched ${notice#"$repo"/}" >&2
             return 1
         fi
-    done
+    done < <(find "$repo/licenses" -type f -print0)
     local build_info build_tags
     build_info=$(go version -m "$binary")
     build_tags=$(awk -F= '/^[[:space:]]*build[[:space:]]+-tags=/ {print $2}' <<< "$build_info")

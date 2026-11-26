@@ -1,14 +1,48 @@
 package gemma2
 
 import (
+	"context"
+	"os"
+	"os/exec"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pkieltyka/pbrain/internal/embed"
 )
 
 const q8Fixture = "PBRAIN_TEST_GEMMA2_Q8"
+
+func TestGemmaRuntimeQuiet(t *testing.T) {
+	const childMode = "PBRAIN_TEST_GEMMA2_QUIET_CHILD"
+	pack := fixtureDir(t, q8Fixture)
+	if os.Getenv(childMode) == "1" {
+		entry := testGGUFEntry(t, q8Name)
+		reg := embed.NewRegistry(entry)
+		x, err := reg.Open(t.Context(), verified(t, pack, entry.Model), embed.OpenOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, text := range []string{"normal query", "a <eos> b", strings.Repeat("token ", 9000)} {
+			if _, err := x.Embed(t.Context(), embed.Query, []string{text}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := x.Close(); err != nil {
+			t.Fatal(err)
+		}
+		os.Exit(0)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	child := exec.CommandContext(ctx, os.Args[0], "-test.run=^TestGemmaRuntimeQuiet$")
+	child.Env = append(child.Environ(), childMode+"=1")
+	out, err := child.CombinedOutput()
+	if err != nil || len(out) != 0 {
+		t.Fatalf("model subprocess output %q, error %v", out, err)
+	}
+}
 
 func TestGemmaQ8Preparation(t *testing.T) {
 	pack := fixtureDir(t, q8Fixture)

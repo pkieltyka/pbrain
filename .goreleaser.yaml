@@ -107,11 +107,11 @@ archives:
     files:
       - LICENSE
       - README.md
-      - src: internal/embed/bge/bert/LICENSE
+      - src: licenses/aikit/*
         dst: licenses/aikit
         strip_parent: true
-      - src: internal/embed/bge/bert/NOTICE
-        dst: licenses/aikit
+      - src: licenses/goinfer/*
+        dst: licenses/goinfer
         strip_parent: true
   - id: pbrain-gpu
     ids:
@@ -124,11 +124,11 @@ archives:
     files:
       - LICENSE
       - README.md
-      - src: internal/embed/bge/bert/LICENSE
+      - src: licenses/aikit/*
         dst: licenses/aikit
         strip_parent: true
-      - src: internal/embed/bge/bert/NOTICE
-        dst: licenses/aikit
+      - src: licenses/goinfer/*
+        dst: licenses/goinfer
         strip_parent: true
 
 checksum:
