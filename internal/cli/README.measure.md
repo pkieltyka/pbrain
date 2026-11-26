@@ -1513,7 +1513,7 @@ Local review receipts are under `/var/tmp/pbrain-rule3-046.dE76IE` on pax.
 They include the release checksum checks, raw timings, compact Metal
 forward records and the native Go logs.
 
-## Opt-in Metal batching on the base M4 (#72)
+## Metal batching on the base M4 (#72)
 
 The cgo-free Darwin arm64 builds used Go 1.27.3 and the `metal` tag.
 The same base Apple M4 (10 GPU cores, 24 GiB unified memory, macOS
@@ -1522,9 +1522,13 @@ built from `0fa255a` and both v0.6.9 arms from `b2f4e92`. Each fresh
 sync verified the same pinned Q8_0 GGUF and used its own SQLite index
 and vector cache.
 
-The qualification binary used `PBRAIN_METAL_BATCH=1 pbrain sync --device metal`
-to select the batch route explicitly. Both v0.6.9 arms resolved
-`metal-eg2-combined-v1` and used the same vector and index keys.
+The qualification binary at `b2f4e92` used
+`PBRAIN_METAL_BATCH=1 pbrain sync --device metal` to select the batch route
+explicitly. The default now selects the same route on a base Apple M4.
+Other Apple Silicon Macs fall back to singleton Metal on selector refusal.
+Set `PBRAIN_METAL_BATCH=0` to select the singleton route directly. Both v0.6.9
+arms resolved `metal-eg2-combined-v1` and used the same vector and index keys.
+The default selection and refusal handling were tested with fakes.
 
 ### Byte equality and search
 
@@ -1605,5 +1609,6 @@ group contained 2,748 positions. Wall time was 8.00% lower and peak
 process footprint was 248.9 MB higher than the historical singleton
 run. That comparison spans two goinfer releases. The nine-run
 219-passage recheck above isolates the batching change on v0.6.9.
+The bit-equality checks cover the 59- and 219-passage fixtures.
 
 [Capture and verification](../../tools/phase28/evidence/metal-batch-72/README.md)

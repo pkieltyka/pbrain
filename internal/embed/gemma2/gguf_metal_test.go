@@ -82,7 +82,7 @@ func TestGemmaMetalBatchLayouts(t *testing.T) {
 		}
 	}
 
-	singleton := open(embed.OpenOptions{Device: metalDeviceID})
+	singleton := open(embed.OpenOptions{Device: metalDeviceID, MetalSingleton: true})
 	assertMetal(singleton, false, 1)
 	want := embeds(ctx, singleton, texts)
 	closeEncoder(singleton)
@@ -112,7 +112,7 @@ func TestGemmaMetalBatchLayouts(t *testing.T) {
 		}
 	}
 
-	batch := open(embed.OpenOptions{Device: metalDeviceID, MetalBatch: true})
+	batch := open(embed.OpenOptions{Device: metalDeviceID})
 	assertMetal(batch, true, 256)
 	path := filepath.Join(t.TempDir(), "forwards.jsonl")
 	recording, err := trace.Open(path)

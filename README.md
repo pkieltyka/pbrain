@@ -58,7 +58,9 @@ users, including the display if it shares the card. A passage can run alone
 when it exceeds the batch budget. Sync splits a batch on a retry-safe out-of-memory
 error. With automatic selection, a retry-safe failure on one passage moves
 an ordinary CUDA or Vulkan sync to the CPU and prints a notice. An fp16 or
-Metal sync stops at its last saved checkpoint. Metal runs one passage at a time.
+Metal sync stops at its last saved checkpoint. On a base Apple M4, Metal sync
+batches up to four passages. Other Apple Silicon Macs run one passage at a time.
+`PBRAIN_METAL_BATCH=0` turns off Metal batching.
 
 ## Quick start
 

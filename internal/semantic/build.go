@@ -481,7 +481,7 @@ func (b *builder) openEmbedder() error {
 		device = "auto"
 	}
 	open := trace.Start(b.ctx, trace.ModelOpen)
-	options := embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory, MetalBatch: b.opt.MetalBatch}
+	options := embed.OpenOptions{Device: device, MemoryBudget: b.opt.GPUMemory, MetalSingleton: b.opt.MetalSingleton}
 	if b.writer.Inventory != nil {
 		options.Writer = b.writer
 	}

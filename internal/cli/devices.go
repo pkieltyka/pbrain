@@ -37,11 +37,11 @@ func syncRuntimeOptions(env Env, in *invocation) (embed.OpenOptions, error) {
 	}
 	switch env.Getenv("PBRAIN_METAL_BATCH") {
 	case "":
-	case "1":
-		opt.MetalBatch = true
+	case "0":
+		opt.MetalSingleton = true
 	default:
 		return embed.OpenOptions{}, &errs.Error{Code: "invalid_config",
-			Message: "PBRAIN_METAL_BATCH must be 1 when set", Exit: 1}
+			Message: "PBRAIN_METAL_BATCH must be 0 when set", Exit: 1}
 	}
 	return opt, nil
 }

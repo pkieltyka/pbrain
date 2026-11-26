@@ -160,7 +160,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	var attached *embeddinggemma2.Encoder
 	var budget int64
 	var metalProfile string
-	metalBatch := opt.MetalBatch && selector == metalDeviceID
+	var metalBatch bool
 	info, err := chooseRuntime(ctx, selector, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
 		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
@@ -168,7 +168,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 		}
 		attach := trace.Start(ctx, trace.DeviceAttach)
 		if allowMetal && device.Backend == "metal" {
-			metalProfile, budget, err = attachMetal(candidate, metalBatch, opt.MemoryBudget)
+			metalProfile, budget, metalBatch, err = attachMetal(candidate, !opt.MetalSingleton, opt.MemoryBudget)
 		} else {
 			budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
 		}

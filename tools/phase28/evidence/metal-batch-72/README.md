@@ -32,4 +32,4 @@ python3 -B summarize-recheck.py "$capture"
 python3 -B summarize-full.py "$capture"
 ```
 
-[Measured results](../../../../internal/cli/README.measure.md#opt-in-metal-batching-on-the-base-m4-72)
+[Measured results](../../../../internal/cli/README.measure.md#metal-batching-on-the-base-m4-72)

@@ -2,6 +2,7 @@ package gemma2
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -185,8 +186,131 @@ func TestMetalBatchAttachError(t *testing.T) {
 		t.Skip("requires a build without the real Metal backend")
 	}
 	_, model := tinyEncoderForTest(t)
-	_, _, err := attachMetal(model, true, 0)
-	if !errors.Is(err, embed.ErrAccelerator) || !strings.Contains(err.Error(), metalBatchSelector) {
-		t.Fatalf("Metal batch attach without a backend = %v", err)
+	for _, batch := range []bool{true, false} {
+		_, _, _, err := attachMetal(model, batch, 0)
+		if !errors.Is(err, embed.ErrAccelerator) || !errors.Is(err, embeddinggemma2.ErrBackendUnavailable) ||
+			strings.Contains(err.Error(), metalBatchSelector) != batch {
+			t.Fatalf("Metal batch=%v attach without a backend: %v", batch, err)
+		}
+	}
+}
+
+type fakeMetalMemory struct {
+	*fakeMetal
+	err error
+}
+
+func (a *fakeMetalMemory) DeviceMemory() (embeddinggemma2.DeviceMemory, error) {
+	return embeddinggemma2.DeviceMemory{}, a.err
+}
+
+func TestMetalAttachRoutes(t *testing.T) {
+	refused := fmt.Errorf("architecture refused: %w", embeddinggemma2.ErrUnsupportedSelector)
+	oom := embeddinggemma2.ErrDeviceOutOfMemory
+	closeErr := errors.New("Metal drain failed")
+	memoryErr := errors.New("Metal memory query failed")
+	singletonErr := errors.New("singleton attach failed")
+	for _, tc := range []struct {
+		name                string
+		singleton           bool
+		batchErr, plainErr  error
+		closeErr, memoryErr error
+		batchProfile        string
+		batchReports        bool
+		plainProfile        string
+		selectors           []string
+		profile, errorText  string
+		cause               error
+		budget              int64
+		closes              int
+		batched             bool
+	}{
+		{name: "accepted", batchProfile: metalCombinedProfile, batchReports: true,
+			selectors: []string{metalBatchSelector}, profile: metalCombinedProfile, budget: gib, batched: true},
+		{name: "refusal to stock", batchErr: refused, plainProfile: metalStockProfile,
+			selectors: []string{metalBatchSelector, "metal"}, profile: metalStockProfile},
+		{name: "refusal to combined", batchErr: refused, plainProfile: metalCombinedProfile,
+			selectors: []string{metalBatchSelector, "metal"}, profile: metalCombinedProfile},
+		{name: "missing batching", batchProfile: metalCombinedProfile, plainProfile: metalCombinedProfile,
+			selectors: []string{metalBatchSelector, "metal"}, profile: metalCombinedProfile, closes: 1},
+		{name: "wrong profile", batchProfile: metalStockProfile, batchReports: true, plainProfile: metalStockProfile,
+			selectors: []string{metalBatchSelector, "metal"}, profile: metalStockProfile, closes: 1},
+		{name: "rejected attachment cannot close", batchProfile: metalCombinedProfile, closeErr: closeErr,
+			selectors: []string{metalBatchSelector}, cause: closeErr, errorText: "close metal:0", closes: 1},
+		{name: "attachment OOM", batchErr: oom, selectors: []string{metalBatchSelector},
+			cause: oom, errorText: "attach metal:0"},
+		{name: "memory read failure", batchProfile: metalCombinedProfile, batchReports: true, memoryErr: memoryErr,
+			selectors: []string{metalBatchSelector}, cause: memoryErr, errorText: "read memory of metal:0", closes: 1},
+		{name: "singleton attachment fails", batchErr: refused, plainErr: singletonErr,
+			selectors: []string{metalBatchSelector, "metal"}, cause: singletonErr, errorText: "attach metal:0"},
+		{name: "opt out", singleton: true, plainProfile: metalCombinedProfile,
+			selectors: []string{"metal"}, profile: metalCombinedProfile},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			batch := &fakeMetal{
+				device:  embeddinggemma2.DeviceInfo{Backend: "metal", TextBatching: tc.batchReports},
+				profile: tc.batchProfile,
+			}
+			if tc.closeErr != nil {
+				batch.closeErrs = []error{tc.closeErr}
+			}
+			var batchAcc embeddinggemma2.Accelerator = batch
+			if tc.memoryErr != nil {
+				batchAcc = &fakeMetalMemory{fakeMetal: batch, err: tc.memoryErr}
+			}
+			plain := &fakeMetal{device: embeddinggemma2.DeviceInfo{Backend: "metal"}, profile: tc.plainProfile}
+			var selectors []string
+			use := func(selector string) (embeddinggemma2.Accelerator, error) {
+				selectors = append(selectors, selector)
+				if selector == metalBatchSelector {
+					if tc.batchErr != nil {
+						return nil, tc.batchErr
+					}
+					return batchAcc, nil
+				}
+				if batch.closed != tc.closes {
+					t.Fatalf("batch attachment was closed %d times before singleton attach, want %d", batch.closed, tc.closes)
+				}
+				if tc.plainErr != nil {
+					return nil, tc.plainErr
+				}
+				return plain, nil
+			}
+			profile, budget, batched, err := attachMetalRoute(use, !tc.singleton, 0)
+			if !slices.Equal(selectors, tc.selectors) || profile != tc.profile || budget != tc.budget ||
+				batched != tc.batched || batch.closed != tc.closes || plain.closed != 0 {
+				t.Fatalf("attach = %q, %d, %v, %v; selectors %v, closes %d/%d",
+					profile, budget, batched, err, selectors, batch.closed, plain.closed)
+			}
+			if tc.cause == nil && err != nil || tc.cause != nil &&
+				(!errors.Is(err, embed.ErrAccelerator) || !errors.Is(err, tc.cause) ||
+					!strings.Contains(err.Error(), tc.errorText) || strings.Contains(err.Error(), metalBatchSelector)) {
+				t.Fatalf("attach error = %v, want %v", err, tc.cause)
+			}
+			if tc.closeErr != nil {
+				var cleanup *attachCleanupError
+				if !errors.As(err, &cleanup) || cleanup.acc != batchAcc {
+					t.Fatalf("failed close did not retain the rejected handle: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func TestMetalRuntimeRoute(t *testing.T) {
+	if metalCompiled {
+		t.Skip("requires a build without the real Metal backend")
+	}
+	for _, singleton := range []bool{false, true} {
+		_, m := tinyEncoderForTest(t)
+		opt := embed.OpenOptions{Device: metalDeviceID, MetalSingleton: singleton,
+			Writer: embed.WriteProfile{Inventory: &embed.Listing{Devices: []embed.DeviceInfo{
+				{ID: metalDeviceID, Backend: "metal"},
+			}}}}
+		prompts := map[string]string{"query": queryPrompt, "document": docPrompt}
+		_, err := newRuntime(t.Context(), m, prompts, opt, q8Fingerprint, true)
+		if !errors.Is(err, embed.ErrAccelerator) || strings.Contains(err.Error(), metalBatchSelector) == singleton {
+			t.Fatalf("runtime singleton=%v attachment error = %v", singleton, err)
+		}
 	}
 }

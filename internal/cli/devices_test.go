@@ -224,34 +224,42 @@ func assertSyncDevices(t *testing.T, out, device string) {
 }
 
 func TestSyncDeviceOptions(t *testing.T) {
-	t.Run("explicit Metal batching reaches the opener", func(t *testing.T) {
-		rb, kit := semanticBrain(t)
-		getenv := rb.env.Getenv
-		rb.env.Getenv = func(name string) string {
-			if name == "PBRAIN_METAL_BATCH" {
-				return "1"
+	for _, tc := range []struct {
+		name, selector, value, device string
+	}{
+		{"named singleton", "metal", "0", "metal:0"},
+		{"auto singleton", "auto", "0", "auto"},
+		{"default batch", "metal", "", "metal:0"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rb, kit := semanticBrain(t)
+			getenv := rb.env.Getenv
+			rb.env.Getenv = func(name string) string {
+				if name == "PBRAIN_METAL_BATCH" {
+					return tc.value
+				}
+				return getenv(name)
 			}
-			return getenv(name)
-		}
-		var got embed.OpenOptions
-		useDeviceModel(rb, kit, func() embed.Listing {
-			return embed.Listing{Devices: []embed.DeviceInfo{{ID: "metal:0", Backend: "metal"}}}
-		}, func(ctx context.Context, a *embed.Artifact, o embed.OpenOptions) (embed.Embedder, error) {
-			got = o
-			return kit.Registry.Open(ctx, a, embed.OpenOptions{})
+			var got embed.OpenOptions
+			useDeviceModel(rb, kit, func() embed.Listing {
+				return embed.Listing{Devices: []embed.DeviceInfo{{ID: "metal:0", Backend: "metal"}}}
+			}, func(ctx context.Context, a *embed.Artifact, o embed.OpenOptions) (embed.Embedder, error) {
+				got = o
+				return kit.Registry.Open(ctx, a, embed.OpenOptions{})
+			})
+			code, out, stderr := rb.run("sync", "--device", tc.selector)
+			if code != 0 || stderr != "" || got.Device != tc.device || got.MetalSingleton != (tc.value == "0") ||
+				!strings.Contains(out, "2 passages embedded") {
+				t.Fatalf("Metal sync = (%d, %q, %q), options %+v", code, out, stderr, got)
+			}
 		})
-		code, out, stderr := rb.run("sync", "--device", "metal")
-		if code != 0 || stderr != "" || got.Device != "metal:0" || !got.MetalBatch ||
-			!strings.Contains(out, "2 passages embedded") {
-			t.Fatalf("Metal opt-in sync = (%d, %q, %q), options %+v", code, out, stderr, got)
-		}
-	})
-	t.Run("default model with Metal batching set", func(t *testing.T) {
+	}
+	t.Run("default model with Metal singleton set", func(t *testing.T) {
 		rb, kit := semanticBrain(t)
 		getenv := rb.env.Getenv
 		rb.env.Getenv = func(name string) string {
 			if name == "PBRAIN_METAL_BATCH" {
-				return "1"
+				return "0"
 			}
 			return getenv(name)
 		}
@@ -337,9 +345,9 @@ func TestSyncDeviceOptions(t *testing.T) {
 		{name: "PBRAIN_DEVICE", value: "CUDA:0", want: "invalid_config: invalid device selector"},
 		{name: "PBRAIN_GPU_MEMORY", value: "1.5", want: "invalid_config: PBRAIN_GPU_MEMORY"},
 		{name: "PBRAIN_GPU_MEMORY", value: "9223372036854775807", want: "invalid_config: PBRAIN_GPU_MEMORY"},
-		{name: "PBRAIN_METAL_BATCH", value: "0", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
-		{name: "PBRAIN_METAL_BATCH", value: "true", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
-		{name: "PBRAIN_METAL_BATCH", value: "yes", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
+		{name: "PBRAIN_METAL_BATCH", value: "1", want: "invalid_config: PBRAIN_METAL_BATCH must be 0 when set"},
+		{name: "PBRAIN_METAL_BATCH", value: "true", want: "invalid_config: PBRAIN_METAL_BATCH must be 0 when set"},
+		{name: "PBRAIN_METAL_BATCH", value: "yes", want: "invalid_config: PBRAIN_METAL_BATCH must be 0 when set"},
 		{args: []string{"--device="}, want: "invalid_config: invalid device selector"},
 		{args: []string{"--status", "--device", "cpu"}, want: "usage: --device cannot be used with --status"},
 	} {

@@ -30,19 +30,19 @@ type SectionInput struct {
 type ScanFunc func(ctx context.Context) (SectionInput, error)
 
 type Options struct {
-	Files         sys.Files
-	Registry      embed.Registry
-	ModelName     string // pbrain.toml semantic.model; "" when off
-	Device        string // sync selector, empty for auto
-	CUDAPrecision string
-	GPUMemory     int64 // batch budget override in bytes
-	MetalBatch    bool
-	ModelDir      sys.Dir // personal.toml model_path, opened by cli; nil when unset
-	Cache         *Cache  // nil when no cache folder is known
-	CacheErr      error   // ErrCacheExposed when the folder failed its test
-	Rand          io.Reader
-	Now           func() time.Time
-	writer        func() embed.WriteProfile
+	Files          sys.Files
+	Registry       embed.Registry
+	ModelName      string // pbrain.toml semantic.model; "" when off
+	Device         string // sync selector, empty for auto
+	CUDAPrecision  string
+	GPUMemory      int64 // batch budget override in bytes
+	MetalSingleton bool
+	ModelDir       sys.Dir // personal.toml model_path, opened by cli; nil when unset
+	Cache          *Cache  // nil when no cache folder is known
+	CacheErr       error   // ErrCacheExposed when the folder failed its test
+	Rand           io.Reader
+	Now            func() time.Time
+	writer         func() embed.WriteProfile
 }
 
 type CacheOptions struct {

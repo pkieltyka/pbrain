@@ -25,24 +25,39 @@ func systemDefaultMetal(device embeddinggemma2.DeviceInfo) bool {
 	return metalDefault(device) && !device.TextBatching
 }
 
-func attachMetal(model *embeddinggemma2.Encoder, batch bool, override int64) (string, int64, error) {
-	selector := "metal"
+func attachMetal(model *embeddinggemma2.Encoder, batch bool, override int64) (string, int64, bool, error) {
+	return attachMetalRoute(model.UseAccelerator, batch, override)
+}
+
+func attachMetalRoute(use func(string) (embeddinggemma2.Accelerator, error), batch bool, override int64) (string, int64, bool, error) {
 	if batch {
-		selector = metalBatchSelector
+		acc, err := use(metalBatchSelector)
+		switch {
+		case errors.Is(err, embeddinggemma2.ErrUnsupportedSelector):
+			// The system-default device can still run the singleton selector.
+		case err != nil:
+			return "", 0, false, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, metalDeviceID, err)
+		default:
+			profile, err := attachedMetalProfile(acc, true)
+			if err == nil {
+				budget, err := deviceBudget(acc, metalDeviceID, override)
+				if err != nil {
+					return "", 0, false, closeRejectedAttachment(acc, metalDeviceID, err)
+				}
+				return profile, budget, true, nil
+			}
+			var cleanup *attachCleanupError
+			if reject := closeRejectedAttachment(acc, metalDeviceID, err); errors.As(reject, &cleanup) {
+				return "", 0, false, reject
+			}
+		}
 	}
-	acc, err := model.UseAccelerator(selector)
-	if batch && errors.Is(err, embeddinggemma2.ErrUnsupportedSelector) {
-		return "", 0, fmt.Errorf("%w: device %s cannot run selector %q: %w", embed.ErrAccelerator, metalDeviceID, selector, err)
-	}
+	acc, err := use("metal")
 	if err != nil {
-		return "", 0, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, metalDeviceID, err)
+		return "", 0, false, fmt.Errorf("%w: attach %s: %w", embed.ErrAccelerator, metalDeviceID, err)
 	}
-	profile, err := attachedMetalProfile(acc, batch)
-	var budget int64
-	if err == nil && batch {
-		budget, err = deviceBudget(acc, metalDeviceID, override)
-	}
-	return profile, budget, closeRejectedAttachment(acc, metalDeviceID, err)
+	profile, err := attachedMetalProfile(acc, false)
+	return profile, 0, false, closeRejectedAttachment(acc, metalDeviceID, err)
 }
 
 func attachedMetalProfile(acc embeddinggemma2.Accelerator, batch bool) (string, error) {

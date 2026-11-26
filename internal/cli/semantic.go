@@ -194,7 +194,7 @@ func runIndex(ctx context.Context, env Env, in *invocation, b *brain.Brain) outc
 		return outcome{err: err}
 	}
 	opt.Device, opt.GPUMemory = runtimeOpt.Device, runtimeOpt.MemoryBudget
-	opt.MetalBatch = runtimeOpt.MetalBatch
+	opt.MetalSingleton = runtimeOpt.MetalSingleton
 	opt.ShareWriterResolution()
 	dirs, err := sectionDirs(in, b)
 	if err != nil {

@@ -741,7 +741,7 @@ ci = "Build and test pipelines"
 - **`model = "none"`**, written exactly so: semantic search is off. `pbrain sync` then fails with `no_model` and `search --semantic` returns its lexical results with `semantic_not_ready`.
 - **`model = ""`** fails every command that reads the configuration with `invalid_config`.
 
-On Darwin arm64 with the Metal build, Q8_0 supports `pbrain sync --device metal` and `--device metal:0`. Auto can choose Metal too. Switching into or out of a Metal profile rebuilds that section's index using the destination profile. Search always embeds the query on the CPU and can use either completed Metal profile.
+On Darwin arm64 with the Metal build, Q8_0 supports `pbrain sync --device metal` and `--device metal:0`. Auto can choose Metal too. On a base Apple M4, sync embeds up to four passages per GPU forward. Other Apple Silicon Macs embed one at a time. Batched and single-passage syncs share the combined profile's vectors and index. Switching into or out of a Metal profile rebuilds that section's index using the destination profile. Search always embeds the query on the CPU and can use either completed Metal profile.
 
 Both GGUF rows return 768-dimensional vectors, with a separate index and vector cache for each. Setting `semantic.model` opts in. After a model change, `pbrain sync` builds an index for the selected model in each requested section. Until then, semantic search returns lexical results with `semantic_not_ready`.
 
@@ -760,7 +760,7 @@ model_path = "/opt/models/embeddinggemma-2"   # the model folder copied from a p
 
 If `path` is set and `<brain>/personal/` also holds items, commands fail with `invalid_config`.
 
-`PBRAIN_AUTHOR` sets the author for one process, so several agents on one machine each sign their own items. `PBRAIN_CACHE` names the per-user cache folder (section 9.4). `PBRAIN_DEVICE` and `PBRAIN_GPU_MEMORY` say what `pbrain sync` embeds on and how much GPU memory a batch may take (section 9.4). They are properties of the machine, so they are environment variables and not keys of either file: `pbrain.toml` is shared, and `personal.toml` belongs to one checkout. A value of either that is not of the right form fails `pbrain sync` with `invalid_config`; no other command reads them.
+`PBRAIN_AUTHOR` sets the author for one process, so several agents on one machine each sign their own items. `PBRAIN_CACHE` names the per-user cache folder (section 9.4). `PBRAIN_DEVICE` and `PBRAIN_GPU_MEMORY` say what `pbrain sync` embeds on and how much GPU memory a batch may take (section 9.4). `PBRAIN_METAL_BATCH=0` keeps a Metal sync at one passage per forward. These three sync options are environment variables because they describe the machine. A malformed value fails `pbrain sync` with `invalid_config`. Sync reads them when it builds an index.
 
 The default folder `docs/brain` is the owner's choice: it carries the tool's name, is unlikely to collide, and sits with the project's other prose.
 

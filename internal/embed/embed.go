@@ -31,10 +31,10 @@ const (
 
 // OpenOptions selects the model runtime. The zero value runs on the CPU.
 type OpenOptions struct {
-	Device       string // "" or "cpu" for the CPU, "auto" for automatic selection
-	MemoryBudget int64  // bytes for a device batch
-	MetalBatch   bool   // opt-in for a named Metal device
-	Writer       WriteProfile
+	Device         string // "" or "cpu" for the CPU, "auto" for automatic selection
+	MemoryBudget   int64  // bytes for a device batch
+	MetalSingleton bool   // PBRAIN_METAL_BATCH=0 keeps Metal on one passage per forward
+	Writer         WriteProfile
 }
 
 // Fallback describes why a model with an accelerator path runs on the CPU.
