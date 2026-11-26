@@ -13,7 +13,7 @@ import (
 
 const (
 	batchInputs            = 256
-	batchPositions         = 8192       // qualified aggregate ceiling on both GPU backends
+	batchPositions         = 8192       // qualified CUDA and Vulkan aggregate ceiling
 	bytesPerPosition       = 136_000    // measured CUDA batch working set, goinfer v0.5.0
 	vulkanBytesPerPosition = 4 * 26_882 // float32 buffers in the Vulkan forward graph
 	gib                    = 1 << 30
@@ -45,8 +45,12 @@ func memoryBudget(memory embed.DeviceInfo, override int64) int64 {
 func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimit *int,
 	estimate func([]int) (embeddinggemma2.BatchMemoryEstimate, error)) (int, error) {
 	vulkan := strings.HasPrefix(info.Device, "vulkan:")
+	inputCap, positionCap := batchInputs, batchPositions
+	if info.Device == metalDeviceID {
+		inputCap, positionCap = metalBatchInputs, metalBatchPositions
+	}
 	positions := 0
-	for i, length := range lengths[:min(batchInputs, len(lengths))] {
+	for i, length := range lengths[:min(inputCap, len(lengths))] {
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
@@ -54,7 +58,7 @@ func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimi
 			return 0, fmt.Errorf("invalid prepared length %d at input %d", length, i)
 		}
 		positions += length
-		if i > 0 && (positions > batchPositions || retryLimit != nil && positions > *retryLimit) {
+		if i > 0 && (positions > positionCap || retryLimit != nil && positions > *retryLimit) {
 			return i, nil
 		}
 		memory, err := estimate(lengths[:i+1])
@@ -82,7 +86,7 @@ func batchSize(ctx context.Context, lengths []int, info embed.RunInfo, retryLimi
 			return i, nil
 		}
 	}
-	return min(batchInputs, len(lengths)), nil
+	return min(inputCap, len(lengths)), nil
 }
 
 func (e *encoder) embedDocuments(ctx context.Context, texts []string) ([][]float32, error) {

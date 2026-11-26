@@ -33,6 +33,7 @@ func TestMetalIndexProfiles(t *testing.T) {
 	fp := stock
 	device := embed.DeviceInfo{ID: "metal:0", Backend: "metal", Name: "Apple M4"}
 	probes, opens, closes := 0, 0, 0
+	var openedBatch bool
 	attachFailure := fmt.Errorf("%w: Metal attach refused", embed.ErrAccelerator)
 	var openErr error
 	cpuOpen := func(ctx context.Context, a *embed.Artifact, o embed.OpenOptions) (embed.Embedder, error) {
@@ -55,6 +56,7 @@ func TestMetalIndexProfiles(t *testing.T) {
 				t.Fatalf("Metal open without resolved inventory: %+v", o)
 			}
 			opens++
+			openedBatch = o.MetalBatch
 			if openErr != nil {
 				return nil, openErr
 			}
@@ -119,6 +121,17 @@ func TestMetalIndexProfiles(t *testing.T) {
 	build(opts("metal:0"), shared, 0, 3, "")
 	fp = combined
 	build(opts("metal"), shared, 0, 3, "")
+	prev = read(shared)
+	batch := opts("metal")
+	batch.MetalBatch = true
+	build(batch, shared, 0, 0, "")
+	if !openedBatch || read(shared) != prev {
+		t.Fatal("enabling Metal batching changed the combined generation or lost the opt-in")
+	}
+	build(opts("metal"), shared, 0, 0, "")
+	if openedBatch || read(shared) != prev {
+		t.Fatal("disabling Metal batching changed the combined generation or retained the opt-in")
+	}
 
 	// With both Metal namespaces warm, auto falling back before reuse must
 	// still start clean in the base namespace.
@@ -128,7 +141,8 @@ func TestMetalIndexProfiles(t *testing.T) {
 	build(opts("auto"), shared, 0, 3, "")
 	prev = read(shared)
 	openErr = attachFailure
-	if _, err := e.buildWith(t.Context(), opts("metal"), shared); !errors.Is(err, attachFailure) || errCode(err) != "io" || read(shared) != prev {
+	if _, err := e.buildWith(t.Context(), batch, shared); !errors.Is(err, attachFailure) ||
+		errCode(err) != "io" || !openedBatch || read(shared) != prev {
 		t.Fatalf("explicit Metal failure changed the published index: %v", err)
 	}
 	openErr = nil

@@ -35,6 +35,14 @@ func syncRuntimeOptions(env Env, in *invocation) (embed.OpenOptions, error) {
 		}
 		opt.MemoryBudget = int64(n * bytesPerMiB)
 	}
+	switch env.Getenv("PBRAIN_METAL_BATCH") {
+	case "":
+	case "1":
+		opt.MetalBatch = true
+	default:
+		return embed.OpenOptions{}, &errs.Error{Code: "invalid_config",
+			Message: "PBRAIN_METAL_BATCH must be 1 when set", Exit: 1}
+	}
 	return opt, nil
 }
 

@@ -224,6 +224,42 @@ func assertSyncDevices(t *testing.T, out, device string) {
 }
 
 func TestSyncDeviceOptions(t *testing.T) {
+	t.Run("explicit Metal batching reaches the opener", func(t *testing.T) {
+		rb, kit := semanticBrain(t)
+		getenv := rb.env.Getenv
+		rb.env.Getenv = func(name string) string {
+			if name == "PBRAIN_METAL_BATCH" {
+				return "1"
+			}
+			return getenv(name)
+		}
+		var got embed.OpenOptions
+		useDeviceModel(rb, kit, func() embed.Listing {
+			return embed.Listing{Devices: []embed.DeviceInfo{{ID: "metal:0", Backend: "metal"}}}
+		}, func(ctx context.Context, a *embed.Artifact, o embed.OpenOptions) (embed.Embedder, error) {
+			got = o
+			return kit.Registry.Open(ctx, a, embed.OpenOptions{})
+		})
+		code, out, stderr := rb.run("sync", "--device", "metal")
+		if code != 0 || stderr != "" || got.Device != "metal:0" || !got.MetalBatch ||
+			!strings.Contains(out, "2 passages embedded") {
+			t.Fatalf("Metal opt-in sync = (%d, %q, %q), options %+v", code, out, stderr, got)
+		}
+	})
+	t.Run("default model with Metal batching set", func(t *testing.T) {
+		rb, kit := semanticBrain(t)
+		getenv := rb.env.Getenv
+		rb.env.Getenv = func(name string) string {
+			if name == "PBRAIN_METAL_BATCH" {
+				return "1"
+			}
+			return getenv(name)
+		}
+		code, out, stderr := rb.run("sync", "--json")
+		if code != 0 || stderr != "" || kit.Opens.Load() != 1 || !strings.Contains(out, `"device":"cpu"`) {
+			t.Fatalf("default model sync = (%d, %q, %q), opens = %d", code, out, stderr, kit.Opens.Load())
+		}
+	})
 	t.Run("flag and environment", func(t *testing.T) {
 		rb, kit := semanticBrain(t)
 		var opts []embed.OpenOptions
@@ -301,6 +337,9 @@ func TestSyncDeviceOptions(t *testing.T) {
 		{name: "PBRAIN_DEVICE", value: "CUDA:0", want: "invalid_config: invalid device selector"},
 		{name: "PBRAIN_GPU_MEMORY", value: "1.5", want: "invalid_config: PBRAIN_GPU_MEMORY"},
 		{name: "PBRAIN_GPU_MEMORY", value: "9223372036854775807", want: "invalid_config: PBRAIN_GPU_MEMORY"},
+		{name: "PBRAIN_METAL_BATCH", value: "0", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
+		{name: "PBRAIN_METAL_BATCH", value: "true", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
+		{name: "PBRAIN_METAL_BATCH", value: "yes", want: "invalid_config: PBRAIN_METAL_BATCH must be 1 when set"},
 		{args: []string{"--device="}, want: "invalid_config: invalid device selector"},
 		{args: []string{"--status", "--device", "cpu"}, want: "usage: --device cannot be used with --status"},
 	} {

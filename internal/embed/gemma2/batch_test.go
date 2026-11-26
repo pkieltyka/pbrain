@@ -60,6 +60,11 @@ func TestGemmaPacker(t *testing.T) {
 		{"known zero when resident", "cuda:0", []int{4, 4, 4}, 0, embeddinggemma2.BatchMemoryUpperBound, []int{3}},
 		{"known CUDA retains ceiling", "cuda:0", []int{2048, 2048, 2048, 2048, 1}, 16386, embeddinggemma2.BatchMemoryUpperBound, []int{4, 1}},
 		{"known Vulkan remains capped", "vulkan:0", []int{2048, 2048, 2048, 2048, 1}, 16386, embeddinggemma2.BatchMemoryUpperBound, []int{4, 1}},
+		{"Metal input cap", metalDeviceID, []int{500, 500, 500, 500, 500}, gib, embeddinggemma2.BatchMemoryApproximate, []int{4, 1}},
+		{"Metal position cap", metalDeviceID, []int{1000, 1000, 1000, 10}, gib, embeddinggemma2.BatchMemoryApproximate, []int{2, 2}},
+		{"Metal position exact fit", metalDeviceID, []int{2048, 2048, 700}, gib, embeddinggemma2.BatchMemoryApproximate, []int{1, 2}},
+		{"Metal one position over", metalDeviceID, []int{700, 2048, 1}, gib, embeddinggemma2.BatchMemoryApproximate, []int{2, 1}},
+		{"Metal budget", metalDeviceID, []int{500, 500}, 1999, embeddinggemma2.BatchMemoryApproximate, []int{1, 1}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			info := embed.RunInfo{Device: test.device, Budget: test.budget}

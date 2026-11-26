@@ -229,6 +229,30 @@ func TestAttachedBudget(t *testing.T) {
 	}
 	readErr := errors.New("driver memory query failed")
 	closeErr := errors.New("driver close failed")
+	t.Run("Metal memory without a persistent ID", func(t *testing.T) {
+		without := &fakeMetal{device: embeddinggemma2.DeviceInfo{Backend: "metal"}}
+		with := &fakeInventoryAccel{memory: embeddinggemma2.DeviceMemory{
+			Basis: embeddinggemma2.MemoryEstimated, AvailableBytes: 2 * gib,
+		}}
+		for _, tc := range []struct {
+			acc            embeddinggemma2.Accelerator
+			override, want int64
+		}{
+			{without, 0, gib},
+			{without, 2 * gib, 2 * gib},
+			{with, 0, 2 * gib * 3 / 10},
+			{with, 2 * gib, 2 * gib},
+		} {
+			if got, err := deviceBudget(tc.acc, metalDeviceID, tc.override); err != nil || got != tc.want {
+				t.Fatalf("Metal budget with override %d = %d, %v; want %d", tc.override, got, err, tc.want)
+			}
+		}
+		with.memoryErr = readErr
+		if _, err := deviceBudget(with, metalDeviceID, 0); !errors.Is(err, embed.ErrAccelerator) ||
+			!errors.Is(err, readErr) || !strings.Contains(err.Error(), "read memory of metal:0") {
+			t.Fatalf("Metal memory error = %v", err)
+		}
+	})
 	for _, test := range []struct {
 		name, attachedID  string
 		memoryErr         error

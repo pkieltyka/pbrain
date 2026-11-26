@@ -22,6 +22,7 @@ type encoder struct {
 	bos, eos   int
 	info       embed.RunInfo
 	fp         string
+	metalBatch bool
 	retryLimit *int // maximum aggregate positions after a recoverable OOM
 }
 
@@ -71,11 +72,15 @@ func attachedBudget(acc embeddinggemma2.Accelerator, id string, override int64) 
 	if actual != id {
 		return 0, fmt.Errorf("%w: attached device %q for %q", embed.ErrAccelerator, actual, id)
 	}
+	return deviceBudget(acc, id, override)
+}
+
+func deviceBudget(acc embeddinggemma2.Accelerator, label string, override int64) (int64, error) {
 	var memory embed.DeviceInfo
 	if reporter, ok := acc.(embeddinggemma2.DeviceMemoryReporter); ok {
 		reading, err := reporter.DeviceMemory()
 		if err != nil {
-			return 0, fmt.Errorf("%w: read memory of %s: %w", embed.ErrAccelerator, id, err)
+			return 0, fmt.Errorf("%w: read memory of %s: %w", embed.ErrAccelerator, label, err)
 		}
 		memory.Memory = reading.Basis.String()
 		memory.FreeBytes = reading.AvailableBytes
@@ -155,6 +160,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 	var attached *embeddinggemma2.Encoder
 	var budget int64
 	var metalProfile string
+	metalBatch := opt.MetalBatch && selector == metalDeviceID
 	info, err := chooseRuntime(ctx, selector, weightFloor, compiled, list, func(device embed.DeviceInfo) error {
 		candidate, err := embeddinggemma2.NewEncoder(model, tok, prompts)
 		if err != nil {
@@ -162,7 +168,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 		}
 		attach := trace.Start(ctx, trace.DeviceAttach)
 		if allowMetal && device.Backend == "metal" {
-			metalProfile, err = attachMetal(candidate)
+			metalProfile, budget, err = attachMetal(candidate, metalBatch, opt.MemoryBudget)
 		} else {
 			budget, err = attachDevice(candidate, device, opt.MemoryBudget, writer.Selector)
 		}
@@ -193,6 +199,7 @@ func newRuntime(ctx context.Context, m *embeddinggemma2.Encoder, prompts map[str
 		e.info.Budget = budget
 		if metalProfile != "" {
 			e.fp = profileFingerprint(fp, metalProfile, goinferRevision)
+			e.metalBatch = metalBatch
 		} else if selector == "auto" {
 			e.cpu = m
 		}
@@ -209,7 +216,7 @@ func (e *encoder) Fingerprint() string { return e.fp }
 func (e *encoder) Info() embed.RunInfo { return e.info }
 
 func (e *encoder) Window() int {
-	if e.info.Device == metalDeviceID {
+	if e.info.Device == metalDeviceID && !e.metalBatch {
 		return 1
 	}
 	if e.model != nil && (e.model.Accelerator() != nil || e.cpu != nil) {

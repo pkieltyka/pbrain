@@ -33,6 +33,7 @@ const (
 type OpenOptions struct {
 	Device       string // "" or "cpu" for the CPU, "auto" for automatic selection
 	MemoryBudget int64  // bytes for a device batch
+	MetalBatch   bool   // opt-in for a named Metal device
 	Writer       WriteProfile
 }
 

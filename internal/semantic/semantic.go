@@ -35,7 +35,8 @@ type Options struct {
 	ModelName     string // pbrain.toml semantic.model; "" when off
 	Device        string // sync selector, empty for auto
 	CUDAPrecision string
-	GPUMemory     int64   // batch budget override in bytes
+	GPUMemory     int64 // batch budget override in bytes
+	MetalBatch    bool
 	ModelDir      sys.Dir // personal.toml model_path, opened by cli; nil when unset
 	Cache         *Cache  // nil when no cache folder is known
 	CacheErr      error   // ErrCacheExposed when the folder failed its test
