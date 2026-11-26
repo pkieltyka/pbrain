@@ -1588,8 +1588,8 @@ all 219 stored vectors at both widths.
 
 The full batch run used the hash-verified #22 corpus of 4,500 shared
 and 500 personal notes. Its idle samples were 98.90% and 98.16% before
-sync. It embedded 48,511 passages with zero reuse, and both SQLite
-generations passed `quick_check`. The owner ended the follow-on
+sync. It embedded 48,511 passages with zero reuse, and the capture
+includes both published index manifests. The owner ended the follow-on
 v0.6.9 singleton run to free the M4 for goinfer #92. Full-size
 warm search and the one-note increment were skipped.
 

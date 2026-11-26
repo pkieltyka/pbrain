@@ -11,8 +11,8 @@ seven initial 219-passage indexes, nine timing recheck indexes, their
 traces and frozen query rankings, and read-only power and idle samples.
 The native suite summary records the successful untagged and Metal runs
 on `b2f4e92` for #9. The complete 5,000-note batch record includes the
-sync totals, selected trace spans and slowdown guard windows. The Mac
-runner checked both full SQLite generations before it wrote the receipt.
+sync totals, index manifests, selected trace spans and slowdown guard
+windows. The SQLite replay checks use the archived 219-passage indexes.
 The full comparison uses the historical v0.6.8 singleton from #32. The
 owner stopped the v0.6.9 singleton and skipped the full-size follow-up
 checks to free the M4 for goinfer #92.
