@@ -25,91 +25,210 @@ const (
 	repeated
 )
 
+type valueForm uint8
+
+const (
+	free valueForm = iota
+	integer
+	choice
+)
+
 type option struct {
 	name, value, help string
 	kind              valueKind
+	form              valueForm
+	choices           func() []string
+	required          bool
 }
 
+type operand struct {
+	name, help string
+	required   bool
+	form       valueForm
+	choices    func() []string
+}
+
+func textOption(name, value, help string) option {
+	return option{name: name, value: value, help: help, kind: text}
+}
+
+func boolOption(name, help string) option {
+	return option{name: name, help: help, kind: boolean}
+}
+
+func integerOption(name, help string) option {
+	return option{name: name, value: "N", help: help, kind: text, form: integer}
+}
+
+func repeatOption(name, value, help string) option {
+	return option{name: name, value: value, help: help, kind: repeated}
+}
+
+const personalHelp = "Include the personal section, which Git ignores. Without it personal items do not exist for this call. Set it only for the person's own request, and keep what it returns out of shared items and outside services."
+
 var globals = []option{
-	{"brain", "DIR", "use the brain at DIR", text},
-	{"personal", "", "include personal items for this command", boolean},
-	{"json", "", "emit compact JSON", boolean},
-	{"help", "", "show help", boolean},
-	{"version", "", "show the program version", boolean},
+	textOption("brain", "DIR", "use the brain at DIR"),
+	boolOption("personal", personalHelp),
+	boolOption("json", "emit compact JSON"),
+	boolOption("help", "show help"),
+	boolOption("version", "show the program version"),
 }
 
 var pages = []option{
-	{"limit", "N", "maximum number of results", text},
-	{"offset", "N", "start at offset N", text},
-	{"max-chars", "N", "maximum code points in the response", text},
+	integerOption("limit", "maximum number of results"),
+	integerOption("offset", "start at offset N"),
+	integerOption("max-chars", "maximum code points in the response"),
 }
 
-var tagFilter = option{"tag", "TAG", "filter by tag (repeatable)", repeated}
+var tagFilter = repeatOption("tag", "TAG", "filter by tag (repeatable)")
+
+func statuses() []string             { return []string{"provisional", "verified"} }
+func audienceActions() []string      { return []string{"set", "unset"} }
+func audienceDestinations() []string { return []string{"shared", "personal"} }
+func firstPartyKinds() []string      { return item.Kinds()[:int(item.Note)+1] }
 
 var filters = []option{
-	{"kind", "KIND", "include items of a kind (repeatable)", repeated},
+	{name: "kind", value: "KIND", help: "include items of a kind (repeatable)", kind: repeated, form: choice, choices: item.Kinds},
 	tagFilter,
-	{"status", "STATUS", "match the recorded status", text},
-	{"since", "WHEN", "include items created at or after WHEN", text},
-	{"until", "WHEN", "include items created through WHEN", text},
-	{"all", "", "include replaced items", boolean},
+	{name: "status", value: "STATUS", help: "match the recorded status", kind: text, form: choice, choices: statuses},
+	textOption("since", "WHEN", "include items created at or after WHEN"),
+	textOption("until", "WHEN", "include items created through WHEN"),
+	boolOption("all", "include replaced items"),
 }
 
-var colour = option{"color", "", "colour supported text output", boolean}
-var bm25 = option{"bm25", "", "include results matching part of the query", boolean}
+var colour = boolOption("color", "colour supported text output")
+var bm25 = boolOption("bm25", "include results matching part of the query")
 
 var writeOptions = []option{
-	{"source", "TEXT", "name the source", text},
-	{"tag", "TAG", "add a tag to the item (repeatable)", repeated},
-	{"replaces", "ID", "record a replaced item (repeatable)", repeated},
-	{"stale-after", "WHEN", "set the review date", text},
-	{"author", "ACTOR", "set the item author", text},
-	{"shared", "", "write to the shared section", boolean},
+	textOption("source", "TEXT", "name the source"),
+	repeatOption("tag", "TAG", "add a tag to the item (repeatable)"),
+	repeatOption("replaces", "ID", "record a replaced item (repeatable)"),
+	textOption("stale-after", "WHEN", "set the review date"),
+	textOption("author", "ACTOR", "set the item author"),
+	boolOption("shared", "write to the shared section"),
 }
 
-var getOptions = slices.Concat([]option{{"limit", "N", "maximum entries with --history or --outline", text}}, pages[1:], []option{
-	colour, {"history", "", "show replacement lineage", boolean}, {"outline", "", "show body sections", boolean},
+var getOptions = slices.Concat([]option{integerOption("limit", "maximum entries with --history or --outline")}, pages[1:], []option{
+	colour, boolOption("history", "show replacement lineage"), boolOption("outline", "show body sections"),
 })
+
+type toolHints struct {
+	ReadOnly    bool `json:"read_only"`
+	Destructive bool `json:"destructive"`
+	Idempotent  bool `json:"idempotent"`
+	OpenWorld   bool `json:"open_world"`
+	LongRunning bool `json:"long_running"`
+}
 
 type command struct {
 	name, operands, summary string
+	about                   string
+	args                    []operand
 	options                 []option
+	callable                bool
+	hints                   toolHints
 }
 
+var itemID = operand{name: "id", help: "the exact item ID", required: true}
+var readOnly = toolHints{ReadOnly: true, Idempotent: true}
+
 var commands = []command{
-	{"init", "", "create or complete a brain", []option{{"path", "DIR", "create the brain at DIR (default docs/brain when no brain is selected)", text}}},
-	{"skill", "[list|TOPIC]", "print the skill or a topic", nil},
-	{"search", "QUERY…", "find matching items", slices.Concat(filters, pages, []option{
-		colour, {"context", "N", "include 1 to 3 nearby lines on each side", text},
-		{"semantic", "", "include results found by meaning", boolean},
-	})},
-	{"list", "", "list items", slices.Concat(filters, pages)},
-	{"get", "ID", "read an item, its history or its outline", getOptions},
-	{"prime", "", "show current decisions and verified learnings", slices.Concat([]option{tagFilter}, pages[1:])},
-	{"tags", "", "list tags", pages},
-	{"check", "", "report findings about the brain", pages},
-	{"add", "", "add a first-party item", slices.Concat([]option{
-		{"title", "TEXT", "set the item title (required)", text},
-		{"kind", "KIND", "set the item kind (default " + item.Note.String() + ")", text},
-		{"body", "TEXT", "use TEXT as the body", text},
-		{"body-file", "FILE", "read the body from FILE", text},
-		{"decided", "ACTOR", "name the decision maker", text},
-		{"verified", "ACTOR", "name the verifier", text},
-		{"relates", "ID", "record a related item (repeatable)", repeated},
-	}, writeOptions)},
-	{"import", "INPUT", "copy a source or record a link", slices.Concat([]option{
-		{"title", "TEXT", "override the title", text},
-		{"link-only", "", "record a URL without fetching it", boolean},
-		{"summary", "TEXT", "set the body of a linked source", text},
-	}, writeOptions)},
-	{"verify", "ID", "verify a learning or other first-party item", []option{{"by", "ACTOR", "name the verifier", text}}},
-	{"delete", "ID", "preview or delete an item", []option{{"yes", "", "authorize deletion", boolean}}},
-	{"audience", "[set MATCH shared|personal | unset MATCH]", "list or edit audience rules", pages},
-	{"sync", "", "build or update the semantic index, or report its state", []option{
-		{"status", "", "report index state without building", boolean},
-		{"device", "SELECTOR", "run embedding on SELECTOR (default PBRAIN_DEVICE or auto)", text},
-	}},
-	{"devices", "", "list devices available for embedding", nil},
+	{
+		name: "init", summary: "create or complete a brain", callable: true,
+		about:   "Create or complete a brain. Use path to choose a destination when there is no selected brain.",
+		options: []option{textOption("path", "DIR", "create the brain at DIR (default docs/brain when no brain is selected)")},
+	},
+	{name: "skill", operands: "[list|TOPIC]", summary: "print the skill or a topic"},
+	{
+		name: "search", operands: "QUERY…", summary: "find matching items", callable: true,
+		about: "Find matching items with IDs and cited snippets. Read a result with get. Semantic search may update the index and vector cache for recent changes.",
+		args:  []operand{{name: "query", help: "the whole query, including any quoted phrases", required: true}},
+		options: slices.Concat(filters, pages, []option{
+			colour, integerOption("context", "include 1 to 3 nearby lines on each side"),
+			boolOption("semantic", "include results found by meaning"),
+		}),
+	},
+	{
+		name: "list", summary: "list items", callable: true, hints: readOnly,
+		about:   "List items without a search query. Narrow the list with kind, tag, status or a time window.",
+		options: slices.Concat(filters, pages),
+	},
+	{
+		name: "get", operands: "ID", summary: "read an item, its history or its outline", callable: true, hints: readOnly,
+		about: "Read an item by ID. Use outline for section offsets and history for replacement lineage. Keep the same options when following next.",
+		args:  []operand{itemID}, options: getOptions,
+	},
+	{
+		name: "prime", summary: "show current decisions and verified learnings", callable: true, hints: readOnly,
+		about:   "Read the current decisions and verified learnings before work. Use tag to stay on topic.",
+		options: slices.Concat([]option{tagFilter}, pages[1:]),
+	},
+	{
+		name: "tags", summary: "list tags", callable: true, hints: readOnly,
+		about:   "List tags and their visible item counts. Prefer an existing tag when adding an item.",
+		options: pages,
+	},
+	{
+		name: "check", summary: "report findings about the brain", callable: true, hints: readOnly,
+		about:   "Report problems with the brain without changing files. A report with errors is still a result.",
+		options: pages,
+	},
+	{
+		name: "add", summary: "add a first-party item", callable: true,
+		about: "Add a decision, learning, observation or note. Supply a title and use body or body-file for its text. Name replaced items with replaces.",
+		options: slices.Concat([]option{
+			{name: "title", value: "TEXT", help: "set the item title (required)", kind: text, required: true},
+			{name: "kind", value: "KIND", help: "set the item kind (default " + item.Note.String() + ")", kind: text, form: choice, choices: firstPartyKinds},
+			textOption("body", "TEXT", "use TEXT as the body"),
+			textOption("body-file", "FILE", "read the body from FILE"),
+			textOption("decided", "ACTOR", "name the decision maker"),
+			textOption("verified", "ACTOR", "name the verifier"),
+			repeatOption("relates", "ID", "record a related item (repeatable)"),
+		}, writeOptions),
+	},
+	{
+		name: "import", operands: "INPUT", summary: "copy a source or record a link", callable: true, hints: toolHints{OpenWorld: true},
+		about: "Import outside material from a file or URL. Use link-only to record a URL without fetching it. Audience rules select a destination.",
+		args:  []operand{{name: "input", help: "the file path or HTTP(S) URL", required: true}},
+		options: slices.Concat([]option{
+			textOption("title", "TEXT", "override the title"),
+			boolOption("link-only", "record a URL without fetching it"),
+			textOption("summary", "TEXT", "set the body of a linked source"),
+		}, writeOptions),
+	},
+	{
+		name: "verify", operands: "ID", summary: "verify a learning or other first-party item", callable: true,
+		about: "Mark a first-party item as verified. Supply the verifying actor with by when needed.",
+		args:  []operand{itemID}, options: []option{textOption("by", "ACTOR", "name the verifier")},
+	},
+	{
+		name: "delete", operands: "ID", summary: "preview or delete an item", callable: true, hints: toolHints{Destructive: true},
+		about: "Preview removal and its effects before deleting. Set yes only after the person authorizes deletion.",
+		args:  []operand{itemID}, options: []option{boolOption("yes", "authorize deletion")},
+	},
+	{
+		name: "audience", operands: "[set MATCH shared|personal | unset MATCH]", summary: "list or edit audience rules", callable: true,
+		about: "List audience rules with no action. Set a rule to route future writes, or unset an existing rule.",
+		args: []operand{
+			{name: "action", help: "leave absent to list rules", form: choice, choices: audienceActions},
+			{name: "match", help: "the match key for set or unset"},
+			{name: "to", help: "the destination for set", form: choice, choices: audienceDestinations},
+		},
+		options: pages, hints: toolHints{Destructive: true, Idempotent: true},
+	},
+	{
+		name: "sync", summary: "build or update the semantic index, or report its state", callable: true,
+		about: "Report semantic index state with status. A build may download model files and take hours on CPU. Start a first build only when requested.",
+		options: []option{
+			boolOption("status", "report index state without building"),
+			textOption("device", "SELECTOR", "run embedding on SELECTOR (default PBRAIN_DEVICE or auto)"),
+		},
+		hints: toolHints{Idempotent: true, OpenWorld: true, LongRunning: true},
+	},
+	{
+		name: "devices", summary: "list devices available for embedding", callable: true, hints: readOnly,
+		about: "List the CPU and available accelerators for embedding. Use a device selector when building a semantic index.",
+	},
 }
 
 func commandNamed(name string, features Features) command {
@@ -288,12 +407,57 @@ func parseOptions(args []string, features Features) (invocation, error) {
 	return in, in.validate()
 }
 
+type rule struct {
+	commands   []string // empty applies to every command
+	properties []string
+	message    string
+	broken     func(*invocation) bool
+}
+
+var jsonAndColor = rule{nil, []string{"json", "color"}, "--color cannot be used with --json",
+	func(in *invocation) bool { return in.json && in.boolean("color") }}
+
+var rules = []rule{
+	{[]string{"get"}, []string{"history", "outline"}, "--history cannot be used with --outline",
+		func(in *invocation) bool { return in.boolean("history") && in.boolean("outline") }},
+	{[]string{"get"}, []string{"limit", "history", "outline"}, "--limit requires --history or --outline on get",
+		func(in *invocation) bool { return in.has("limit") && !in.boolean("history") && !in.boolean("outline") }},
+	{[]string{"add"}, []string{"body", "body-file"}, "--body cannot be used with --body-file",
+		func(in *invocation) bool { return in.has("body") && in.has("body-file") }},
+	{[]string{"add"}, []string{"body-file"}, "--body-file requires a nonempty path",
+		func(in *invocation) bool { return in.has("body-file") && in.string("body-file") == "" }},
+	{[]string{"add"}, []string{"kind", "decided", "verified"}, "a decision requires --decided and refuses --verified",
+		func(in *invocation) bool {
+			return in.string("kind") == "decision" && (!in.has("decided") || in.has("verified"))
+		}},
+	{[]string{"add"}, []string{"kind", "decided"}, "--decided is only for a decision",
+		func(in *invocation) bool { return in.string("kind") != "decision" && in.has("decided") }},
+	{[]string{"import"}, []string{"input", "source"}, "--source is only for a file import",
+		func(in *invocation) bool { return isWebSource(in.operands[0]) && in.has("source") }},
+	{[]string{"import"}, []string{"input", "link-only"}, "--link-only requires a URL",
+		func(in *invocation) bool { return !isWebSource(in.operands[0]) && in.boolean("link-only") }},
+	{[]string{"import"}, []string{"summary", "link-only"}, "--summary requires --link-only",
+		func(in *invocation) bool { return in.has("summary") && !in.boolean("link-only") }},
+	{[]string{"audience"}, []string{"action", "limit", "offset", "max-chars"}, "paging options are only for audience listing",
+		func(in *invocation) bool {
+			return len(in.operands) != 0 && slices.ContainsFunc(pages, func(o option) bool { return in.has(o.name) })
+		}},
+	{[]string{"add", "import"}, []string{"shared", "personal"}, "--shared cannot be used with --personal",
+		func(in *invocation) bool { return in.boolean("shared") && in.boolean("personal") }},
+	{[]string{"sync"}, []string{"status", "device"}, "--device cannot be used with --status",
+		func(in *invocation) bool { return in.boolean("status") && in.has("device") }},
+}
+
+func (r rule) applies(command string) bool {
+	return len(r.commands) == 0 || slices.Contains(r.commands, command)
+}
+
 func (in *invocation) validate() error {
 	if in.has("brain") && in.string("brain") == "" {
 		return usage("--brain requires a nonempty path")
 	}
-	if in.json && in.boolean("color") {
-		return usage("--color cannot be used with --json")
+	if jsonAndColor.broken(in) {
+		return usage(jsonAndColor.message)
 	}
 	if in.boolean("help") || in.boolean("version") {
 		return nil
@@ -310,48 +474,19 @@ func (in *invocation) validate() error {
 		}
 		in.clauses = clauses
 	case "get":
-		if n != 1 {
+		if n != len(in.cmd.args) {
 			return usage("get requires one id")
 		}
-		if in.boolean("history") && in.boolean("outline") {
-			return usage("--history cannot be used with --outline")
-		}
-		if in.has("limit") && !in.boolean("history") && !in.boolean("outline") {
-			return usage("--limit requires --history or --outline on get")
-		}
 	case "add":
-		if n != 0 || !in.has("title") {
+		if n != len(in.cmd.args) || slices.ContainsFunc(in.cmd.options, func(o option) bool { return o.required && !in.has(o.name) }) {
 			return usage("add requires --title and takes no operands")
 		}
-		if in.has("body") && in.has("body-file") {
-			return usage("--body cannot be used with --body-file")
-		}
-		if in.has("body-file") && in.string("body-file") == "" {
-			return usage("--body-file requires a nonempty path")
-		}
-		if in.string("kind") == "decision" {
-			if !in.has("decided") || in.has("verified") {
-				return usage("a decision requires --decided and refuses --verified")
-			}
-		} else if in.has("decided") {
-			return usage("--decided is only for a decision")
-		}
 	case "import":
-		if n != 1 || in.operands[0] == "" {
+		if n != len(in.cmd.args) || in.operands[0] == "" {
 			return usage("import requires one input")
 		}
-		url := isWebSource(in.operands[0])
-		if url && in.has("source") {
-			return usage("--source is only for a file import")
-		}
-		if !url && in.boolean("link-only") {
-			return usage("--link-only requires a URL")
-		}
-		if in.has("summary") && !in.boolean("link-only") {
-			return usage("--summary requires --link-only")
-		}
 	case "verify", "delete":
-		if n != 1 {
+		if n != len(in.cmd.args) {
 			return usage(in.cmd.name + " requires one id")
 		}
 	case "skill":
@@ -370,18 +505,10 @@ func (in *invocation) validate() error {
 			return usage("--path requires a nonempty path")
 		}
 	}
-	if in.boolean("shared") && in.boolean("personal") {
-		return usage("--shared cannot be used with --personal")
-	}
-	if in.boolean("status") && in.has("device") {
-		return usage("--device cannot be used with --status")
-	}
-	if in.has("context") {
-		value, err := decimal(in, "context", 1, 3)
-		if err != nil {
-			return err
+	for _, rule := range rules {
+		if rule.applies(in.cmd.name) && rule.broken(in) {
+			return usage(rule.message)
 		}
-		in.context = value
 	}
 	if err := in.validateRead(); err != nil {
 		return err
@@ -398,65 +525,58 @@ func (in *invocation) validateAudience() error {
 	}
 	switch in.operands[0] {
 	case "set":
-		if len(in.operands) != 3 || in.operands[2] != "shared" && in.operands[2] != "personal" {
+		if len(in.operands) != len(in.cmd.args) || !slices.Contains(in.cmd.args[2].choices(), in.operands[2]) {
 			return usage("audience set requires a match and shared or personal")
 		}
 	case "unset":
-		if len(in.operands) != 2 {
+		if len(in.operands) != len(in.cmd.args)-1 {
 			return usage("audience unset requires one match")
 		}
 	default:
 		return usage("unknown audience operation")
 	}
-	for _, o := range pages {
-		if in.has(o.name) {
-			return usage("paging options are only for audience listing")
-		}
-	}
 	return nil
 }
 
 func (in *invocation) validateRead() error {
-	limit, maxChars, upper := defaults(in.cmd.name, in.boolean("history"), in.boolean("outline"))
-	in.page = pageOptions{limit: limit, maxChars: maxChars}
 	var err error
-	if in.has("offset") {
-		in.page.offset, err = decimal(in, "offset", 0, 0)
-		if err != nil {
-			return err
-		}
+	in.context, err = in.intOption("context")
+	if err != nil {
+		return err
 	}
-	if in.has("limit") {
-		in.page.limit, err = decimal(in, "limit", 1, upper)
-		if err != nil {
-			return err
-		}
+	in.page.offset, err = in.intOption("offset")
+	if err != nil {
+		return err
 	}
-	if in.has("max-chars") {
-		in.page.maxChars, err = decimal(in, "max-chars", 1, 0)
-		if err != nil {
-			return err
-		}
+	in.page.limit, err = in.intOption("limit")
+	if err != nil {
+		return err
+	}
+	in.page.maxChars, err = in.intOption("max-chars")
+	if err != nil {
+		return err
 	}
 	if in.cmd.name == "search" || in.cmd.name == "list" {
+		option, _ := optionNamed(in.cmd.options, "kind")
+		kinds := option.choices()
 		for _, name := range in.all("kind") {
-			kind, ok := item.ParseKind(name)
-			if !ok {
+			if !slices.Contains(kinds, name) {
 				return usage("--kind requires an item kind")
 			}
+			kind, _ := item.ParseKind(name)
 			in.filter.Kinds = append(in.filter.Kinds, kind)
 		}
 		if in.has("status") {
-			switch in.string("status") {
-			case "verified":
-				status := item.Verified
-				in.filter.Status = &status
-			case "provisional":
-				status := item.Provisional
-				in.filter.Status = &status
-			default:
+			option, _ := optionNamed(in.cmd.options, "status")
+			value := in.string("status")
+			if !slices.Contains(option.choices(), value) {
 				return usage("--status requires provisional or verified")
 			}
+			status := item.Provisional
+			if value == item.Verified.String() {
+				status = item.Verified
+			}
+			in.filter.Status = &status
 		}
 		in.filter.All = in.boolean("all")
 	}
@@ -472,30 +592,57 @@ func (in *invocation) validateRead() error {
 	return nil
 }
 
-func defaults(name string, history, outline bool) (limit, maxChars, upper int) {
-	switch name {
-	case "search":
-		return 5, 3000, 50
-	case "list", "audience":
-		return 20, 2000, 200
-	case "get":
-		switch {
-		case history:
-			return 20, 2000, 200
-		case outline:
-			return 50, 2000, 200
-		default:
-			return 0, 6000, 0
-		}
-	case "prime":
-		return 0, 2000, 0
-	case "tags":
-		return 50, 2000, 200
-	case "check":
-		return 50, 4000, 0
-	default:
-		return 0, 0, 0
+func (in *invocation) intOption(name string) (int, error) {
+	lo, hi, def := bounds(in.cmd.name, name, in.boolean("history"), in.boolean("outline"))
+	if !in.has(name) {
+		return def, nil
 	}
+	return decimal(in, name, lo, hi)
+}
+
+// bounds returns the limits and built-in default for an integer option.
+// A zero upper bound means the parser imposes no explicit upper limit.
+func bounds(command, flag string, history, outline bool) (lo, hi, def int) {
+	switch flag {
+	case "offset":
+		return 0, 0, 0
+	case "context":
+		return 1, 3, 0
+	case "limit":
+		switch command {
+		case "search":
+			return 1, 50, 5
+		case "list", "audience":
+			return 1, 200, 20
+		case "get":
+			if history {
+				return 1, 200, 20
+			}
+			if outline {
+				return 1, 200, 50
+			}
+		case "tags":
+			return 1, 200, 50
+		case "check":
+			return 1, 0, 50
+		}
+		return 1, 0, 0
+	case "max-chars":
+		switch command {
+		case "search":
+			return 1, 0, 3000
+		case "get":
+			if !history && !outline {
+				return 1, 0, 6000
+			}
+			return 1, 0, 2000
+		case "list", "audience", "prime", "tags":
+			return 1, 0, 2000
+		case "check":
+			return 1, 0, 4000
+		}
+	}
+	return 0, 0, 0
 }
 
 func decimal(in *invocation, flag string, lower, upper int) (int, error) {

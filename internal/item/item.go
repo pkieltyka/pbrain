@@ -35,6 +35,9 @@ const (
 
 var kindNames = [...]string{"decision", "learning", "observation", "note", "source"}
 
+// Kinds returns the item kind names in their declared order.
+func Kinds() []string { return append([]string(nil), kindNames[:]...) }
+
 func (k Kind) String() string { return nameAt(kindNames[:], uint8(k)) }
 
 func ParseKind(s string) (Kind, bool) {

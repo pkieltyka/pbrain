@@ -41,6 +41,9 @@ func helpText(cmd command) string {
 			fmt.Fprintf(&out, " %s", cmd.operands)
 		}
 		fmt.Fprintf(&out, " [options]\n\n%s.\n", cmd.summary)
+		if cmd.about != "" {
+			out.WriteString(cmd.about + "\n")
+		}
 		if len(cmd.options) > 0 {
 			out.WriteString("\nCommand options\n")
 			printOptions(&out, cmd.name, cmd.options)
@@ -65,22 +68,18 @@ func printOptions(out *strings.Builder, command string, options []option) {
 }
 
 func pageHelpDefault(command, flag string) string {
-	limit, maxChars, _ := defaults(command, false, false)
+	_, _, def := bounds(command, flag, false, false)
 	switch flag {
-	case "limit":
+	case "limit", "max-chars":
 		if command == "get" {
-			history, _, _ := defaults(command, true, false)
-			outline, _, _ := defaults(command, false, true)
-			return fmt.Sprintf(" (default %d with --history, %d with --outline)", history, outline)
+			_, _, history := bounds(command, flag, true, false)
+			_, _, outline := bounds(command, flag, false, true)
+			if flag == "limit" {
+				return fmt.Sprintf(" (default %d with --history, %d with --outline)", history, outline)
+			}
+			return fmt.Sprintf(" (default %d for the body, %d with --history, %d with --outline)", def, history, outline)
 		}
-		return fmt.Sprintf(" (default %d)", limit)
-	case "max-chars":
-		if command == "get" {
-			_, history, _ := defaults(command, true, false)
-			_, outline, _ := defaults(command, false, true)
-			return fmt.Sprintf(" (default %d for the body, %d with --history, %d with --outline)", maxChars, history, outline)
-		}
-		return fmt.Sprintf(" (default %d)", maxChars)
+		return fmt.Sprintf(" (default %d)", def)
 	case "offset":
 		return " (default 0)"
 	default:
