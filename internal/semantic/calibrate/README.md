@@ -22,18 +22,19 @@ adds a second count for occurrences in recognized heading titles.
 
 ## Model gates
 
-Pass a model name and the directory of its pinned files. For bge-small
-the directory uses the same flat names as `model_path` in pbrain.
+Pass a model name and the directory of its pinned files, as `model_path`
+in pbrain takes it, with `PBRAIN_ALLOW_GEMMA2=1`, the owner-only team
+switch; without it the tool refuses an EmbeddingGemma 2 model. For the
+default model the directory holds the pinned Q8_0 GGUF file.
 
 ```sh
-go run ./internal/semantic/calibrate -model bge-small-en-v1.5 \
-  -model-path /path/to/pinned/bge-small \
+PBRAIN_ALLOW_GEMMA2=1 go run ./internal/semantic/calibrate \
+  -model embeddinggemma-2-q8-0 -model-path /path/to/pinned/q8 \
   internal/semantic/calibrate/testdata/retrieval
 ```
 
-For EmbeddingGemma 2, pass `-model embeddinggemma-2` and the pinned
-text-only pack as `-model-path`, with `PBRAIN_ALLOW_GEMMA2=1`, the
-owner-only team switch; without it the tool refuses that model.
+For Google's pack, pass `-model embeddinggemma-2` and the pinned
+text-only pack as `-model-path`.
 
 The tool builds the scratch index, uses uncensored production scores and
 the complete exact-result list to choose the cutoff on calibration
@@ -52,6 +53,9 @@ more gates failed. An incomplete index or a semantic fallback stops
 the evaluation as an error instead of counting a lexical-only page.
 
 ## bge-small release check
+
+History. bge-small-en-v1.5 was removed in v0.5.0 and the tool no longer
+has it. This section is the record of its gates.
 
 The corrected tool `9695d1b` reproduced cutoff **0.65** on the frozen
 calibration half and exited 0 in 63 seconds.
@@ -116,8 +120,9 @@ Only the frozen 5 / 4 / 2 rule was checked on held-out negatives.
 The partial tier passed every held-out regression and preserved all 16
 strict first-page answers. The shared replay matched byte for byte and
 all eight personal controls opened in the personal view. This enables
-`--bm25` for the release without a model. A release that lists bge-small
-still needs the combined gate in phase 25.
+`--bm25` for the release without a model. At the time, a release
+that listed bge-small still needed the combined gate of phase 25; that
+model was removed in v0.5.0.
 
 The four tool-only arms now choose snippets by the product's distinct-clause
 coverage rule. The comparison rows and reads changed, and the search pages
@@ -135,8 +140,10 @@ admitted rows separately.
 
 ## EmbeddingGemma 2 release gates (phase 27)
 
-The release defaults to bge-small-en-v1.5. A project selects EmbeddingGemma 2
-with `semantic.model = "embeddinggemma-2"`. The figures below apply to that model.
+Since v0.5.0 the release defaults to `embeddinggemma-2-q8-0`. Its gates are in
+[the Q8_0 qualification](../../cli/README.measure.md#q8_0-release-qualification-on-goinfer-v062-51).
+The figures below are those of Google's pack, which a project selects
+with `semantic.model = "embeddinggemma-2"`.
 
 The corrected tool at `9695d1b` replayed the frozen questions above with the verified
 local pack. Calibration selected **0.72**. On the held-out check, both
