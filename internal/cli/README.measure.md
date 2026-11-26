@@ -3,7 +3,9 @@
 The first release measurements ran on Linux. Issue #69 adds Apple Silicon
 Q8 indexing and CPU controls. The #32 refresh adds rule 3, the full-size
 sync and warm semantic search on an Apple M4 (issue #9). Architecture §17
-lists what has not been measured on macOS. Keep the machine idle and
+lists what has not been measured on macOS. `bge-small-en-v1.5` was
+removed in v0.5.0 (issue #77), and its sections below are kept as the
+record of what was measured. Keep the machine idle and
 record its CPU, OS, filesystem, executable revision and cache preparation
 method. The release targets are in functional spec §16 and architecture
 §§8.6–8.7. Publish the first sample separately from the warm samples.
@@ -17,12 +19,11 @@ PBRAIN_MEASURE=1 PBRAIN_MEASURE_PROCS=4 \
   go test -p 2 -count=1 -timeout=10h -run '^TestMeasureReads$' -v ./internal/cli
 ```
 
-Set `PBRAIN_TEST_BGE_MODEL` to the absolute directory containing the
-five pinned bge-small files to add model cases. To measure a release that
-lists EmbeddingGemma 2, run separately with `PBRAIN_ALLOW_GEMMA2=1` (the
-owner-only team switch) and `PBRAIN_TEST_GEMMA2_PACK` set to the pinned
-pack directory and use `-timeout=18h`. The binary must
-register the selected model. To measure both views after one index build,
+To add model cases, set `PBRAIN_ALLOW_GEMMA2=1` (the owner-only team
+switch) and one model directory: `PBRAIN_TEST_GEMMA2_Q8` for the default
+model, holding the pinned Q8_0 GGUF file, or `PBRAIN_TEST_GEMMA2_PACK`
+for Google's pinned pack. Setting both is an error. Use `-timeout=18h`.
+The binary must register the selected model. To measure both views after one index build,
 select `-run '^TestMeasureReads$/^personal$'`. It builds one 5,000-item,
 50 MB fixture with 4,500 shared and 500 personal items. The timed shared
 and personal searches use that same index. The separate `shared` subtest
@@ -34,8 +35,8 @@ pages, including the combined search when the executable exposes BM25.
 The test then adds one short note and times the next index. The local
 checkpoint stays untouched. The index, vector
 cache and generated items are temporary. Each index command has its own
-timeout, configurable with `PBRAIN_MEASURE_INDEX_TIMEOUT`. The defaults
-are four hours for bge-small and eight hours for EmbeddingGemma 2. The
+timeout, configurable with `PBRAIN_MEASURE_INDEX_TIMEOUT`. The default
+is eight hours. The
 generated corpus contains many invented words that split into several
 tokens. A first build can take hours on this workload.
 
@@ -52,12 +53,13 @@ The benchmark reads and verifies the model, opens it, embeds one query
 and closes it. Each line below the header is one timed run.
 
 ```sh
-GOMAXPROCS=4 go test -p 2 -run '^$' -bench '^BenchmarkBgeFirstQuery$' \
-  -benchtime=1x -count=3 ./internal/embed/bge
+PBRAIN_ALLOW_GEMMA2=1 PBRAIN_TEST_GEMMA2_Q8=/path/to/pinned/q8 GOMAXPROCS=4 \
+  go test -p 2 -run '^$' -bench '^BenchmarkGemmaQ8FirstQuery$' \
+  -benchtime=1x -count=3 ./internal/embed/gemma2
 ```
 
-For an EmbeddingGemma 2 release, use `BenchmarkGemmaFirstQuery` in
-`./internal/embed/gemma2` with the pinned pack.
+For Google's pack, use `BenchmarkGemmaFirstQuery` in the same package
+with `PBRAIN_TEST_GEMMA2_PACK`.
 
 ## bge-small-en-v1.5, Linux
 

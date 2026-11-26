@@ -10,7 +10,7 @@ Only what is on GitHub carries over. This file lists everything that existed onl
 
 - **All 29 implementation phases are done.** Phase 28 (measurement before release) has its Linux bge-small figures; EmbeddingGemma 2's full-size figures are still owed (see below).
 - **All 41 spec scenarios** have executable testscript scripts in `cmd/pbrain/testdata/scenarios` (44 files).
-- **Default embedding model:** `bge-small-en-v1.5`. `embeddinggemma-2` is opt-in; `model = "none"` turns semantic search off. Owner decision 27 (revised), architecture §16.
+- **Default embedding model:** `embeddinggemma-2-q8-0` since v0.5.0. `bge-small-en-v1.5` was the default when this handover was written and was removed on 2026-11-26 (issue #77), so the bge-small statements below are history. `embeddinggemma-2` is opt-in; `model = "none"` turns semantic search off. Owner decision 27 (revised), architecture §16.
 - **Dependencies:** `github.com/pkieltyka/aikit v1.79.1` and `github.com/pkieltyka/goinfer v0.4.1`. Never require goinfer `v0.4.0`: the Go proxy permanently cached a wrong upstream tag under that number.
 - **Release pipeline:** `.github/workflows/release.yml` + `.goreleaser.yaml`. A pushed `v*` tag builds Linux and macOS (amd64, arm64) into a **draft** GitHub release.
 
