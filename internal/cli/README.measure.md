@@ -1504,7 +1504,106 @@ same three pre-#1 lock failures:
 `cmd/pbrain TestScenarios/14-concurrent-writers`,
 `internal/cli TestConcurrentSettingsWriters` and
 `internal/semantic TestModelProvisionShared`.
+On `b2f4e92` after the lock fix, both native M4 suites passed,
+including those three tests and `TestCatchUpLock`.
+`TestColourPipeAndTerminal` and scenario 41 both ran and passed in the
+untagged and Metal suites.
 
 Local review receipts are under `/var/tmp/pbrain-rule3-046.dE76IE` on pax.
 They include the release checksum checks, raw timings, compact Metal
 forward records and the native Go logs.
+
+## Opt-in Metal batching on the base M4 (#72)
+
+The cgo-free Darwin arm64 builds used Go 1.27.3 and the `metal` tag.
+The same base Apple M4 (10 GPU cores, 24 GiB unified memory, macOS
+27.2.1) ran each sync with four Go workers. The v0.6.8 control was
+built from `0fa255a` and both v0.6.9 arms from `b2f4e92`. Each fresh
+sync verified the same pinned Q8_0 GGUF and used its own SQLite index
+and vector cache.
+
+The qualification binary used `PBRAIN_METAL_BATCH=1 pbrain sync --device metal`
+to select the batch route explicitly. Both v0.6.9 arms resolved
+`metal-eg2-combined-v1` and used the same vector and index keys.
+
+### Byte equality and search
+
+The 59- and 219-passage tests matched the combined singleton vector
+bits at 768 and normalized 512 dimensions for every packed, singleton,
+split-three and reordered layout. The packed runs used 15 and 55
+forwards for 9,271 and 110,157 positions. The 219-passage test reached
+four inputs and 2,748 positions. Its same-file CPU cosine minima were
+0.99999999999264 at 768 dimensions and 0.99999999999298 at 512.
+
+On the 22-note #69 fixture, all seven initial sync indexes passed SQLite
+`quick_check` and contained identical ordered item and passage metadata.
+The 219 stored vectors matched bit for bit at both widths between
+v0.6.9 singleton and batch in both pairs, and between the v0.6.8 and
+v0.6.9 singleton generations. The CPU cosine minima were
+0.99999999999265 at 768 and 0.99999999999297 at 512 across the six Metal
+indexes. All eight frozen queries returned the same ordered IDs on
+the Metal and CPU indexes. Toggling batching in either direction kept
+the existing combined manifest, attached once and ran zero forwards.
+
+### 219-passage timings
+
+The first order-reversed trials ran A/B/C then C/B/A, where A is v0.6.8
+singleton, B is v0.6.9 singleton and C is v0.6.9 batch.
+
+| Mode | Wall samples (s) | Median passages/s | Median attach (ms) | Median forward (s) | Forwards per run | Peak RSS (MiB) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| A | 50.25, 23.94 | 6.75 | 40.4 | 36.41 | 219 | 1,915.8 |
+| B | 49.44, 47.91 | 4.50 | 40.7 | 48.11 | 219 | 2,011.9 |
+| C | 39.45, 40.71 | 5.47 | 40.3 | 39.57 | 55 | 1,927.3 |
+| v0.6.9 CPU | 196.64 | 1.11 | — | 196.08 | 219 | 1,583.6 |
+
+The two v0.6.8 runs differed by more than 2× in forward time. The slower
+state's cause remains undetermined. The CPU wall time comes from the
+saved macOS `time -l` receipt. The timing recorder initially rejected
+the valid base-profile CPU manifest's recorded fp16 request and recovered
+that row from the original timing and trace.
+
+The timing recheck ran B/C/A/A/C/B/B/C/A. All nine preflight CPU samples
+were at least 95.12% idle, and the three passive IOAccelerator utilization
+fields read zero before every run. Low-power mode was off and `pmset`
+reported no thermal or performance warnings. The slow state did not
+recur. Spotlight and media analysis appeared briefly in some after-run
+CPU samples. The passive GPU counters do not identify individual processes.
+The first B trial's wall time comes from its saved `time -l` receipt.
+
+| Mode | Wall samples (s) | Median wall (s) | Median passages/s | Median forward positions/s | Peak footprint (MB) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| A | 23.742, 23.785, 23.799 | 23.785 | 9.207 | 4,727 | 2,130.6 |
+| B | 23.130, 23.193, 23.212 | 23.193 | 9.443 | 4,855 | 2,129.8 |
+| C | 21.376, 21.408, 21.411 | 21.408 | 10.230 | 5,260 | 2,333.2 |
+
+Batching reduced median wall time by 7.69% on v0.6.9 and increased the
+peak footprint by 203.4 MB across these samples. Each batch run used
+54 groups of four and one group of three, with 1,205–2,748 positions per
+group, for the same 110,157 positions. Every recheck index passed
+`quick_check` and matched the earlier v0.6.9 singleton metadata and
+all 219 stored vectors at both widths.
+
+### Completed 5,000-note batch sync
+
+The full batch run used the hash-verified #22 corpus of 4,500 shared
+and 500 personal notes. Its idle samples were 98.90% and 98.16% before
+sync. It embedded 48,511 passages with zero reuse, and both SQLite
+generations passed `quick_check`. The owner ended the follow-on
+v0.6.9 singleton run to free the M4 for goinfer #92. Full-size
+warm search and the one-note increment were skipped.
+
+| Run | Wall (s) | Passages/s | Forward positions/s | Peak RSS (MiB) | Peak footprint (MiB) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| v0.6.8 singleton, historical #32 | 5,288.0 | 9.17 | 4,666 | 3,305.5 | 3,261.1 |
+| v0.6.9 batch | 4,864.8 | 9.97 | 5,067 | 3,395.5 | 3,498.5 |
+
+The batch run used 12,386 forwards for 24,475,852 prepared positions
+and spent 4,830.38 s in those calls. Group sizes one through four
+occurred 123, 88, 488 and 11,687 times. The greatest multi-input
+group contained 2,748 positions. Wall time was 8.00% lower and peak
+process footprint was 248.9 MB higher than the historical singleton
+run. That comparison spans two goinfer releases. The nine-run
+219-passage recheck above isolates the batching change on v0.6.9.
+
+[Capture and verification](../../tools/phase28/evidence/metal-batch-72/README.md)
