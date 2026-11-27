@@ -1,5 +1,5 @@
 ---
-status: complete
+status: draft
 ---
 
 # Functional Spec: pbrain-2
@@ -41,7 +41,7 @@ This document says what is built. It is a delta: the first iteration's functiona
 
 - Every command of the pbrain spec keeps its name, flags, ids, JSON, error codes, exit codes and **result set**: the same invocation on the same brain returns what it returns today, whether or not memory is enabled or a document folder is enrolled. Plain `search`, `get`, `list`, `prime`, `check` and `sync` (with `sync --status`) stay on managed items.
 - The tool names and meanings in the tool catalog (`pbrain schema`) do not change. New commands are new tools. JSON only grows (pbrain spec 6.2).
-- A brain with no memory enabled and no `[docs]` key behaves exactly as today in every respect, with one planned exception stated in section 12.3 (the item index moves, and needs one `pbrain sync`).
+- A brain with no memory enabled and no `[docs]` key answers every command exactly as today, with one planned exception: pbrain no longer keeps any file of its own in the working tree, so its local data moves once (section 12.4), and the semantic index needs one `pbrain sync` afterwards.
 - The output budget, rendering rules, streams and exit codes of pbrain spec 6 apply to every new command unless this document gives another number. Messages never echo a suspected secret or anything outside the command's section.
 - pbrain still never runs a Git command that changes a repository, and never writes into a file it did not create, with the exceptions of `verify` (pbrain spec 8.3) and `pbrain hooks install` (section 9.3).
 
@@ -115,13 +115,13 @@ Rules that follow:
 
 ### 4.1 The state folder
 
-Memories are originals: nothing can rebuild them. So they are not kept in the cache.
+Memories are originals: nothing can rebuild them. So they are kept in the per-user state folder and not in the cache (section 12.2 has both).
 
-- **Shared memory** lives in the per-user state folder: `PBRAIN_STATE` if set, else `pbrain` under `$XDG_STATE_HOME` when that is an absolute path, else `~/.local/state/pbrain` on Linux and `~/Library/Application Support/pbrain` on macOS. Inside it: `.pbrain/memory/v1/<project-key>/`. The `.pbrain` component is deliberate: `import` and `--body-file` already refuse any input whose resolved path contains it, so a memory can never be read back in as content.
-- **Personal memory** lives under the resolved personal section, never in the shared state folder. A shared call never opens, counts, hashes or locks it, and nothing about it can change a shared result or error.
-- **The project key** joins all linked worktrees of one repository for one brain: it is derived from the repository's Git common directory and the brain's path inside the work tree. A second brain in the same repository, a fresh clone, another user and another machine each have their own memory. Branch names and remote URLs play no part. A brain outside Git is keyed by its own resolved path.
+- **Shared memory** lives in the state folder under the project's key: one SQLite database per brain, shared by every worktree of the repository.
+- **Personal memory** lives in the state folder too, under the key of the personal section, in a folder of its own. A shared call never opens, counts, hashes or locks it, and nothing about it can change a shared result or error.
+- **The project key** joins all linked worktrees of one repository for one brain: it is derived from the repository's Git common directory and the brain's path inside the work tree. A second brain in the same repository, a second clone of the same repository on the same machine, another user and another machine each have their own memory. Branch names and remote URLs play no part. A brain outside Git is keyed by its own resolved path.
 - Clearing the cache loses no memory. Deleting the state folder loses all of it, and pbrain says so in `memory init` and in the README.
-- pbrain writes nothing into Git's own metadata.
+- pbrain writes nothing into Git's own metadata, and nothing of its own into the working tree.
 
 ### 4.2 Enabling memory
 
@@ -148,7 +148,7 @@ pbrain store (--text TEXT | --stdin | --from-last-response | --fact FACT)
              [--task TASK] [--ref REF]
              [--said-by ACTOR] [--asked-by ACTOR] [--author ACTOR]
              [--capture authored|verbatim|checkpoint] [--source TOKEN]
-             [--session ID] [--event UUID --observed-at TIME] [--personal]
+             [--session ID] [--event UUID --observed-at TIME] [--personal] [--dry-run]
 ```
 
 - **The text** comes from exactly one place. `--text` takes it as an argument. `--stdin` reads standard input to its end and keeps every byte, which also keeps private text out of the process list. `--from-last-response` asks the host's adapter for the previous complete, visible answer of the session (section 6.3). `--fact` makes a typed report (3.3).
@@ -157,6 +157,7 @@ pbrain store (--text TEXT | --stdin | --from-last-response | --fact FACT)
 - **A checkpoint** is stored by a supervisor with `--capture checkpoint`, which requires `--task`, `--source`, `--session`, `--event` and `--observed-at` and applies the 2,048-byte limit. Any caller may pass it; it only lowers the limit and labels the row, and grants nothing.
 - **Kind and term.** `--kind` defaults to `outcome`, and to `statement` with `--from-last-response` or `--learned`. `--retention` defaults to the kind's term (3.2). `--until` gives a long-term memory a chosen end, in the forms of pbrain spec 7.1 for a date or an instant; it is a usage error with short-term.
 - **Who.** `--said-by` is who said the text, default the recorder. `--asked-by` is who asked for it to be kept; leave it out when the recorder decided by itself. `--author` is the recorder, resolved as `add` resolves it; with no author it fails with `invalid`.
+- **`--dry-run`** checks a **selection** and admits nothing. It is for the command line only, in a session that an adapter has bound; it is not in the tool's schema. It applies the limits of 3.5 and the secret scan to the text, finds the message the text comes from, and prints a **selection line** in place of a receipt: the session, the message, the byte range in it, the length and the SHA-256, and no part of the text (in JSON, an object `selection` with those fields). It does not choose or open a section, does not open or create any memory, checks no quota and no duplicate, and spends nothing: the store that follows does all of that. It accepts `--from-last-response`, and `--text` or `--stdin` when the text is a part of the request's own message. With no bound session, or with text that is not part of that message, it fails with `no_source`; with `--fact` it is a usage error. The skill puts the line into its one dialog question (6.2), so that what the person approves is tied to the exact bytes without their being repeated.
 - **Section.** Shared unless `--personal` is given. The command prints a `destination` notice naming the section. This default is a rule for `store` alone and borrows nothing from an item's audience rules. A store never moves text from the personal section to the shared one by itself.
 - **Session.** `--session`, else the environment variable `PBRAIN_SESSION` that an adapter sets; absent otherwise.
 
@@ -247,7 +248,7 @@ The skill teaches agents to act on these requests, and what each means. The word
 
 No supported host tells pbrain who typed a prompt: the same input can carry a person's keystrokes, a teammate's message, a scheduled task or a pasted forward. So the origin of a prompt is unknown until something positive says otherwise.
 
-- **A request that arrived as a prompt.** The agent asks one question through the host's own question dialog: *for the team* or *only for me*. The answer settles who is asking and where the memory goes; it does not ask about the term. *For the team* stores in the shared section, *only for me* with `--personal`. The memory records `asked_by` as that person. If the request already names the destination ("remember for the team that …"), the dialog still confirms it with one click, because a request to remember is not by itself permission to share.
+- **A request that arrived as a prompt.** The agent asks one question through the host's own question dialog: *for the team* or *only for me*. The question names the selection by reference, with the line that `store --dry-run` printed, and never repeats the text itself. The answer settles who is asking and where the memory goes; it does not ask about the term. *For the team* stores in the shared section, *only for me* with `--personal`. The memory records `asked_by` as that person. If the request already names the destination ("remember for the team that …"), the dialog still confirms it with one click, because a request to remember is not by itself permission to share.
 - **A host with no question dialog, or a dialog nobody answered.** Nothing is stored: not in the shared section, not in the personal one, not with another term. Who is asking and where it goes are unresolved, and a write to the team could not be taken back by a later reply. The agent says so and gives the person the command to run themselves: `pbrain store --stdin` with the kind and term the wording already settled, and with or without `--personal` as they choose. The command does not contain the text, which the person pastes on standard input, so confidential words reach neither the reply nor a shell history. This holds whatever the request says about its destination: "remember only for me that X" is not stored anywhere on the strength of a prompt alone. A typed "yes", and a reply that only claims to come from a dialog, are prompts like any other and settle nothing.
 - **A request that arrived over a supervisor's labelled team channel** (section 8.4), from a teammate. No dialog: the channel is team-visible by its label. The memory goes to the shared section with `asked_by` as that teammate.
 - **An agent's own decision** to keep something, or a clear "remember" from a teammate it knows. No dialog, and no person is claimed as the requester: `asked_by` is left out or names that teammate, the section is chosen per call, and the term follows the wording or the kind's default.
@@ -291,7 +292,12 @@ The number 32 is a starting value. The pilot (section 17.3) counts how many memo
 
 ### 7.2 Long-term
 
-A long-term memory stays until someone forgets it or until the date its requester chose with `--until`. It is never dropped to make room, never removed by promotion, and untouched by a cache purge. Each section holds at most 500 long-term memories and 16 MiB of their text, whichever is reached first. When either is full, a new long-term store is refused with `quota_full`, the message says how to list them (`pbrain recall --retention long-term`), and `forget` still works. A short-term store is never refused for this reason.
+A long-term memory stays until someone forgets it or until the date its requester chose with `--until`. It is never dropped to make room, never removed by promotion, and untouched by a cache purge. Each section holds at most 500 long-term memories and 16 MiB of their text, split in two allocations (the owner's answer of 2026-11-26):
+
+- **The person's allocation:** 200 memories and 6 MiB, for memories that a person asked for. It counts only a requester the adapter observed as a person (3.4). "A person" here means a human being: the factory's operator agent is an agent, and a memory it stores by its own choice does not count.
+- **The ordinary allocation:** 300 memories and 10 MiB, for everything else: what agents learned or chose to keep, and any memory whose `asked_by` is only claimed.
+
+The allocation is decided once, when the memory is admitted, by who asked for it, whoever said the text and whoever recorded it: an answer that an agent gave and stored at a person's observed request is in the person's allocation. A duplicate store returns its original receipt and is not counted again. When the allocation a store belongs to is full in either measure, that store is refused with `quota_full`; the message says how to list the long-term memories (`pbrain recall --retention long-term`), and `forget` still works. A full ordinary allocation never refuses a person's request, and a short-term store is never refused for this reason.
 
 ### 7.3 What neither limit touches
 
@@ -438,7 +444,7 @@ The banked item must make sense on a clone that has none of the memories. So pbr
 
 ### 10.4 A document as the target
 
-Available with the documents phase (section 17.1).
+Available with the documents phase (section 17.1, phase 5).
 
 - **A new document.** `--kind document --to PATH` with `--title` and a body. `PATH` is a path from the project root, under an enrolled document folder, that does not exist. Preview and confirm work as in 10.1; confirm creates the file and fails with `conflict` if it has appeared meanwhile. pbrain creates this file, so it writes a header with the title, the creation time, the recorder and the Sources part.
 - **A change to an existing document.** `--kind document --update PATH` with the complete proposed text as its one body, given as `--text` or `--body-file` on the command line and as `text` in a tool call, and `--quote` for any source without a portable ref. pbrain prints a patch from the document's current bytes to the proposed ones, with the digest of the bytes it read, and writes nothing. The proposed text gets the same Sources part appended as a new document does, under the same rule of 10.3, so the patch carries its citations and the author may move them. It is a patch for review and makes no promise about the file it is later applied to: plain `git apply` applies hunks even when the document has changed elsewhere, so whoever applies it compares the digest first if the exact base matters. pbrain never replaces a file someone else may be editing, and never writes a header into a document it did not create.
@@ -539,24 +545,107 @@ A missing header is not a finding.
 
 ## 12. Where state lives
 
-### 12.1 The table
+The owner's decisions of 2026-11-26: pbrain keeps **no folder of its own in the repository**, for the shared brain or for the personal section; and its databases are ordinary SQLite files on disk, written in place. This section replaces the `.pbrain/` folders of the pbrain spec (its sections 2.1, 5, 8.4, 8.6 and 9.4) wherever they are named.
 
-| State | Where | Shared between worktrees? |
+### 12.1 What is left in the working tree
+
+Only what people and Git own: `pbrain.toml`, the items, the documents, and for one person `personal.toml` and the personal section's items. There is no `.pbrain/` in the brain and none in the personal section: no lock file, no originals, no index. The rule is about what pbrain keeps while it runs. Two files in the tree are still written on request, as today and as section 9.3 says: `init` writes `.gitignore`, and `hooks install` edits the host's settings file for the project.
+
+### 12.2 Two per-user folders
+
+| Folder | Holds | If it is deleted |
 | --- | --- | --- |
-| Documents and managed items | The checkout, in Git | No: each checkout has its own files |
-| Originals of imports; write locks for items and settings | Beside what they belong to, as today | No |
-| The item index and the document index | The per-user cache, keyed by project and checkout | Never: two worktrees hold different bytes at one path, even at one commit |
-| Model files and the vectors of shared passages | The per-user cache, by content, as today | Yes: identical text embeds once |
-| Personal derived data and personal memory | With the personal section | No |
-| Shared memory | The per-user state folder (section 4) | Yes: every worktree of one repository, for one brain |
+| **The cache**: `PBRAIN_CACHE`, else `pbrain` under the user's cache folder (`~/.cache` on Linux, `~/Library/Caches` on macOS) | What can be rebuilt: model files, vectors, the semantic indexes | Nothing is lost; `pbrain sync` rebuilds |
+| **The state folder**: `PBRAIN_STATE`, else `pbrain` under `$XDG_STATE_HOME` when that is an absolute path, else `~/.local/state/pbrain` on Linux and `~/Library/Application Support/pbrain` on macOS | What cannot be rebuilt: memories, the originals of imports; and pbrain's small records (enrolment, host sessions, installed hooks, migration receipts) | Memories and originals are gone |
 
-### 12.2 Who may write the state folder
+Both folders are owner-only, and neither is ever walked for documents.
 
-A person's own session and an agent run by hand may write their brain's state folder and the cache; a sandbox has to allow both, and the README says which paths. A restricted worker under a supervisor's automatic checkpoint has no such access: the supervisor writes for it (section 8.4).
+**Nothing in them can be used as input, ever.** Everything pbrain newly keeps in either folder (memories, originals, records, indexes, personal vectors) sits below a folder named `.pbrain` inside it. `import` and `--body-file` already refuse any input whose resolved path has a `.pbrain` component, wherever it is, and that rule stays: so a personal original is refused as a shared input even after `PBRAIN_STATE` or `PBRAIN_CACHE` has been pointed somewhere else and the old folder is no longer "the" state folder. In addition, an input inside either folder as configured now, or inside the lock folder of 12.5, is refused; what pbrain keeps in the lock folder is below a `.pbrain` folder too. No `.pbrain` folder is created in a working tree. The model files and the vectors of shared passages are not private and keep their present places in the cache.
 
-### 12.3 The one upgrade step
+**The two folders must be apart.** After resolving links, the cache and the state folder must be two different folders, neither inside the other, and both outside every Git working tree, every brain and every personal section. Otherwise deleting "the cache" could delete the only copy of the originals and the memories. A configuration that breaks this, by `PBRAIN_CACHE` or `PBRAIN_STATE` or by a link, makes every command that needs either folder fail with `invalid_config`, naming the variable, before it creates, moves or deletes anything; commands that read items only are not affected. This is stricter than today, where a cache inside a working tree was accepted if Git ignored it: such a setting is now reported, nothing new is written there, and the person moves the folder or unsets the variable.
 
-The shared item index moves from the brain's `.pbrain` folder to the per-user cache with the documents phase. The personal index stays where it is, with the personal section, and stays ready if it was ready for the profile in effect. After that upgrade, in each checkout, `search --semantic` returns its lexical results with `semantic_not_ready` for the shared section until `pbrain sync` has run once there. `--personal` is still a combined view: it reports the shared side as not ready by itself, and the personal side as it is. That first shared sync reuses every vector the cache holds for the same text and profile and embeds only what is missing: nothing, when the cache is intact and the profile unchanged; everything, when the cache was cleared; and after a change of profile, whatever the cache does not already hold for that profile from an earlier run. The old index files are left in place and can be deleted by hand. Nothing else about an existing brain changes.
+**Changing where the state folder is** is something a person does with nothing running. pbrain does not move data between two state folders: memories and originals kept under the old one are not found under the new one until the person moves the folder. Model files and shared vectors keep their present places inside the cache, so nothing is downloaded or embedded again because of the move.
+
+### 12.3 What is keyed by what
+
+| State | Folder | Key | Shared between worktrees of one repository? |
+| --- | --- | --- | --- |
+| Model files; vectors of shared passages | cache | content | Yes, and between projects: identical text embeds once |
+| The shared item index, and the document index | cache | project and checkout | No: two worktrees hold different bytes at one path, even at one commit |
+| Originals of shared imports | state | project and checkout | No: each checkout keeps the originals its own items refer to, as today |
+| Shared memory | state | project | Yes |
+| The personal index, personal vectors, originals of personal imports, personal memory | cache (index, vectors) and state (originals, memory), each in a folder of the personal section | the personal section | With every checkout that uses that personal section, as today |
+
+- **Project:** the repository's Git common directory and the brain's path in the work tree; outside Git, the brain's resolved path. **Checkout:** the work tree's resolved root. **Personal section:** its resolved root.
+- **A path that was reused is a new place.** Each key is bound to the identity of the folder it was made for, as memory's enrolment is (4.2). A worktree deleted and created again at the same path, a different repository put at an old path, and a personal folder replaced by another are each new: they start with no originals, no index and no completed move, and never see their predecessor's. The predecessor's data is left where it is.
+- **Two clones of one repository on one machine** have two common directories, so two project keys: they share nothing but models and vectors, and each has its own default personal section. The same remote and the same commit make no difference. Only if a person points both clones at the very same personal folder do they share that personal section's data, as one personal section always has.
+- A personal section's data is never in a folder that a shared call opens, and personal vectors are never reused by a shared index or the other way round. This replaces the pbrain spec's rule that personal data lives in the personal section's own `.pbrain/` and that the per-user cache holds nothing personal: it now holds the personal index and vectors, in their own folder.
+- A worktree that was deleted leaves its index and originals behind. pbrain never deletes another checkout's data by itself; section 20 has the open point.
+
+### 12.4 Moving an existing brain
+
+A brain or a personal section that still has a `.pbrain/` folder is moved once, per checkout and per section, by the first command that would write there (`add`, `import`, `verify`, `delete`, `sync`, `audience`, `init`), and never by a read.
+
+1. Everything in the move happens under the section's lock of section 12.5, the one every writer of this version takes: finding the old folder, looking for the receipt, copying, cutting over and cleaning up. The old lock file is taken as well while copying, but nothing new ever waits on it, because the clean-up removes it. Under those locks every original is copied to the state folder, read back and compared with its digest and length, and it and every folder newly created for it are synced to disk.
+2. **The cutover is the receipt.** Only when every original has been copied, verified and synced is a receipt written in the state folder and itself synced. If any copy, comparison or sync fails, including the receipt's, nothing old has been removed, the command that triggered the move fails with `io`, and the next writing command tries again.
+3. After the receipt, the old originals, the old index and the old lock file are removed, and the `.pbrain/` folder if it is then empty. From the receipt on, originals are read from the state folder only. A crash during this clean-up loses nothing: the next writing command sees the receipt and finishes the clean-up, and never copies an old file again, so an original deleted since is not brought back. A file in the old folder that is not pbrain's is left, with the folder; the receipt says the move is done, so it is not tried again on every write.
+4. The index is not copied: `search --semantic` gives its lexical results with `semantic_not_ready` until `pbrain sync` has run once. That sync reuses every vector the cache holds and can read for the same text and profile, and embeds only what is missing. A personal index is rebuilt from the personal section's own vectors and embeds what it lacks; it never borrows a shared vector.
+5. The command prints a `state_moved` notice with the number of originals and the new place.
+
+Until the receipt, a read finds an original in the old folder; a read that runs while the move is in progress finds it in one place or the other, never in neither: one that loses the old file at the cutover looks again in the state folder. Two first writers at once move once. The same holds for a personal section that several checkouts use. A personal section is moved only by a command that is allowed to write it. The move itself writes the state folder, so the first writing command on a brain that still has a `.pbrain/` folder needs that folder writable, whatever the command.
+
+An older pbrain does not know the new places or the new lock. Running an old and a new pbrain against one checkout, or against one personal section from different checkouts, at the same time is not supported, and the release note says so. `init` keeps writing the `.pbrain/` line into `.gitignore` beside `personal/` and `personal.toml`, so that a folder an old version creates is never committed.
+
+### 12.5 Locks
+
+Writers still take turns per section (pbrain spec 8.1), also across checkouts that share a personal section. The lock is no longer a file in `.pbrain/`: by the owner's decision of 2026-11-26 every lock pbrain itself keeps is a file in per-user state, where a cache purge cannot remove it. That covers the writers' locks, the build locks, and the locks of `memory init`, of a promotion and of `hooks install`.
+
+- **One lock per place that is written.** The brain of one checkout has one; a personal section has one, whichever checkout or clone reaches it. Two worktrees do not wait for each other; two checkouts that use one personal section do, as today.
+- **The lock folder is fixed.** The locks are kept in one folder per user account, `pbrain-locks`, beside the default state folder: `~/.local/state/pbrain-locks` on Linux and `~/Library/Application Support/pbrain-locks` on macOS, where `~` is the account's home as the operating system records it. It does not follow `PBRAIN_STATE`, `XDG_STATE_HOME` or `HOME`, and each lock is named after the folder it protects, not after a setting. That folder counts as a third folder in the rule of 12.2: the cache and the state folder may not be it, lie in it or contain it. With no setting at all the three are apart, since the lock folder is a sibling of the state folder. So two processes of one user that were started with different `PBRAIN_STATE` or `PBRAIN_CACHE` values and write the same checkout, the same personal folder or the same index still wait for each other.
+- **A shared call never takes a personal lock**, and never needs the personal section's state to exist.
+- **Building an index** is serialized by a lock of the same kind, per index. So `sync` needs the lock folder as well as the cache for its data. A search's catch-up that cannot take that lock simply does not catch up.
+- SQLite's own side files are not these locks: they stay beside each database.
+
+A promotion takes the memory's lock and then the section's lock, in that order and nowhere in the other.
+
+### 12.6 Databases on disk
+
+Memory and the semantic indexes are ordinary SQLite databases, opened in place, in WAL mode, with every commit synced to disk: a store writes one record, and any number of agents read while one writes. This holds on Linux and on macOS. The semantic index is no longer loaded into memory and written out whole; `sync` builds it in place, in transactions, and a reader sees one committed state.
+
+What a search and `sync --status` see is what the pbrain spec (9.4, 7.1) promises today, and no more is deferred than today:
+
+- **Every commit is a usable checkpoint.** After the first committed part of a first build, a semantic search uses the items indexed so far, with today's rules for missing and changed items and today's `semantic_partial` notice; `sync --status` counts them.
+- **An interrupted `sync` resumes** from its last commit; what was committed stays in use meanwhile.
+- **Another model or profile is built beside the index in use**, in a database of its own. The index in use goes on answering, for the model and profile it was built for, until the new one is complete; a half-built index for another profile never replaces a usable one.
+- A build that is killed leaves a database that opens and answers as far as it had committed.
+
+**Reading needs the folder too.** SQLite keeps two side files beside a database in this mode and may have to create them even to read. So `recall` needs to write in the state folder, and a semantic search in the cache. On a folder that is read-only, `recall` fails with `io`, naming the folder, and so does `sync`. A search with `--semantic` keeps the pbrain spec's behaviour for an index it cannot use: it returns its lexical results with `semantic_not_ready`, and the notice names the folder. Only local file systems are supported.
+
+SQLite opens its files by name, so these databases are the one place where pbrain does not reach a file through an open folder handle. That is confined to pbrain's own two per-user folders: the paths are built by pbrain alone; the folders and files are owner-only and are checked for type, owner, mode and links before every open; no row of a database is read into a result, and nothing is written to it by pbrain, until pbrain has found its own schema and the expected project, checkout or section in it (SQLite itself may read the file's header and complete an interrupted commit before that); and a restricted worker under a supervisor has access to neither folder, only its supervisor's broker has. Another user cannot interfere. A process of the same user that is allowed to write these folders is trusted with them: it could redirect an open, and pbrain does not claim to stop that.
+
+### 12.7 Guards
+
+- The **protected paths** of the pbrain spec (5) become: the personal section, the default `<brain>/personal/` even when another folder is configured, and `personal.toml`. A section's `.pbrain/` is no longer one of them, because there is none; an old one that is still present is pruned from every walk and refused as input until it is moved.
+- The exposure guard on the personal section is unchanged.
+- Much of the concern about links goes: pbrain no longer owns files inside a repository that someone else could have prepared. What stays: items and documents are still read through open folder handles, never through a link; inputs are still resolved and refused inside protected paths and inside the two per-user folders.
+
+### 12.8 Who may write where
+
+| Command | Needs to write |
+| --- | --- |
+| `add`, `verify`, `audience`, `delete` | The working tree, and the lock folder |
+| The first writing command on a brain that still has a `.pbrain/` | The working tree, the lock folder and the state folder (the move) |
+| `import`, and `delete` of an imported item | The working tree, the lock folder and the state folder (originals) |
+| `store`, `forget`, `promote`, `recall` | The state folder; `promote` also the working tree and the lock folder |
+| `memory init` | The state folder and the lock folder |
+| `hooks install`, `hooks uninstall` | The lock folder and the host's settings file |
+| `sync`, `docs sync` | The cache, and the lock folder for the build lock |
+| A search with `--semantic` | The cache, to use the index; the lock folder as well, to catch up. Without them the search still answers: by words, or from the index as it is |
+| Every other read | Nothing |
+
+The lock folder is its own folder (12.5): allowing a relocated state folder does not allow it. So every command that writes an item needs the lock folder. In a sandbox that allows only the working tree, such a command fails with `io`, naming the folder, before it changes any item.
+
+A sandbox has to allow those folders for those commands, and the README names the paths. A restricted worker under a supervisor's automatic checkpoint has no such access: the supervisor writes for it (section 8.4).
 
 ## 13. The skill
 
@@ -586,7 +675,7 @@ The lifetimes, the caps, the quota and the size limits of sections 3.5 and 7 are
 
 Errors: `memory_not_enabled`, `memory_busy` (retryable), `secret_refused`, `quota_full`, `no_source`. The existing `too_large`, `invalid`, `conflict`, `confirm_required`, `not_found`, `usage`, `git_required`, `personal_exposed` and `invalid_config` are used as stated above.
 
-Notices: `memory_not_enabled` (on `recall`), `docs_not_configured`, and the existing `destination`, `after_write` and `semantic_not_ready`.
+Notices: `memory_not_enabled` (on `recall`), `docs_not_configured`, `state_moved`, and the existing `destination`, `after_write` and `semantic_not_ready`.
 
 Findings of `docs check`: section 11.5.
 
@@ -604,7 +693,7 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 6. Refusals: 65,537 bytes is `too_large`; a planted token is `secret_refused` and neither the message nor any file holds it; invalid UTF-8 is `invalid`. Nothing is written in any of them.
 7. A short-term memory, a blocker included, is gone after seven days; a long-term one is there after fifteen days, a restart, quota pressure and a cache purge, and gone after `forget`. A long-term one with `--until` survives the same pressure and is gone at its date, not before.
 8. The 33rd short-term memory of a task drops the oldest; a long-term memory of the same task stays; a replay of the dropped one is refused. Thirty-three no-task stores across two worktrees under different claimed authors leave 32, and leave the personal section untouched.
-9. The 501st long-term store is `quota_full` and a short-term store still works; after one `forget` a long-term store works again.
+9. The quota's two allocations: with the ordinary allocation full by count, and separately full by bytes, an agent's long-term store is `quota_full`, a short-term store still works, and a store at a person's observed request is still admitted; a store that only claims `--asked-by human:owner` is counted as ordinary; the 201st observed person's request is `quota_full`; a duplicate is not counted twice; after one `forget` a store works again. Run with concurrent writers.
 10. Private data: with and without planted personal memories, every shared result, count, message and file is identical.
 11. Without `memory init`: `store` fails with `memory_not_enabled`; `recall` returns an empty page with the notice and exit 0.
 12. `--learned --retention short-term` and `--learned --kind outcome` are usage errors; `--learned` with no other flag makes a long-term statement marked learned.
@@ -618,7 +707,7 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 17. "Remember that X" inside a longer prompt stores X and nothing else.
 18. `--from-last-response` on the qualified host stores the previous visible answer byte for byte, with `said_by` the agent, `capture: verbatim` and its `turn`. Two model cases: the session starts on model A, switches to B, and a B answer is recorded as B or left absent, never as A; and an older A answer recorded after the switch is A or absent, never B. After a branch change the `recorded_` fields name the new checkout and are labelled as the recording checkout, and `source_commit` is the old commit if the adapter observed it and absent if not. After the session's task changed it fails with `no_source`. `--from-last-response --session OTHER` is a usage error, and with `PBRAIN_SESSION` forged to another live session's id it fails with `no_source` and reads nothing of that session. `--from-last-response --capture checkpoint`, and `--capture checkpoint --learned`, are usage errors.
 19. With no adapter, `--from-last-response` fails with `no_source` and stores nothing; it never returns an older answer.
-20. The dialog: answered *for the team* stores shared with `asked_by` the person; *only for me* stores personal. On a host with no dialog, "remember only for me that X" and "we learned X" from an unlabelled message, each with a private sentinel in X, leave no row, receipt or text in either section and no trace of the sentinel in any file or message; the reply carries the command with the settled kind and term, and running it stores the memory. An unlabelled "yes" and a reply from automation that claims to be a dialog answer store nothing.
+20. The dialog: answered *for the team* stores shared with `asked_by` the person; *only for me* stores personal. `store --dry-run` before the dialog prints its selection line with no memory opened or created in either section, and only the store after a *for me* answer is counted, in the personal section. On a host with no dialog, "remember only for me that X" and "we learned X" from an unlabelled message, each with a private sentinel in X, leave no row, receipt or text in either section and no trace of the sentinel in any file or message; the reply carries the command with the settled kind and term, and running it stores the memory. An unlabelled "yes" and a reply from automation that claims to be a dialog answer store nothing.
 21. Lessons between agents: one message with one lesson delivered to two workers gives one long-term memory, said by the teacher, asked and recorded by the designated receiver; delivered twice under the same lesson id, still one; a message with two lessons gives two; an independent message with identical words gives another; and a replay after the memory was forgotten writes nothing. An agent paused by a planted private item that learns X from it stores nothing in the shared section; an agent that learns the same words independently in a clean shared context stores them there.
 22. Enabling explicit capture creates no additional copy of any answer in pbrain's or the adapter's files or logs.
 
@@ -639,17 +728,27 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 32. The pause, five cases: a labelled assignment leaves its receiver eligible; unmarked confidential input to the operator withholds only the operator's checkpoint and leaves its explicit saves working; the same pane after a compaction is still paused; a clean worker that got only the assignment still checkpoints; a delivery that mixes labelled and unlabelled text pauses its receiver. A paused worker cannot store by writing the state folder itself.
 33. Hook cost: section 17.2.
 
-**Documents (phase 4)**
+**Documents (phase 5)**
 
 34. Compatibility: two matched item fixtures with a fixed clock and ids, one with an enrolled folder holding a valid document and an invalid-UTF-8 file. `search`, `list`, `get`, `prime`, `check` and `sync`, from the CLI and through the catalog, give the same output, findings, exit code and counts on both. Only `docs check` reports the bad file.
 35. The default layout: `docs/` enrolled, `docs/brain` managed, a private sentinel in `docs/brain/personal`. No `docs` command reads, counts or names the sentinel; every item is returned once, as an item. `docs inventory docs`, from the CLI and as a tool, gives the same output, counts, notices and paths with and without the sentinel.
 36. A file dropped into a folder is found by `docs search` at once; renamed, it is found at its new path and not the old; deleted, it is gone.
 37. Headers: no header, a foreign header with a title, a broken header, and a header with `status: verified` and `decided:`. Each is a document; none has a status; the last never appears in `prime`.
 38. Two `README.md` files in different folders are two results; two paths that differ only by case are left out and reported. A managed item whose id is `report.md` is read by `docs get report.md`, and every path and id that `docs search` and `docs list` return opens with `docs get`. With no `[docs]` table, `docs sync` and `docs check` succeed with `docs_not_configured`, and `docs search --class document --semantic` needs no item index.
-39. Two worktrees at different commits each search their own documents, and `docs sync --status` is separate for each. A `docs sync` leaves `sync --status` unchanged. The upgrade of 12.3, four cases: an intact cache (the first sync embeds nothing), a cleared cache (it embeds everything), a personal section (ready throughout if it was ready, its index not moved, while `--personal` reports the shared side not ready by itself), and another profile selected (it embeds only what the cache lacks for that profile); the old files are still there after each.
+39. Two worktrees at different commits each search their own documents, and `docs sync --status` is separate for each. A `docs sync` leaves `sync --status` unchanged. After the move of 12.4, four cases for the first `sync`: an intact cache (it embeds nothing for shared passages whose vectors it can read), a cleared cache (it embeds everything), another profile selected (it embeds only what the cache lacks for that profile), and a personal section (it embeds what its own vectors lack and takes none from the shared ones). `--personal` reports each side's readiness by itself.
 40. Order: a document whose title holds every query word comes before an item that holds them only in its body; inside one match class the items come before the documents.
 41. The quality gate of section 17.4, run from the frozen fixture: its three hashes are checked first, and a mismatch fails the gate before any search runs.
 42. Promotion into a new document and a patch for an existing one, as in 10.4; machine C with an empty memory finds the banked document after a pull. A patch whose one source has no portable ref, with the same complete body given once on the command line and once as a tool call with `text` and `quote`: both patches are identical, each includes the full quoted text with its attribution, and the runbook on disk is byte for byte unchanged.
+
+**Out of the working tree (phase 4)**
+
+43. A fresh `init`, then `add`, `import`, `sync`, `store` and the same with `--personal`: there is no `.pbrain/` in the brain or in the personal section, and `git status` shows the items and nothing else of pbrain's.
+44. Moving an existing brain: with originals, an index and a lock file in `.pbrain/`, the first writing command copies every original, verifies it, prints `state_moved`, and the old folder is gone; a read before the move, and one racing it, still finds its original; two first writers at once both succeed with one cutover, and neither creates an old lock file or an old folder again; a failed sync of a copied file, of a new folder or of the receipt leaves every old original and fails the triggering command; a process killed after the copy and before the receipt loses nothing, and the next writing command finishes the move; one killed after the receipt and during the clean-up reads from the state folder, finishes the clean-up, and does not bring back an original deleted meanwhile; an original that does not match its digest stops the move with nothing removed; a file that is not pbrain's leaves the old folder in place and the move is not tried again.
+45. Worktrees and clones: delete an imported item in worktree A, and worktree B's item with the same digest still reads its original. Two clones of one repository at one commit, each with its own personal section, share no memory, no originals and no index; pointed at one personal folder, they share that section's data and nothing else. A worktree deleted and created again at the same path starts with no originals and no index of its predecessor's.
+46. Purge and placement (with a `PBRAIN_CACHE` that reaches the lock folder through a link refused the same way, and two writers with different `PBRAIN_STATE`, `XDG_STATE_HOME` or `HOME` on one checkout still taking turns): after the cache is deleted, originals, memories and receipts are intact and `sync` rebuilds the index; the README states what deleting the state folder loses. With `PBRAIN_STATE` and `PBRAIN_CACHE` equal, one inside the other, the same through a link, or either inside a working tree: `store`, `import`, `sync` and the move each fail with `invalid_config` before creating, moving or deleting anything, and `search`, `get` and `list` work. After `PBRAIN_STATE` is changed to another folder, a shared `import` and a shared `--body-file` aimed at a personal original in the previous folder, directly and through a link to it, answer exactly as for a file that does not exist, return no byte of it and publish nothing; the same holds for the record that `hooks install` keeps of a settings file; an ordinary file outside these folders is still accepted.
+47. Personal: with the personal section's state unreadable, every shared command works and reveals nothing of it; a personal vector is never served to a shared search.
+48. Database files, for memory and for each index: a link at the database's name or at either side file's name is refused with `io` and nothing is opened; a real pbrain database of another project, checkout or section put in its place is refused before any of its rows is returned or anything is written to it by pbrain; with the folder read-only and the side files absent, `recall` and `sync` fail with `io` naming the folder, and a search with `--semantic` returns its lexical results with `semantic_not_ready`; five writers and readers at once, on Linux and macOS; a process killed before and after a commit leaves a database that passes SQLite's integrity check; for the index, on each of three branches (a first build, an incremental `sync` for the same profile, and a build for another profile): what a search and `sync --status` report after the first commit, after the writer is killed, and after a successful resume, with a reader running throughout; and a half-built index for another profile never answers in place of a usable one.
+49. Sandbox: with only the working tree writable, `add`, `verify`, `import`, `store` and `recall` each fail with `io` naming the folder they lack, and no item is created, changed or removed; `search`, `get` and `list` work. With the lock folder writable as well, `add` and `verify` succeed, with neither the state folder nor the cache writable. With a relocated `PBRAIN_STATE` writable and the lock folder not, `add` still fails. A shared write succeeds when nothing of the personal section can be opened. With no setting at all, every command works on Linux and on macOS.
 
 ## 17. Constraints and delivery order
 
@@ -657,12 +756,13 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 
 Each phase can be released separately; nothing is tagged without the owner's word.
 
-1. **Explicit memory.** `memory init`, `store`, `recall`, `forget`; the two terms, the caps and the quota; provenance; the skill's handling of requests to remember. Then the adapter for Claude Code, so that `--from-last-response` and observed provenance work: `pbrain hook session-start`, which in this phase only notes the session, and `hooks install`.
+1. **Explicit memory.** `memory init`, `store`, `recall`, `forget`, on an on-disk database; the two terms, the caps and the quota; provenance; the skill's handling of requests to remember. Then the adapter for Claude Code, so that `--from-last-response` and observed provenance work: `pbrain hook session-start`, which in this phase only notes the session, and `hooks install`.
 2. **Promotion** into a learning or a decision, one memory and then several.
 3. **Long sessions.** The task page, returned by the session-start hook, and the `pre-compact` hook; then, in the factory's repository, the labelled channel, the checkpoint and the pause. Automatic checkpoints are on by default only after the pilot of 17.3 passes.
-4. **Documents.** `[docs]`, the `docs` commands, the indexes in the per-checkout cache, and a document as a promotion target.
+4. **Out of the working tree.** No `.pbrain/` in the repository: originals and locks to the state folder, the semantic index as an on-disk database in the per-checkout cache, and the move of existing brains (section 12).
+5. **Documents.** `[docs]`, the `docs` commands, the document index, and a document as a promotion target.
 
-Phases 3 and 4 do not depend on each other.
+Phases 3 and 4 do not depend on phases 1 and 2 or on each other. Phase 5 needs phase 4.
 
 ### 17.2 Hook cost
 
@@ -729,7 +829,7 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 
 ## 19. The basis of this spec
 
-**The owner's decisions.** D1 to D20 of `proposal.md`, all as recommended. Answers of 2026-11-26: a standing rule is offered for banking (6.5); one dialog question settles who and where, and the wording sets the term, with "learned" always long-term, for agents too (6.1, 6.2, 6.4), except that the round 1 fallback for a host with no dialog is replaced, pending the owner's confirmation (section 20); the long-term quota is 500 memories and 16 MiB (7.2); `statement` is the kind of a remembered statement (3.2); `pbrain.toml` stays in the brain folder (11.1); `docs search` orders by match class with items ahead of documents inside one class (11.5).
+**The owner's decisions.** D1 to D20 of `proposal.md`, all as recommended, with two later ones that replace D5's and D10's detail: nothing of pbrain's in the working tree, and on-disk SQLite for memory and the indexes (section 12). Answers of 2026-11-26: a standing rule is offered for banking (6.5); one dialog question settles who and where, and the wording sets the term, with "learned" always long-term, for agents too (6.1, 6.2, 6.4), except that the round 1 fallback for a host with no dialog is replaced, which the owner confirmed (section 20); the long-term quota is 500 memories and 16 MiB (7.2); `statement` is the kind of a remembered statement (3.2); `pbrain.toml` stays in the brain folder (11.1); `docs search` orders by match class with items ahead of documents inside one class (11.5).
 
 **Settled in this spec, and accepted by the owner in round 1:** the flag `--retention` with `--until`; `--said-by`, `--asked-by` and `--author`; `recall`'s `--banked`, `--id`, `--page` and `--retention`; a task as a token; `memory_not_enabled`; `PBRAIN_STATE`; a document's address as its path; `docs inventory` and no rewriting of `pbrain.toml`; shared-only document folders; `hooks install` writing the untracked settings file by default; the document quality gate, which round 1 left as a shape and which is now a frozen fixture with pinned hashes, at the reviewer's request (17.4).
 
@@ -744,14 +844,22 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 - That a change to an existing document is returned as a review-only patch and is not recorded as a promotion (10.4); `promote --show`; `docs get --path`; `docs_not_configured`; `--capture checkpoint`; the `recorded_` and `source_commit` fields; and that no personal row is injected in the first version (8.1).
 - The ceilings: 16 folders, 16 sources in one promotion, 10,000 short-term memories per section.
 
-## 20. Open questions
+## 20. Questions the owner answered, and what is left for the architecture
 
-For the owner, each with a recommendation:
+The owner answered these on 2026-11-26, when approving this spec:
 
-1. **Agents' lessons and the long-term quota.** "Learned is always long-term" applies to agents, and a busy team could fill the quota with lessons in days. From then on a person's own "remember" is refused until someone prunes. Promotion does not help by itself: it leaves the original memory in place and frees nothing; only `forget` or a chosen end date does. *Recommended:* keep one quota of 500 memories and 16 MiB, but reserve 200 memories and 6 MiB of it for memories a person asked for, so that agents' lessons can never crowd them out in either measure. Only a requester the adapter observed as a person counts for the reserve: a caller that merely passes `--asked-by human:owner` does not consume it; and have the skill, once a task's lessons are banked and the item is reviewed, offer to forget them. *Alternatives:* a separate, larger quota for what agents learned; or one undivided quota, relying on pruning.
-2. **Learned as a mark, or as a kind of its own.** This spec marks a `statement` as learned (3.2), as @architect-2 and @lead-dev both recommend: the mark is separate from how the text was captured, nothing resembles the item kind `learning`, and the always-long-term rule and the offer to bank work the same. *Alternative:* a fifth kind, `lesson`, which @architect first proposed because the rule, recall's order and the promotion target would all hang on one field. Either can be built.
-3. **Nothing is stored on a host with no dialog.** In round 1 the owner chose a fallback that stored a typed "remember" for the team as short-term when no dialog exists. The owner's refinement, that the wording sets the term, and the pause rule of D18 both speak against it: the fallback would change the term the person asked for, and would put "remember only for me that X" into team memory, which a later reply cannot undo. This spec therefore stores nothing in that case and gives the person the exact command (6.2). @architect-2 and @lead-dev both call the old fallback a disclosure bug. *The owner should confirm this change to an answer already given.* It does not affect Claude Code, which has a dialog, except when it runs without a terminal.
-4. **The dialog on every "remember" typed by a person.** The owner chose it. If one click per request proves irritating in use, the alternative the reviewers refused, trusting the prompt in a session a person started alone, would have to be reopened with them.
-5. **Standalone use has no automatic checkpoint.** A checkpoint needs a supervisor to vouch for the context, so a person using pbrain with one agent and no factory gets explicit capture, recall and the task page, and no checkpoint prompt. *Recommended:* accept for the first version.
+1. **Agents' lessons and the long-term quota.** Split the quota: a reserve for memories a person asked for, and the rest for agents. Section 7.2 has it. The reserve is for an observed human requester; the factory's operator agent is an agent.
+2. **Learned as a mark, or as a kind of its own.** The mark on a `statement`, as in section 3.2. No `lesson` kind.
+3. **A host with no dialog.** Nothing is stored, and the agent shows the exact command, as in section 6.2. This replaces the fallback of round 1.
+4. **The dialog on every "remember" typed by a person.** Accepted: one click. To be looked at again only if it irritates in use.
+5. **Standalone use has no automatic checkpoint.** Accepted for the first version.
 
-For the team, to settle in the architecture step: whether the document index is its own or shares one with managed items underneath the separate commands; how the adapter reads the previous answer and the effort from each host; how a supervisor gives a long-lived agent a clean context for its next task; and the byte limits on a section's stored state and on its replay receipts from the reviewed #83 plan, which must be kept, since the counts in section 7 alone do not bound a section that holds 64 KiB texts and many keyed writes.
+6. **Later decisions of 2026-11-26.** No `.pbrain/` folder in the repository, for the shared brain or the personal section; rebuildable data in the per-user cache, memories and originals in the per-user state folder; and ordinary on-disk SQLite, opened in place, for memory and for the semantic index, on Linux and macOS (section 12).
+
+The owner then confirmed both, and settled where locks live: in the per-user state folder, with the originals and the memories (12.5). So every command that writes an item needs the lock folder, which is in the state location and does not move (12.5, 12.8).
+
+One point is still open, with a recommendation:
+
+- **Data of a worktree that no longer exists.** Its index, its originals and its lock file stay behind in the cache and the state folder. *Recommended for the first version:* document the layout, never delete another checkout's data automatically, and add a command that lists and removes such data later.
+
+For the team, to settle in the architecture step: the schema of the on-disk indexes and how a build stays complete or unused; how the adapter reads the previous answer and the effort from each host; how a supervisor gives a long-lived agent a clean context for its next task; and the byte limits on a section's stored memory and on its replay receipts, which must be exact.
