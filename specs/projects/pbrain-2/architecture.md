@@ -24,7 +24,8 @@ It is the first of two parts. Section 13 lists five component documents that fol
 | Taking turns | No lock files (the owner's decision of 2026-11-27). A writer holds an open SQLite write transaction on a small "turn" database in the state root, one per thing that needs turns: a section, a host settings file, an index, a model download. Nothing is ever stored in a turn database. | Released by the operating system when a process dies, a bounded wait, one mechanism. A cache purge cannot remove it. Every item write therefore needs the state root (section 6.4). |
 | pbrain's own records | Rows in one records database in each root: which project has which memory, which folder has which id, what `hooks install` inserted, that an old folder was moved. | No marker or record files, and each record is one transaction. |
 | Patches | A small line diff of pbrain's own, checked in tests against `git apply`. | No new dependency for one output format. |
-| Dependencies | None added. | The first project's rule (pbrain architecture 15). |
+| A person's view of memory | Lists over the same rows: `memory log`, `sessions` and `highlights` as ordinary reads with a keyset cursor; labels in a table of their own; a screen, `memory browse`, in one package that the rest of pbrain does not import. | Agents fill memory on their own and a person reviews afterwards (spec 5.5 to 5.7). The screen adds no ability the commands lack. |
+| Dependencies | Four added, for the screen only, by the owner's choice of 2026-11-27: `charm.land/bubbletea/v2`, `charm.land/bubbles/v2`, `charm.land/lipgloss/v2`, `charm.land/glamour/v2`. They build without cgo; the release audit does not pass with them linked into pbrain, and how the screen is shipped is an open decision for the owner (section 5.5). Nothing else is added. | The first project's rule (pbrain architecture 15) was none; this is the owner's exception. |
 
 ## 2. System shape
 
@@ -51,14 +52,15 @@ New and changed packages, in the dependency order of the pbrain architecture (se
 
 | Package | New or changed | Responsibility | Imports (of pbrain's own) |
 | --- | --- | --- | --- |
-| `cli` | changed | New commands: `store`, `recall`, `forget`, `promote`, `memory init`, `hook`, `hooks`, `docs …`. New operand form for arrays in the catalog. | all |
+| `cli` | changed | New commands: `store`, `recall`, `forget`, `promote`, `memory init`, `memory log`, `memory show`, `memory sessions`, `memory highlights`, `memory browse`, `hook`, `hooks`, `docs …`. New operand form for arrays in the catalog. | all |
+| `browse` | new | The screen of `memory browse`: a Bubble Tea program over the lists of `memory`. The only package that imports the four Charm libraries, and imported only by the `memory browse` command. It gets its data and its actions through two small interfaces that `cli` implements, so it imports neither `cli`, `store` nor `brain`. | `memory` (types), `render`, `errs` |
 | `hosts` | new | The host-neutral types of an adapter: an event, a reply, a session reader. The table of supported hosts and versions. Installing and removing a host's settings. | `memory`, `guarded`, `sys`, `errs` |
 | `hosts/claude` | new | Claude Code: parsing its hook events, forming its replies, reading its session file. Imported only where the host table is built, as model adapters are. | `hosts`, `errs` |
 | `check` | changed | Document findings beside item findings. | adds `doc` |
 | `semantic` | changed | The index as an on-disk database opened in place, for items, documents and the personal section, all in the cache; a neutral entry in front of the passage and vector core; no image, manifest or generation. | adds `doc`, `guarded` |
 | `embed` | changed | `Model.CPURate`: the model's measured processor rate, for the estimate in the `cpu_fallback` warning (10.4). | none |
 | `search` | changed | Matching and ranking over items and documents together. | adds `doc` |
-| `memory` | new | The memory record, the database, admission, retention, replay, quota, recall order, the task page, promotion previews and tokens. The only package besides `semantic` that imports the SQLite driver. | `guarded`, `query`, `item` (actors and the fold only), `secretscan`, `sys`, `errs` |
+| `memory` | new | The memory record, the database, admission, retention, replay, quota, labels (tags and keywords), recall order, the lists a person reviews with, the count of dropped rows, the task page, promotion previews and tokens. The only package besides `semantic` that imports the SQLite driver. | `guarded`, `query`, `item` (actors and the fold only), `secretscan`, `sys`, `errs` |
 | `store` | changed | `ScanDocs` and `InventoryDocs`; `CreateDoc`; originals in the state root; the section's turn in `Begin`; `Migrate`, the move of an old `.pbrain/`; inputs refused inside both roots. | adds `doc`, `guarded` |
 | `brain` | changed | `[docs]` and `recall` in the configuration; the project root; the document folders and what is pruned from them; the memory project key. | unchanged |
 | `doc` | new | The document model: its address, its header, its title and body, its line arithmetic. | `outline`, `errs` |
@@ -89,6 +91,9 @@ type Row struct {
     Capture   Capture
     Fact      string    // set for Capture report: "check-passed" | "check-failed" | "handoff-delivered"
     Task      string
+    Run       string    // the supervisor's run, when given
+    Tags      []string  // at most TagMax, folded, sorted, without repeats; from the caller
+    Keywords  []string  // at most KeywordMax; derived by pbrain at admission (4.3), never supplied
     Ref       string
     SaidBy, AskedBy, RecordedBy string
     Source    string    // producer token
@@ -109,7 +114,9 @@ type Row struct {
 const (
     TextMax       = 65536
     CheckpointMax = 2048
-    MetaMax       = 8192 // UTF-8 bytes of all metadata values of one row together
+    MetaMax       = 8192 // UTF-8 bytes of all metadata values of one row together; tags count, keywords do not
+    TagMax        = 8
+    KeywordMax    = 5
 )
 ```
 
@@ -138,16 +145,17 @@ CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT, WITHOUT RO
 -- rows, personal memory: kind = "memory", scope = "personal", incarnation = the personal enrolment id, personal = the personal id   (no project: see 6.3)
 
 CREATE TABLE memory (
-  rowid INTEGER PRIMARY KEY,
+  rowid INTEGER PRIMARY KEY AUTOINCREMENT,   -- the admission sequence of this enrolment: it only rises and is never reused
   id TEXT NOT NULL UNIQUE,
   kind TEXT NOT NULL, learned INTEGER NOT NULL, term TEXT NOT NULL, capture TEXT NOT NULL, fact TEXT,
   alloc INTEGER NOT NULL, bucket TEXT,
-  task TEXT, ref TEXT, said_by TEXT, asked_by TEXT, recorded_by TEXT NOT NULL, source TEXT NOT NULL,
+  task TEXT, run TEXT, ref TEXT, said_by TEXT, asked_by TEXT, recorded_by TEXT NOT NULL, source TEXT NOT NULL,
   observed INTEGER NOT NULL, requested INTEGER, received INTEGER NOT NULL, expires INTEGER,
   session TEXT, turn TEXT, request_turn TEXT,
   harness TEXT, host_version TEXT, model TEXT, effort TEXT, source_branch TEXT, source_commit TEXT,
   recorded_branch TEXT, recorded_commit TEXT, recorded_dirty INTEGER,
   basis TEXT NOT NULL,                 -- a JSON object: field name to "observed" or "claimed"
+  keywords_v INTEGER,                  -- the version of the keyword rule that was applied; NULL when none was (a report)
   meta_bytes INTEGER NOT NULL,
   text BLOB NOT NULL, text_bytes INTEGER NOT NULL, text_sha BLOB NOT NULL
 ) STRICT;
@@ -155,6 +163,9 @@ CREATE INDEX memory_task    ON memory(task, observed DESC);
 CREATE INDEX memory_term    ON memory(term, alloc, received);
 CREATE INDEX memory_bucket  ON memory(bucket, received) WHERE bucket IS NOT NULL;
 CREATE INDEX memory_expires ON memory(expires) WHERE expires IS NOT NULL;
+CREATE INDEX memory_recv    ON memory(received, id);                          -- the log, and its cursor
+CREATE INDEX memory_run     ON memory(run, received, id) WHERE run IS NOT NULL;
+CREATE INDEX memory_session ON memory(session, received, id) WHERE session IS NOT NULL;
 
 CREATE TABLE receipt (
   event TEXT PRIMARY KEY,              -- the caller's UUID, 36 characters
@@ -192,7 +203,40 @@ CREATE TABLE word (
 ) STRICT, WITHOUT ROWID;
 CREATE INDEX word_mem ON word(mem);        -- so that deleting a row does not scan the table
 CREATE INDEX receipt_mem ON receipt(mem_id);
+
+CREATE TABLE label (
+  label TEXT NOT NULL,                 -- folded; a tag (ASCII, at most 32 bytes) or a keyword (one word of 3 to 32 characters, any script)
+  mem INTEGER NOT NULL REFERENCES memory(rowid) ON DELETE CASCADE,
+  origin INTEGER NOT NULL,             -- 0 = a tag the caller gave, 1 = a keyword pbrain derived
+  PRIMARY KEY (label, mem, origin)
+) STRICT, WITHOUT ROWID;
+CREATE INDEX label_mem ON label(mem);
+
+CREATE TABLE dropped (                 -- numbers only: how many short-term rows a count limit removed
+  hour INTEGER NOT NULL,               -- the hour in which the removed rows had been received, as seconds since the epoch
+  reason INTEGER NOT NULL,             -- 1 = the bucket's count, 2 = the section's rows or bytes
+  n INTEGER NOT NULL,
+  PRIMARY KEY (hour, reason)
+) STRICT, WITHOUT ROWID;
 ```
+
+`label` holds both kinds of label apart by `origin`, written in the row's own transaction and removed with the row. A filter by label is one look-up by its primary key for each label asked for, whatever the origin. `dropped` is the whole record of a removed row: a count against an hour. Its rows are deleted 14 days after their hour by the next write, and a read ignores any that are older, so a count never outlives its 14 days for want of a write.
+
+**Keywords** (spec 3.6) are computed inside the store's transaction, after the secret scan and after expired rows are deleted, so "the live memories of the section" is exactly what the transaction sees:
+
+```
+keywords(text):                                   # version 1
+  words := the distinct words of text, as query.Scanner yields them (already folded), each with its count tf
+           # the scanner reuses its buffer: each word is copied before it is counted
+  drop a word in the stop list (a fixed list compiled into pbrain), of fewer than 3 or more than 32 characters, or of digits only
+  cand := the 64 words with the highest tf; ties by the word, ascending
+  N := SELECT count(*) FROM memory                # before this row is inserted
+  for w in cand: df := SELECT count(*) FROM word WHERE word = w
+                 weight := tf * (1 + floor(log2((N + 2) / (df + 1))))     # whole numbers only; the division is integer division
+  return the 5 with the highest weight; ties by the word, ascending
+```
+
+Whole numbers keep the answer identical on every platform, which a floating-point logarithm would not promise at a tie. Everything down to `cand` is worked out before `BEGIN IMMEDIATE`; only `N` and the 64 counts need the transaction. The limit of 64 candidates bounds that work to 64 counts over the word index, each over at most the section's rows, whatever the size of the text. That bound is not small: at the limits it is up to 704,000 index entries, and @lead-dev's scratch probe of such counts alone, not in pbrain, took 29.5 ms at the median and 31.1 ms at the 95th percentile. Phase 1 measures it in pbrain with five writers (11.3). If it does not fit the store's budget, an exact count for each word, kept up to date in the same transaction as the word rows, replaces the 64 counts; that is not built before the measurement asks for it. The stop list and the rule are versioned together by `keywords_v`; a later version applies to new rows only, and nothing recomputes old ones. A replayed keyed store returns the first row, with its keywords as they were.
 
 `word` is the recall index (section 5.3). It is written by pbrain, with pbrain's own tokenizer, in the same transaction as its row, and goes with the row when the row is deleted. It is not SQLite's full-text search, whose tokenizer does not fold as pbrain does. For a typed report the words are those of its rendered wording.
 
@@ -209,7 +253,7 @@ Every command opens the database once, does its work, and closes it. The setting
 | `busy_timeout` | the smaller of 2,000 ms and the time left to the caller | Then `memory_busy` |
 | `temp_store` | `MEMORY` | SQLite creates no temporary file of its own anywhere |
 | `foreign_keys` | `ON` | |
-| `max_page_count` | 512 MiB of pages | A hard ceiling on the file whatever a bug does; reaching it is `io` |
+| `max_page_count` | 4 GiB of pages, provisional (4.5) | A hard ceiling on the file whatever a bug does; reaching it is `io` |
 | The lock mode of the driver | conventional POSIX locks on Linux and on macOS: fixed in code with `sqlite.OFDLocking(false)` before the first open on Linux, the only mode on macOS | Section 6.5 |
 
 Each setting is read back from the open connection before the first statement, and a mismatch fails with `io`. A write is one `BEGIN IMMEDIATE` transaction: replay check, expiry, caps, quota, the row, the receipt, all or nothing. A read is one read transaction and sees one committed state. Statements are prepared with parameters only; no text from a caller is ever part of SQL.
@@ -220,17 +264,18 @@ All are enforced inside the write transaction, with `SUM` and `COUNT` over the r
 
 | Content | Limit per section | When full |
 | --- | --- | --- |
-| Short-term rows | 10,000 rows; 32 per bucket; 32 MiB of text | The oldest short-term rows are deleted, by `received` then id, until the new one fits |
-| Long-term, person's allocation | 200 rows and 6 MiB of text | `quota_full` |
-| Long-term, ordinary allocation | 300 rows and 10 MiB of text | `quota_full` |
+| Short-term rows | 1,000 rows and 8 MiB of text per section; 32 per bucket | The oldest short-term rows are deleted, by `received` then id, until the new one fits: first in the new row's bucket, then in the section. Each row removed this way adds one to `dropped` for its hour and reason; a row removed for its age does not |
+| Long-term, person's allocation | 2,000 rows and 64 MiB of text | `quota_full` |
+| Long-term, ordinary allocation | 8,000 rows and 256 MiB of text | `quota_full` |
+| Labels | 8 tags a row, each at most 32 bytes, counted in the row's metadata; 5 keywords a row, not counted | A ninth tag is `usage` |
 | Metadata | 8,192 bytes per row (`meta_bytes`) | `too_large` for that store |
 | Replay receipts | 50,000 rows, each of fixed size (36 + 32 + 36 bytes and two integers) | A new **keyed** store is refused with `quota_full`; an unkeyed store and `forget` still work |
 | Promotion previews | 32 live; 1 MiB per draft | A draft over 1 MiB is `too_large`; the 33rd preview cancels the oldest unspent one |
-| The file | 512 MiB (`max_page_count`) | `io`; a backstop above everything the limits above allow (48 MiB of text, 84 MiB of metadata at the limit, 32 MiB of drafts, receipts, and the word index, which can approach the size of the text for texts made of distinct words). @lead-dev measured 67 MiB at the caps with nearly 48 MiB of ordinary text |
+| The file | 4 GiB (`max_page_count`), **provisional** | `io`. It is a backstop, and it must stand above everything the limits allow, or a store inside its own allocation could fail on the file and the reserve for a person's requests would not be a guarantee. What the limits allow in content: 328 MiB of text, 90 MiB of metadata, 32 MiB of drafts, receipts, labels, and the word index. The word index is the large and uncertain part. For ordinary prose it is smaller than the text, but @architect-2's scratch probe of texts made only of distinct three-letter words (96 texts, 3,145,632 bytes) took 20,865,024 bytes of pages, 6.63 for each byte of text: 3,198,976 for the texts themselves and 17,661,952, or 5.61 for each byte, for the word table and its index. That projects to about 2.1 GiB for 328 MiB of such text, texts and both trees together, before metadata, labels, drafts and receipts. That is a small fixture and not a measurement at the limits; the earlier measurement, 67 MiB for 48 MiB of ordinary text, says nothing about this shape. So 4 GiB is a first figure above that projection, and phase 1 settles it (11.3): if a legal fill needs more than is reasonable for one section, the byte limits come down or the index is made cheaper, and the owner is told which |
 
 The text quotas are the logical bytes the owner approved; SQLite's own overhead is not charged to them and is covered by the file ceiling. Each allocation is counted only from its own rows, so pressure from short-term traffic or from the ordinary allocation can never take room from the person's allocation, and `forget` never needs room.
 
-The bucket of a short-term row is `task:<task>`, else `recorder:<name>` when a supervisor observed the recorder, else `unassigned`. The allocation of a long-term row is `person` when `asked_by` was observed as a person, else `ordinary`. Both are decided once, at admission. A duplicate returns the first row and changes nothing.
+The bucket of a short-term row is `task:<task>`, else `recorder:<name>` when a supervisor observed the recorder, else `unassigned`; each holds 32. A tag, a session and a run are never part of a bucket. The order inside a store is: delete what has expired; then the new row's bucket; then the section's rows and bytes. The allocation of a long-term row is `person` when `asked_by` was observed as a person, else `ordinary`. Both are decided once, at admission. A duplicate returns the first row and changes nothing.
 
 Expired rows are invisible to every read at once, because every read filters on the clock, and are deleted by the next write in that section. Deleted pages are reused by SQLite; the file does not shrink by itself, and pbrain never runs `VACUUM` on a hot path. `forget` is a logical deletion, not secure erasure, and the README says so.
 
@@ -263,7 +308,7 @@ So the full scan does not meet the 100 ms gate at the caps and the word index do
 
 ### 4.7 Replay
 
-A keyed store carries `--event` and `--observed-at`. The canonical payload is what the producer asked for and nothing pbrain observed when it stored: the length-prefixed UTF-8 of, in this order, kind, learned, term, the chosen end, capture, fact, task, ref, said-by, asked-by, recorder, source, session, turn, observed time in UTC, and the SHA-256 of the text; absent is distinct from empty. It leaves out the received time and the recording checkout, so a retry from another worktree after a lost reply is the same request. One teaching event has one writer (spec 6.4), so the recorder is part of it.
+A keyed store carries `--event` and `--observed-at`. The canonical payload is what the producer asked for and nothing pbrain observed when it stored: the length-prefixed UTF-8 of, in this order, kind, learned, term, the chosen end, capture, fact, task, run, the number of tags and then the tags folded and sorted, ref, said-by, asked-by, recorder, source, session, turn, observed time in UTC, and the SHA-256 of the text; absent is distinct from empty. It leaves out the received time, the recording checkout and the keywords, which pbrain derives, so a retry from another worktree after a lost reply is the same request. One teaching event has one writer (spec 6.4), so the recorder is part of it.
 
 ```
 admit(event, payload):
@@ -299,6 +344,8 @@ type StoreResult struct{ Row Row; Duplicate bool }
 func (r *Root) Store(ctx context.Context, req StoreRequest) (StoreResult, error)
 func (r *Root) Recall(ctx context.Context, q Query) (Page, error)
 func (r *Root) Text(ctx context.Context, id string) (Row, []byte, error)
+func (r *Root) List(ctx context.Context, q ListQuery) (ListPage, error)                       // memory log, memory highlights
+func (r *Root) Sessions(ctx context.Context, since, until time.Time, limit int, after Cursor) (SessionsPage, error)
 func (r *Root) Forget(ctx context.Context, id string) (Row, error)
 func (r *Root) Preview(ctx context.Context, p PreviewRequest) (Preview, error)
 func (r *Root) Show(ctx context.Context, token string) (Preview, []byte, error)
@@ -306,6 +353,47 @@ func (r *Root) Confirm(ctx context.Context, token string, ids []string, publish 
 
 // PublishFunc publishes the frozen draft and reports whether its commit point was reached.
 type PublishFunc func(ctx context.Context, target Target, draft []byte) (published bool, err error)
+
+type ListQuery struct {
+    Since, Until time.Time   // on received; zero is open
+    Labels       []string    // each must be carried, as a tag or as a keyword
+    Actor        string      // recorded_by or said_by
+    Task, Run    string
+    Session      string      // every row of that session
+    Bucket       Bucket      // exactly one row of Sessions; excludes Run and Session
+    Kinds        []Kind
+    Term         Term
+    Highlights   bool        // the selection and the grouping of spec 5.6
+    Limit        int         // 1 to 200
+    After        Cursor      // zero: from the newest
+}
+type Bucket struct {                 // zero: no bucket asked for
+    Kind    uint8                    // run: every row with Run; session: rows with Session and no run; none: rows with neither
+    Run     string
+    Session string
+}
+type Cursor struct {                 // what the first page fixed, and the position of the last row returned
+    Group        uint8
+    Received     int64
+    ID           string
+    Since, Until int64               // the instants the first page's window resolved to; zero is open
+    High         int64               // the greatest rowid at the first page: later admissions are above it
+    Bind         [16]byte            // a digest of the enrolment id, the kind of list and the normalized query
+}
+type ListPage struct {
+    Rows    []Row            // each with Run, Tags, Keywords, the first 160 characters of its text, and Group when Highlights
+    Next    Cursor
+    More    bool
+    Dropped DropCount        // by reason, for the period asked for
+    Counts  GroupCounts      // Highlights only: the three groups and every memory of the period
+}
+type SessionsPage struct { Rows []SessionRow; Next Cursor; More bool }
+type SessionRow struct {
+    Bucket       Bucket      // its exact selector
+    First, Last  time.Time
+    Memories, Learned, Blockers, LongTerm int
+    Agents, Tasks []string   // at most five each
+}
 ```
 
 `cli` owns everything that needs the brain: which section, the folder handle, the author, and the checkout's branch and commit (two read-only Git queries added to `gitx`: `Head` and `Dirty`). `memory` runs the secret scan itself, on the complete row, so no caller can forget it.
@@ -317,14 +405,14 @@ The order is fixed, because each step protects the next.
 1. Parse the flags. Every usage error of spec 5.1 is decided here, before standard input or any source is read.
 2. Open the brain with its normal guard; choose the section; resolve the author.
 3. Get the text: the argument, standard input read to at most `TextMax + 1` bytes, or the host reader (section 7). More than the limit is `too_large`.
-4. **Assemble the complete row**: the caller's fields, then everything observed: the received time, the recording branch, commit and dirty flag, and what the session record and the host reader supply. For a store by a supervisor into the shared section, only the enrolled project name and the branch and actor details the supervisor is permitted to give are kept; a raw path is never part of a row.
-5. **Validate and scan the whole row**: UTF-8, not empty, not control characters only, each field's length, `MetaMax`, the task and source forms; then the secret scan of the text **and of every metadata value, observed ones included**, since a branch name or a session-derived value can carry a secret as well as a caller's text can. A match is `secret_refused` naming the field. Nothing has been written or logged up to here.
+4. **Assemble the complete row**: the caller's fields, with the run from `--run` or else from `PBRAIN_RUN` (a new entry in the audit's list of environment reads, beside `PBRAIN_TASK`), then everything observed: the received time, the recording branch, commit and dirty flag, and what the session record and the host reader supply. For a store by a supervisor into the shared section, only the enrolled project name and the branch and actor details the supervisor is permitted to give are kept; a raw path is never part of a row.
+5. **Validate and scan the whole row**: UTF-8, not empty, not control characters only, each field's length, `MetaMax`, the task, run, tag and source forms, with the tags folded and repeated ones removed; then the secret scan of the text **and of every metadata value, observed ones included**, since a branch name or a session-derived value can carry a secret as well as a caller's text can. A match is `secret_refused` naming the field. Nothing has been written or logged up to here.
 6. Open the memory folder of the section's place (section 6.3). No enrolment, or a replaced project: `memory_not_enabled`.
 7. Check the database files, open the connection and check its identity (sections 6.5 and 4.4).
 8. `BEGIN IMMEDIATE`. Busy past the limit: `memory_busy`.
 9. Delete expired rows, which takes their words with them, and mark their receipts gone; delete receipts past their horizon.
-10. The replay check (4.7); then the allocation, the caps and the byte budgets (4.5).
-11. Insert the row, its distinct words, and the receipt if keyed. `COMMIT`. The commit is the one commit point.
+10. The replay check (4.7); then the allocation, the caps and the byte budgets (4.5), counting each row a count limit removes in `dropped`, and deleting `dropped` rows older than 14 days.
+11. Derive the keywords (4.3), unless the row is a report. Insert the row, its distinct words, its tags and keywords as `label` rows, and the receipt if keyed. `COMMIT`. The commit is the one commit point.
 12. Close; print the receipt.
 
 ### 5.3 Recall
@@ -332,7 +420,7 @@ The order is fixed, because each step protects the next.
 One read transaction, so the whole answer comes from one committed state.
 
 1. **Candidates.** With words: the union of the `word` rows for the query's distinct words, grouped by memory, with the count of distinct query words each memory holds. The spec admits a memory that holds at least one. Without words: the rows selected by task, session, kind or term.
-2. **Eligibility**, in the same statement: the section's database, not expired, the task, session, kind and term filters.
+2. **Eligibility**, in the same statement: the section's database, not expired, the task, session, run, kind and term filters, and for each label asked for one `EXISTS` look-up in `label` by its primary key. Labels only narrow; they are not in the order. A label on a read is validated apart from a tag on a store: `cli` folds it with the scanner's fold and accepts a value that is a tag or one word the keyword rule could yield (3 to 32 characters, any script), from the command line, the catalog and the screen alike; anything else is `usage`.
 3. **Order**, on the whole candidate set and before any limit or offset: authored before reports; then the count of distinct query words; then a full phrase match, which is decided by reading the candidate's text with `query`'s matcher, the one search uses; then kind, newest `observed`, id. A query of one word needs no text for this step, since the phrase test is the same for all its candidates. No `LIMIT` is applied in SQL before the phrase test, because a later candidate can win on it.
 4. **Display**: only the rows of the page have 400 characters of their text read for showing.
 
@@ -341,6 +429,109 @@ The full scan of every text, by the same matcher, is kept in the tests as the or
 `--banked` is composed in `cli`: it runs the recall, then the existing search entry point (pbrain architecture 8.5) or the document search of section 10, by words only, with half of `--max-chars` reserved for it, and hands `render` two labelled groups. `memory` knows nothing of items.
 
 The task page is a `Query` with a task, no words, limit 3, on the shared section, and a renderer mode that fixes the layout and the 1,200-character budget. The hook and the command call the same function.
+
+### 5.4 The lists a person reviews with
+
+`memory log`, `memory highlights` and `memory sessions` (spec 5.5, 5.6) are reads like recall: one read transaction each, nothing written, the same eligibility (this section's database, not expired).
+
+- **The log** is `List` with `Highlights` false. The order is `received` descending, then `id` descending. The index `memory_recv` serves it; with a run or a session, `memory_run` or `memory_session` does. The other filters (labels, actor, task, kinds, term, a bucket) are conditions on the rows that walk yields.
+- **A list is fixed by its first page.** Position alone does not keep later arrivals out: a row received in the same second with a lower id sorts below the cursor, a clock set back stamps a new row among old ones, and in highlights a new row of a later group sorts below any position in an earlier one. So the first page records, in the same read transaction, `High`, the greatest `rowid` in the table. `rowid` is declared `AUTOINCREMENT`, so it rises with every admission in this enrolment and a deleted value is never given out again, which a plain integer key does not promise. Every later page adds two conditions to its statement: `rowid <= High`, and strictly below the cursor's `(group, received, id)` in the list's order. It still applies expiry and reads the table as it is, so a forgotten or expired row is gone from later pages. No reader stays open between pages: the cursor is all the state there is.
+- **A cursor is bound to its list.** `Bind` is a digest of the enrolment id, which says the section and the database, the kind of list (log, highlights, sessions), and the query with its filters in a normal form: labels and kinds sorted, the window left out because the cursor carries it. A page asked for with a cursor whose `Bind` does not match the query it comes with is `usage`; so is a cursor from before the memory was enabled again.
+- **Highlights** is `List` with `Highlights` true. First the exclusions: only rows whose capture is authored or verbatim and whose kind is not handoff. Then each remaining row is given the first group it fits (1 learned; 2 kind blocker; 3 any other long-term row), and a row that fits none is left out. So a long-term handoff is never in group 3, and a long-term outcome is. The order is the group, then `received` descending, then `id` descending, and the cursor carries the group. `Counts` is one aggregate statement over the same period in the same transaction.
+- **Sessions** is one grouped statement over the rows received in the period, keyed by the run where there is one, else by the session, else by neither, with the counts of spec 5.6; the agents and tasks of a row are cut to five in Go. Each row carries its `Bucket`, and `List` with that bucket applies the very predicate that formed it (`run = R`; `session = S AND run IS NULL`; `run IS NULL AND session IS NULL`), so a row's count and its list agree. The bucket is a typed value, not a reserved name: a session called `unassigned` or `none` is a session. The order is the last arrival descending, then the bucket's kind and key, and it is paged by that position with the same `High` and `Bind` as a log, so every bucket is reached however many share a second. `High` keeps later admissions out, but it cannot freeze an aggregate: when a bucket's latest row is forgotten, expires or is dropped between two pages, its last arrival becomes an earlier one. It can only move that way, so a bucket already shown can come again below the cursor and a bucket not yet shown stays below it: none is missed, and one can repeat (@architect-2's case: A at 30 and 10, B at 20, a page of one, the row at 30 forgotten, then B and A again). The spec says so (5.6), and the screen keys its rows by selector and replaces the earlier one. `cli` writes a selector as `run:<run>`, `session:<id>` or `none`.
+- **The period** of highlights with neither run, session nor time is the last 12 hours, set in `cli` from the clock it passes down; `memory` has no default of its own. A span is resolved to instants once, for the first page, and returned in the cursor; a page asked for with a cursor takes its window from the cursor, and `cli` refuses `--since` or `--until` beside `--after`. A list therefore does not slide while it is read.
+- **`Dropped`** is the sum of `dropped.n` by reason over the whole hours the period touches, among the hours of the last 14 days by the clock of the read: with no period, over all of those. It does not depend on the other filters or on whether any live row matches. `cli` prints `memory_dropped` when it is not zero, and the message says that it counts whole hours of arrival within 14 days.
+- **The cursor** is rendered by `cli` as one opaque token: the whole `Cursor`, with its position, its window, `High` and `Bind`, and a short checksum. A token that does not parse is `usage`.
+- **The row on screen**: 160 characters of the text, read only for the rows of the page, put on one line by `render.OneLine` after `render.Inert`. `render.Inert` is new and belongs to phase 1, because these lists need it: it removes from a string every C0 control except newline and tab, DEL, every C1 control, and every escape sequence. Its companion `render.Visible` removes nothing: it writes each of those characters, and a backslash, as a visible escape (`\x1b`, `\\`), so that its output is plain text from which the original can be read back exactly. The screen's exact view uses it (5.5).
+- `memory show` is the function behind `recall --id`, registered under a second command name and not as a second tool.
+- In the tool catalog: `memory log`, `memory sessions` and `memory highlights`, read-only. Not `memory show` and not `memory browse`.
+
+### 5.5 The screen
+
+`memory browse` (spec 5.7) is the package `browse`: a Bubble Tea program whose model holds a list, a detail view and a filter, built from the components of `bubbles`, styled with `lipgloss`, with the expanded text formatted by `glamour`.
+
+```go
+package browse
+
+// Source is every read the screen makes. cli implements it by opening the memory, reading in one
+// transaction and closing it again, for each call.
+type Source interface {
+    List(ctx context.Context, q memory.ListQuery) (memory.ListPage, error)
+    Sessions(ctx context.Context, since, until time.Time, limit int, after memory.Cursor) (memory.SessionsPage, error)
+    Text(ctx context.Context, id string) (memory.Row, []byte, error)
+}
+
+// Actions is every change the screen can ask for. cli implements each with the function behind the
+// command of the same name, so the checks, the turns and the confirmation token are the commands' own.
+type Actions interface {
+    Forget(ctx context.Context, id string) error
+    Preview(ctx context.Context, p PromoteRequest) (token string, err error)                  // records the token, as promote does
+    Show(ctx context.Context, token string, offset int) (page string, more bool, err error)   // promote --show: the frozen draft, a bounded page at a time
+    Confirm(ctx context.Context, token string, ids []string) (written string, err error)
+}
+
+type PromoteRequest struct {
+    IDs     []string
+    Kind    string // "learning" | "decision"
+    Title   string
+    Decided string // who decided; required for a decision
+}
+
+type Options struct {
+    Query      memory.ListQuery // the filters given on the command line
+    Highlights bool
+    In         io.Reader        // a terminal
+    Out        io.Writer        // a terminal
+    Now        func() time.Time
+}
+
+func Run(ctx context.Context, src Source, act Actions, opt Options) error
+```
+
+How it keeps the promises of spec 5.7, by their numbers there:
+
+1. **One section.** `cli` builds `Source` and `Actions` for the section the command was started with and gives `browse` nothing else: no brain, no other root, no flag to change it. There is no code path in `browse` that could reach the other section.
+2. **Inert text.** In the exact view the text goes through `render.Visible` (5.4) and is drawn as plain text, with no Markdown rendering. Everywhere else `render.Inert` (5.4) is applied to every value that comes from a memory, text and metadata alike, before it is given to `lipgloss` or `glamour`; the commands' lists use it too. The output of `glamour` then passes a second filter that lets through its colour and style sequences (CSI … `m`) and nothing else, so that no link or image escape reaches the terminal whatever the Markdown says and whatever a later version of the library does. The style is one fixed style compiled into pbrain; none is read from the environment or asked of the terminal.
+3. **Read again before acting.** Forget and promote take ids, and the functions behind them read the rows afresh; `not_found` is shown as "gone" and the list is refreshed.
+4. **Confirmation.** Forget shows a confirmation in the screen and then calls `Actions.Forget`. Promote calls `Preview`, reads the frozen draft back through `Show`, the checked path of `promote --show`, a page at a time, and calls `Confirm` with the token only on the person's key; there is no other path to `Confirm`. These are the grouped-promotion functions of phase 2, which the screen therefore needs.
+5. **Nothing held.** `Source` and `Actions` open and close the database inside each call, as a command does. Between two keys the process holds no connection, no transaction and no turn.
+6. **Nothing written by looking.** `browse` opens no file and has no configuration; Bubble Tea runs on the alternate screen, so the texts are not left in the terminal's scrollback. It imports neither `embed`, `semantic` nor `fetch`. `Source` has no method that writes. What is written comes only through `Actions`, at the person's request: `Preview` records its bounded token row, which lapses after ten minutes if it is not confirmed, as any preview's does; `Forget` and `Confirm` have the effects of their commands.
+7. **Looking changes nothing.** No call of `Source` changes a row.
+8. **A terminal only.** `cli` checks that standard input and output are terminals before anything else and fails with `usage` otherwise; the command has no `--json` and no catalog entry.
+
+**The dependencies**, chosen by the owner: `charm.land/bubbletea/v2`, `charm.land/bubbles/v2`, `charm.land/lipgloss/v2` and `charm.land/glamour/v2`, imported by `browse` alone; `buildcheck`'s import rule gains a row that says so. What @lead-dev established on 2026-11-27, with a scratch program linked into pbrain at `53d0ebf` (pins `v2.2.0`, `v2.2.2`, `v2.1.1` and `v2.0.1`; Linux amd64 run natively, the other three cross-built):
+
+| Question | Finding |
+| --- | --- |
+| No cgo on linux/amd64, linux/arm64, darwin/arm64, darwin/amd64 | Yes, in the plain and in the accelerator builds |
+| Size | About 10 to 12 MiB more in each stripped release binary |
+| Licences | The four are MIT; the modules they bring are 24 MIT and 4 BSD-3-Clause, none with a separate notice file. Their texts go into `licenses/` for the final pinned set, as #79 does |
+| Output of five commands at start | On the natively run Linux build, `--help`, `--version`, `schema`, `schema --format mcp` and `skill` print the same bytes with the libraries linked. These are samples of start-up output, not the audit |
+| The release audit of #55 (`TestRuntimeEnvAndOutput`) | **Fails, 7 of 7**, where the build without the libraries passes 7 of 7. Go runs a library's start-up code in every command, and choosing the command late does not defer it. At start, `x/ansi` and `go-runewidth` read `RUNEWIDTH_EASTASIAN` and the locale variables; on Linux the list component of `bubbles` brings in clipboard code that reads `WAYLAND_DISPLAY` and searches `PATH`. Without that component the audit still reports 90 sites on Linux amd64 |
+| Can pbrain fix the width rule in code, so that the variable has no effect? | **No, at these pins.** `x/ansi` keeps its width settings private, and Lip Gloss and Glamour use those: with the environment cleared and the exported setting of `go-runewidth` reset, the three still disagree |
+| Files written at a variable's bidding | When a program is created Bubble Tea honours `TEA_TRACE` and can open the file it names; on a panic, with `TEA_DEBUG` set, it prints the panic value and can create a `bubbletea-panic-*.log` file. Giving it explicit streams and settings does not turn either off |
+
+Three things follow in the design whatever is decided next:
+
+- `browse` does not use the list component of `bubbles`. It draws its own list and uses the viewport, which takes the clipboard code out of the binary.
+- The screen must not be able to write a trace or a crash file, or print a panic's value, whatever variables are set. Tests force a failure inside the screen, in the event loop and in a background task, with a made-up marker in a memory and those variables set, and find the terminal restored, no marker in the output and no file.
+- The Markdown style is fixed in pbrain (above), and the terminal's colour profile is given to the libraries explicitly.
+
+**What is left is a decision for the owner, and phase 6 waits for it; nothing else does.** The audit's rule is not changed in either option: pbrain reads no environment variable that is not on its list and writes nothing at a variable's bidding. In option B the audit's test has to learn about a second executable; the rule it enforces is the same.
+
+- **Option A (@lead-dev's recommendation): the screen inside pbrain, after the libraries are changed.** The start-up reads are removed and the trace and panic paths are turned off, by changes accepted upstream or by small patches that pbrain pins; then every remaining site is reviewed and the unchanged audit is run on every release build. Its cost: waiting on other projects, or carrying patches at every update. How a patch is carried matters: a `replace` line in `go.mod` makes `go install` of the module fail, which the README offers today, so the patches would have to live in forks under their own module paths.
+- **Option B (@architect's recommendation): the screen as a second executable**, `pbrain-browse`, built from the same repository, and started by `pbrain memory browse`. pbrain itself links none of the four libraries: its size and its start are as today, with no patch and no fork. @lead-dev checked the facts this rests on and corrected two of them; what follows is with those corrections.
+  - **The packages.** The four libraries stay out of everything that `cmd/pbrain` imports. The code that builds `Source` and `Actions` for one section lives in a package without them, and `cmd/pbrain-browse` imports that package and `browse`.
+  - **The launch.** pbrain resolves the helper as the file beside its own executable, by absolute path, and never through `PATH`: the installation folder is what is trusted. It starts it with an environment it builds itself and passes explicitly, which takes effect before any library's start-up code runs (@lead-dev's scratch launcher showed the child's widths fixed whatever the parent's variables were). That environment is a short named list: what the terminal needs, a fixed width rule, and the few of pbrain's own variables the screen needs. It is not a copy of the parent's, and it holds none of the libraries' debugging variables.
+  - **The same build.** The helper refuses to run unless its build is the same as pbrain's. That is a check of compatibility, not of trust. A helper that is missing or of another build gives a message that says how to install it and names `memory log`.
+  - **A failure inside the screen.** One recover around the program is not enough, because Bubble Tea's renderer and its tasks run in goroutines of their own. So the library's own panic handling is turned off; the helper's error output goes to pbrain over a channel pbrain controls and is never copied to the terminal; and pbrain, the parent, restores the terminal and prints one fixed line when the helper dies. Tests force a panic in the event loop and in a background task, each with a marker in a memory, and find the terminal restored, no marker and no file.
+  - **The audit.** Its rule stays. Its test does not stay as it is: `TestRuntimeEnvAndOutput` today expects every released executable to link the inference library with its accelerator set, and reports any new start of a subprocess. So it gains an expected dependency set for the second executable, one named and reviewed launch site in pbrain, and a review of the helper's own start-up and dormant sites against the environment pbrain gives it.
+  - **Its cost:** a second file in every release archive, the release matrix, archive and licence tests for the pair, and a second thing for a `go install` user to install. Option A is the simpler install once the changes it waits for exist.
+- **Not available today: listing the start-up reads in the audit**, as the database driver's `MODERNC_SQLITE_OFD_LOCK` is listed. That entry is sound because pbrain fixes the driver's setting in code; here the setting cannot be fixed (table above), so the reads would change what is drawn. It becomes possible only with a change in the libraries.
+
+In both options `browse`, its two interfaces and its tests are as described here; they differ only in which executable links them.
+
+**Tests.** The model is tested without a terminal: key and data messages go in, the view comes out as text. One run through a pseudo-terminal on Linux and on macOS proves start, a key and a clean exit. The cases are spec scenario 54.
 
 ## 6. The two roots, keys, locks and the one kind of file opened by path
 
@@ -963,10 +1154,10 @@ Two rules hold everywhere: a refusal before the commit point writes nothing and 
 
 | Kind | What it covers | How |
 | --- | --- | --- |
-| Unit | `memory` (admission order, replay, caps, allocations, expiry, the word index against the full scan, the page), `doc.Parse`, `difflines`, the host parsers, `guarded.Roots` and `Bind` | Table tests with a fixed clock and a seeded random source, on real temporary databases |
+| Unit | `memory` (admission order, replay, caps, allocations, expiry, the word index against the full scan, labels and the keyword rule, the lists and their cursors, the dropped count, the page), the `browse` model, `render.Inert`, `doc.Parse`, `difflines`, the host parsers, `guarded.Roots` and `Bind` | Table tests with a fixed clock and a seeded random source, on real temporary databases |
 | Fault | Every step of the move, of a confirm and of `hooks install` | The replaceable `sys.Files` of the first project, failing each call in turn; for SQLite, child processes killed at named points and a full-disk file system |
 | Concurrency | Five writers and readers of one memory; two confirms; two first writers of a legacy brain; a reader during an index build; two checkouts writing one personal section, and two worktrees writing their own brains without waiting | Real processes on a real file system, Linux and macOS |
-| Scenario | The 49 scenarios of the spec | The existing scenario harness in `cmd/pbrain`, one test per scenario, named by its number |
+| Scenario | The 55 scenarios of the spec | The existing scenario harness in `cmd/pbrain`, one test per scenario, named by its number |
 | Privacy | With and without planted personal data, shared output, files and messages are identical; a previous root's personal original is refused as input | The existing personal-overlay method, extended to both roots and the document walk |
 | Contract | CLI and tool give the same result | The existing `TestCallMatchesCLI`, extended to the new tools; arrays in `Bind` |
 | Audit | The runtime audit of #55, with the two databases | Its existing harness; the exception text of 6.5 |
@@ -974,7 +1165,7 @@ Two rules hold everywhere: a refusal before the commit point writes nothing and 
 
 The cases the reviewers asked for by name, grouped. Each is a test in the component document that owns it.
 
-- **Quota and replay.** The ordinary allocation full by count, and separately by bytes; the person's allocation full by count, and full by bytes before its 200th row (96 texts of 65,536 bytes are exactly 6 MiB, then one more byte is `quota_full` while an ordinary store still succeeds); a duplicate that is not charged twice, also against a full allocation; a retry from another worktree after a lost reply; a changed ref, end date or requester under the same event (`conflict`).
+- **Quota and replay.** The ordinary allocation full by count, and separately by bytes; the person's allocation full by count, and full by bytes before its 2,000th row (1,024 texts of 65,536 bytes are exactly 64 MiB, then one more byte is `quota_full` while an ordinary store still succeeds); the ordinary allocation and the short-term limits full together, with a store at a person's observed request still succeeding; a duplicate that is not charged twice, also against a full allocation; a retry from another worktree after a lost reply; a changed ref, end date, requester, tag or run under the same event (`conflict`); 32 full task buckets making 1,024, of which the 24 oldest go; each removal by a count limit adding one to `dropped` for its hour and reason, and a removal by age adding none.
 - **Admission.** A secret planted in a branch name; a late write from a session whose record was replaced; a dry run that opens no memory in either section; a planted secret in a selection, refused by the dry run with neither the dialog nor the refusal echoing it.
 - **Approval**, on one host version that is not qualified to tell a person from automation: a dialog really answered, stored as claimed and ordinary; a dialog unanswered or cancelled, and an "answer" that is only text in a prompt, each storing nothing; *me* chosen while the store asks for the team, refused; words from elsewhere in the prompt offered as the selection, refused; an answer used twice, with a changed text, and again after a `forget`, each with no new row; an approved selection of 1,001 characters, one of exactly 65,536 bytes with Unicode and CRLF, and one a byte over. On a qualified version, the same answered dialog is observed and counted in the person's allocation. With no session record, the skill stores nothing and a manual store is claimed.
 - **Hosts.** A forged hook event naming a file outside the host's session root, and one naming a real session of another project; an event that the hook cannot tie to a host launch, and one for the other brain of a two-brain work tree: each with no record, no environment line and no page.
@@ -985,12 +1176,17 @@ The cases the reviewers asked for by name, grouped. Each is a test in the compon
 - **Promotion.** A `forget` during a deliberately delayed confirm, and separately a fake clock moved past a source's expiry after transaction B began and before the exclusive link, each with no item; the rows of the spec's failure table (10.1).
 - **Indexes.** With the profile limit and the real page limit both set low for the test, and vectors of each supported dimension: an active and a staged profile that each fit and together exceed one profile's limit, completing the cutover without reaching the page ceiling; a staged profile that is itself over the limit, failing with `too_large` and leaving the active one answering; the page estimate never below the pages SQLite reports; a full disk in the middle of a staged build, leaving the active profile answering; `sync --status` held open across an exclusive rebuild, which waits for it; the rebuild in two cases that are told apart: with no other reader, an ordinary `sync` that finds the damage while it holds its own read turn completes the rebuild, which proves it let go of its own connection and turns first; with one outside reader holding the read turn, the rebuild waits for that reader alone and completes when it closes; a reader that starts during the clean-up, kept out until the new index is published and never seeing a file half removed; a search during a `sync`, answering from the index without catching up. A first build, an incremental one, and a staged profile, each after its first commit, after a kill and after a resume, with a reader running; a search that began before a cutover finishing on its snapshot; one index file for a checkout and kind after repeated changes of profile, and another checkout's index byte for byte untouched; a base profile completed, an fp16-request fallback staged beside it, and the configuration switched back; a CPU fallback for an fp16 request and a precision change, chosen without a device; a build that commits between a search's read and its catch-up turn (`TestCatchUpLock`) and a catch-up that never creates (`TestCatchUpNeverCreates`); an index with an unreadable header, and one with damaged pages and sound identity rows, each removed and rebuilt by an ordinary `sync` once no reader holds it, and left alone while a reader does.
 - **The processor warning** (spec scenario 50), with a test model that has a GPU path, a device list and a rate made for the test: each of the five reasons, with the flag and the environment variable named apart; the count equal to the number of texts the test embedder is then given, on a fixture with a damaged cached vector, a vector held only by another entry that this run replaces, and a repeated digest; a cache filled by another process after the warning, with fewer texts given than announced; the shared count made with the personal storage unreadable; a personal index with one vector reusable only from its own store and one real miss, with the shared vector store unreadable, announcing one and embedding one; a damaged entry still in place after planning alone; the estimate and its rounding at 59 seconds, 60 seconds, 59 minutes and above an hour; a rate of zero giving the count and no estimate; one warning for each of the shared, the personal and the document index; the fall from a GPU to the processor in a middle batch and in the last one, where the batch that fell counts as done and the last case reports zero with no estimate; a writer that resolves its device on an unchanged index, with no warning; a failure and a cancellation after the warning, each with its usual error and exit code; nothing printed by a run that embeds nothing or by any search; the JSON line valid under `DiagnosticSchema`, equal between the command line and `Call`, on the terminal result and on the live callback, with both estimate fields absent when the rate is zero; an existing notice byte for byte as before. And for the index's record (spec 12.6): another model and a rejected precision, each refused with no vector scored and no device asked; a matching and a refused index in one search, with `semantic_partial`; today's `TestIndexProfilesAcrossSyncs` case, a shared fp16 profile and a personal processor fallback under one request, still answering together.
+- **Labels.** The keyword rule on a fixed text in a fixed store, on Linux and on macOS with the same answer; a text of 10,000 distinct words, with at most 64 counts made; a store into an empty section; a report with none; keywords unchanged on a replay after other rows arrived; a shared row's keywords equal with the personal store full of its words and with it unreadable; a tag refused by the secret scan and not echoed; labels gone with a forgotten, an expired and a dropped row; `recall` in the same order with and without labels on the rows.
+- **The lists.** Three rows received in one second, paged one at a time with forgets between the pages, each remaining row returned once; between two pages, a row inserted in the same second with an id below the cursor's, a row inserted after the clock was set back an hour, and in highlights a blocker inserted after the learned rows were paged, none of them on a later page and all of them in a fresh list; `rowid` not reused after the newest row is forgotten and another stored; a cursor refused with another filter, another section and another kind of list; every filter alone and all together, each kind of bucket among them; highlights with a row that fits two groups listed in the first only, reports, checkpoints, handoffs and short-term outcomes left out, and `Counts` equal to a count by hand; sessions with a run of three sessions, a session with rows inside that run and outside it, a session named `unassigned`, and rows with neither, where every row is in one bucket and each bucket's count equals its list's; more buckets than a page with three sharing their last second, each reached once; a bucket whose latest row is forgotten between pages, shown again with its remaining rows and none missed; a long-term handoff left out of highlights and a long-term outcome in group 3; a span resolved once and carried by the cursor, with `--since` beside `--after` refused; a cursor that does not parse; `Dropped` at a boundary hour, for a filter that matches no live row, and with a row older than 14 days and no write since; a label on a read with an accented letter, and one of 32 characters and more than 32 bytes, through the command line, the catalog and the screen; no personal row, count, label or session in a shared list, and the reverse; each list within its budget with the section at its limits.
+- **The screen** (spec scenario 54), on the model without a terminal and once through a pseudo-terminal: paging, expanding, the exact view of a text with an escape, an OSC sequence and other control bytes, drawn as visible escapes that read back to the stored bytes, each filter, the three views, a bucket opened from Sessions with its period; forget and promote only after their confirmations, a decision with its decider, a long draft read page by page through `Show`, the result of promote equal to the command's, and a preview that is cancelled leaving no item and a token that lapses; a row that went meanwhile shown as gone; a text with control sequences, a terminal link and an image reference, drawn with nothing but colour and style sequences reaching the output; no connection open between two keys, shown by a second process storing during an idle minute; a run that only looks changing no memory, item, cache entry or record and keeping no history, with SQLite's own side files allowed to come and go (6.5), tested apart from the run that confirms changes; a forced failure with a marker in a memory and the libraries' debugging variables set, with the terminal restored, no marker printed and no file created; no terminal, which is `usage`; absent from the catalog.
 - **Hooks install.** Install and uninstall in the personal and the shared mode and in two linked worktrees; install, install again, then uninstall, restoring the original file byte for byte; an uninstall arriving while an install is pending; a run without `--yes` while one is pending, completing nothing; a second brain installing into a file another brain owns, refused; a kill after the intent and after the file was written, and a failed sync of the folder straight after the rename, each resolved by the next run; an edit by someone else between the two steps, reported as a conflict and left; a settings file holding a made-up private value in ordinary words, after which a shared `import` and a shared `--body-file` aimed at the records database, directly and through a link, answer as for a missing file and create no item.
 - **Placement.** No setting at all, on Linux and on macOS; the cache and the state root equal, nested, or the same through a link, refused with `invalid_config` before anything is created.
 
 ### 11.3 Measured in phase 1, in pbrain
 
-- Store and recall at the caps (10,000 short-term rows and 500 long-term with nearly 48 MiB of text, 50,000 receipts), one writer and five, as whole commands in fresh processes: 50th, 95th and 99th percentiles and the worst case, on Linux and on macOS.
+- Store and recall at the limits of 4.5 (1,000 short-term rows with 8 MiB of text, 10,000 long-term rows with nearly 320 MiB, their tags and keywords, 50,000 receipts), one writer and five, as whole commands in fresh processes: 50th, 95th and 99th percentiles and the worst case, on Linux and on macOS. Nothing in 4.6 was measured at these limits: the earlier runs had 48 MiB of text.
+- **The page-limit gate**, which decides the file ceiling and with it whether the reserve is a guarantee. With the real `max_page_count`, and texts of the densest shape for the word index (64 KiB of distinct three-letter words): fill the ordinary allocation and the short-term limits first, to both their rows and their bytes; then fill the person's allocation to its rows, and separately to its bytes. Every store inside its allocation must succeed. The ceiling is then set from the file that results, with a stated margin; until that run it is provisional.
+- At the same limits with ordinary prose: the size of the database file and the highest size of its write-ahead log; a page of `memory log`, of `memory highlights` and of `memory sessions`; the keyword step of a store of 64 KiB of distinct words, for size, and of a text whose 64 candidates are each in nearly every row, for the dense counts, the second with five writers at once; and the ordinary allocation and the short-term limits full together with a store at a person's observed request still succeeding.
 - Recall for a rare word, a miss, a word in every row, a query of several common words, and a phrase that only a late candidate holds; and stores of 64 KiB texts made of distinct words, for the size of the word index.
 - The 100 ms recall gate of the spec (17.5) is judged on these. The scratch figures of 4.6 say the word index has room; they are not the gate.
 - The session-start hook against its 100 ms budget at the caps.
@@ -1012,6 +1208,11 @@ A host version is added to the tested list only by a recorded run on that versio
 | Two processes are given different state folders for one checkout | They do not see each other's turns. Stated as unsupported in the spec (12.5) and the README; a supervisor resolves the folder once for all its workers |
 | A reader that does not end lets an index's write-ahead log grow during a build, and the first release claims no limit on it | pbrain's readers are single commands; a full disk rolls back the window in progress and leaves the active profile answering (10.4). Phase 4 measures the highest log size with a snapshot held across many windows, and a limit is decided from that |
 | The estimate in the processor warning uses a rate measured on another machine, and the UD-Q6_K_XL model has none | The text says "about" and shows the rate; a model with no figure gets the count and no estimate. Measuring that model on four cores is @lead-dev's, in phase 4. The extra pass that counts pending passages is timed there too |
+| The limits allow seven times the text that was measured (328 MiB against 48), and the densest legal texts could need a file of more than 2 GiB for the word index alone | Nothing is promised from the old figures. The file ceiling is provisional at 4 GiB. Phase 1 runs the page-limit gate with the densest shape and every other gate at the new limits (11.3); the ceiling, or else the byte limits or the index, is corrected from that and brought to the owner |
+| The newest 1,000 short-term memories can be fewer than a week's, or a night's | Stated in the spec (7.1). Each removal by a count limit is counted, and the lists say how many were dropped in the period shown; the pilot sets the numbers |
+| A keyword is a guess from word counts, and the first memories of a store get plain ones | Shown apart from tags, never used for rank, term or quota; the rule is versioned, so a better one can follow for new rows |
+| The four Charm libraries bring about 10 MiB, 28 modules, start-up environment reads and two ways to write a file at a variable's bidding | The audit's rule is kept. How the screen is shipped so that it holds is an open decision for the owner between two options (5.5), and phase 6 does not start before it |
+| A memory's text reaches a terminal | `render.Inert` on every value from a memory, and a second filter on the Markdown renderer's output that passes colour and style only (5.5) |
 | The cost of a turn on every item write is not measured | One open and one `BEGIN IMMEDIATE` on a tiny database; the memory store was about 5 ms with a full write. Measured in phase 4 with the rest |
 | Moving originals loses one | Copy, verify, sync, receipt, and only then remove; faults at every step are tests |
 | A wide document folder makes every `docs search` slow | The scan is parallel as today; the gate reports the time; enrolment is explicit |
@@ -1025,12 +1226,13 @@ Not settled here, and owned: the factory's restricted worker, labelled channel a
 
 ## 13. Component documents and build order
 
-This project is large enough that the architecture is in two parts. Six component documents follow, each with its full interfaces, algorithms and named tests:
+This project is large enough that the architecture is in two parts. Seven component documents follow, each with its full interfaces, algorithms and named tests:
 
 | Component | Covers | Phase |
 | --- | --- | --- |
 | `components/state.md` | `guarded`: the two roots and `Roots`, the records database, places and `Bind`, `OpenDB` and its tests, the lock mode and the #55 exception, turns; originals in the state folder; the move of an old `.pbrain/` | 1 (roots, records, `OpenDB`, turns) and 4 |
-| `components/memory.md` | `memory`: schema, admission, retention, replay, allocations, the word index, recall, the page; `store`, `recall`, `forget`, `memory init` in `cli` | 1 |
+| `components/memory.md` | `memory`: schema, admission, retention, replay, allocations, the word index, labels and the keyword rule with its stop list, recall, the lists and their cursors, the dropped count, the page; `store`, `recall`, `forget`, `memory init`, `memory log`, `show`, `sessions` and `highlights` in `cli` | 1 |
+| `components/browse.md` | `browse`: the model, the views and keys, `Source` and `Actions`, the output filter, the dependency pins, their licences, the audit, and whichever way of shipping the owner chooses | 6 |
 | `components/hosts.md` | `hosts` and `hosts/claude`: events, the session record, the reader, the dialog, `hook` and `hooks` in `cli`, qualification | 1 and 3 |
 | `components/promotion.md` | Preview, token, confirm, the Sources part, document targets, `difflines` | 2 and 5 |
 | `components/documents.md` | `doc`, the configuration and walk, `RunMixed`, the entry adapter and the on-disk indexes, the `docs` commands, `docs check`, the gate runner | 4 (indexes) and 5 |
@@ -1038,10 +1240,11 @@ This project is large enough that the architecture is in two parts. Six componen
 
 Build order inside the phases of the spec (17.1):
 
-1. `guarded` with `Roots`, the records database, `Bind`, `OpenDB` and `Turn`, and `semantic.OpenCache` on it. Then `memory` with `memory init`, `store` (text and standard input), `recall`, `forget`; the catalog entries; the skill text; the measurements of 11.3. Then `hosts`, `hosts/claude`, `hook session-start` in its record-only form, `hooks install`, `--from-last-response`, and the qualification of one Claude Code version.
+1. `guarded` with `Roots`, the records database, `Bind`, `OpenDB` and `Turn`, and `semantic.OpenCache` on it. Then `memory` with `memory init`, `store` (text and standard input, with tags, keywords and the run), `recall`, `forget`; then `render.Inert` and the lists, `memory log`, `show`, `sessions` and `highlights`; the catalog entries; the skill text; the measurements of 11.3. Then `hosts`, `hosts/claude`, `hook session-start` in its record-only form, `hooks install`, `--from-last-response`, and the qualification of one Claude Code version.
 2. The split of `publishNew`, preview, confirm, the Sources part; then grouped promotion.
 3. The page in the session-start hook, `pre-compact`; the supervisor contract; the hook-cost measurement.
 4. The section's turn in `store.Begin`; originals in the state folder; the move; the entry adapter and the on-disk item index with profiles; the index's and the model's turns; the audit of #55.
 5. `doc`, `ScanDocs`, `RunMixed`, the `docs` commands; the document index; `docs check`; the gate; document targets for promotion.
+6. After the owner's decision on how the screen is shipped (5.5): `browse` and `memory browse`, with the pinned libraries, their licence texts and the audit run on every release build. It needs phases 1 and 2: the lists and `render.Inert` from the first, grouped promotion from the second.
 
 Before two developers build in parallel, one change adds the exported types and signatures of sections 4 to 10 with empty bodies and proves they compile together, as the first project did.

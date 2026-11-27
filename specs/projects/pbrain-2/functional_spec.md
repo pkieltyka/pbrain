@@ -35,13 +35,16 @@ This document says what is built. It is a delta: the first iteration's functiona
 - **Managed area.** The brain folder: where managed items live. Its rules are unchanged.
 - **Task.** A short token naming a piece of work, such as `83` or `pbrain-2`: 1 to 64 characters of `a-z`, `0-9`, `.`, `_` and `-`, starting with a letter or digit.
 - **Actor.** `human:<name>` or `agent:<name>`, as in pbrain spec 3. An actor is a claim, not proof of identity.
+- **Run.** A token a supervisor gives to one stretch of its work, such as a night of the factory, in the form of a task. pbrain never makes one up.
+- **Tag.** A label the caller puts on a memory, in the form of an item's tag (pbrain spec 3): lower-case `a-z0-9-`, at most 32 characters. **Keyword:** a word of the memory's own text that pbrain picks as distinctive (3.6). The two are always shown apart.
+- **Highlights.** A fixed selection of the memories of a run, a session or a period, for a person to review (5.6). It is a filter, never a score or a summary.
 - **Host.** The agent harness a session runs in (Claude Code, Codex and so on). **Adapter:** the small piece pbrain supplies so a host can call it on its events (section 9). **Supervisor:** a program that launches agents and delivers their work, such as the factory; it is not part of pbrain (section 8.4).
 
 ## 2. What does not change
 
 - Every command of the pbrain spec keeps its name, flags, ids, JSON, error codes, exit codes and **result set**: the same invocation on the same brain returns what it returns today, whether or not memory is enabled or a document folder is enrolled. Plain `search`, `get`, `list`, `prime`, `check` and `sync` (with `sync --status`) stay on managed items.
 - One notice says more than it did: `cpu_fallback`, which `sync` prints when it embeds on the processor, becomes a warning with a count and an estimate (section 11.7). Its code and its reasons are the same. In JSON it gains optional fields, so the description of a notice in the tool catalog grows by those fields; every other notice is unchanged, byte for byte.
-- The tool names and meanings in the tool catalog (`pbrain schema`) do not change. New commands are new tools. JSON only grows (pbrain spec 6.2).
+- The tool names and meanings in the tool catalog (`pbrain schema`) do not change. New commands are new tools. JSON only grows (pbrain spec 6.2). Two new commands are for a person at a terminal and are not tools: `memory show`, which is `recall --id` under another name, and `memory browse`, which is a screen (5.7).
 - A brain with no memory enabled and no `[docs]` key answers every command exactly as today, with one planned exception: pbrain no longer keeps any file of its own in the working tree, so its local data moves once (section 12.4), and the semantic index needs one `pbrain sync` afterwards.
 - The output budget, rendering rules, streams and exit codes of pbrain spec 6 apply to every new command unless this document gives another number. Messages never echo a suspected secret or anything outside the command's section.
 - pbrain still never runs a Git command that changes a repository, and never writes into a file it did not create, with the exceptions of `verify` (pbrain spec 8.3) and `pbrain hooks install` (section 9.3).
@@ -61,6 +64,9 @@ This document says what is built. It is a delta: the first iteration's functiona
 | `text` | The memory, stored byte for byte | the caller |
 | `capture` | `authored` (the recorder wrote it), `verbatim` (an exact copy of a source message), `checkpoint` (written at a supervisor's checkpoint prompt) or `report` (3.3) | the caller |
 | `task` | The task it belongs to, if any | the caller |
+| `run` | The supervisor's run it belongs to, if any | a supervisor, through `--run` or `PBRAIN_RUN` |
+| `tags` | Up to 8 labels, each in the form of a tag (1.2) | the caller |
+| `keywords` | Up to 5 distinctive words of the text (3.6) | pbrain, when it stores the memory |
 | `ref` | What the next reader can check: a commit, a path, a URL, a CI run. One line, at most 2,000 characters | the caller |
 | `said_by` | Who said the text | the caller; default the recorder |
 | `asked_by` | Who asked for it to be kept; absent when the recorder chose by itself | the caller |
@@ -111,6 +117,23 @@ Rules that follow:
 - Empty text, text of control characters only, and text that is not valid UTF-8 are refused with `invalid`.
 - The secret scan of pbrain spec 8.1 runs on the text and on every metadata value before anything is written, logged or printed, in either section. A match is refused with `secret_refused`, naming the field and never the value. The person can pick a smaller, clean excerpt. The scan is a second line of defence, not the privacy boundary: it cannot tell who may read a piece of prose.
 - A success receipt never prints the text.
+- A ninth tag, a tag that is not in the form of 1.2, and a run that is not in the form of a task are refused with `usage`. Tags are folded to lower case and repeated ones are stored once.
+
+### 3.6 Tags and keywords
+
+A memory can be found again by two kinds of label, and a reader can always tell which is which.
+
+- **Tags** are what the caller chose: `--tag`, up to 8. A person names them ("remember this under deploy"), an agent adds one or two where a component or an area fits, and a supervisor may add its own. Where the project declares its tags (pbrain spec 10), an agent prefers those names; an undeclared tag on a memory is not an error and prints no notice.
+- **Keywords** are what pbrain derives, with no model, no network and nothing but the memory's own text and the section's own memories:
+  1. Take the words of the text as pbrain splits words everywhere (pbrain spec 7.1), ignoring case.
+  2. Leave out the words of a fixed list of common English words that ships with pbrain, words of fewer than 3 characters or more than 32, and words made of digits only.
+  3. Of the remaining words, take the 64 that occur most often in this text, and give each a weight: how often it occurs in the text, multiplied by how rare it is among the live memories of the same section at that moment. Rarity is a whole-number logarithm of the number of memories over the number that hold the word, so the result is the same on every machine.
+  4. Keep the 5 heaviest; equal weights are settled by the alphabet.
+- Keywords are worked out once, when the memory is stored, after the secret scan has passed, and are kept with the version of this rule. They do not change later, so a list looks the same tomorrow and a repeated store gets the same answer. The price is stated: rarity is judged on the day of storing, so the first memories of a new store get plainer keywords than later ones. A typed report has fixed wording and gets none.
+- Nothing personal is ever used to derive a shared memory's keywords, and the reverse.
+- **What labels do.** `--tag` on `recall`, `memory log` and `memory highlights` keeps the memories that carry that label as a tag or as a keyword; given several times, all of them. On these reads the value may be a tag or a keyword: it is folded as words are, so `--tag Café` finds the keyword `café`, and a value that is neither a tag nor one word of 3 to 32 characters is a usage error. On `store` only the tag form of 1.2 is accepted. Labels never change a memory's rank, its place on the task page, its term, its bucket or its quota, and an invented tag never opens a fresh budget (7.1).
+- Tags and keywords go when their memory goes: a forgotten or expired memory's labels are in no list, count or filter.
+- Not in this version: changing a memory's tags after it is stored, and keywords from a model (section 18).
 
 ## 4. Where memory lives
 
@@ -146,7 +169,7 @@ All four are tools in the catalog: `pbrain_store`, `pbrain_recall`, `pbrain_forg
 ```
 pbrain store (--text TEXT | --stdin | --from-last-response | --fact FACT)
              [--kind KIND] [--learned] [--retention short-term|long-term] [--until WHEN]
-             [--task TASK] [--ref REF]
+             [--task TASK] [--run RUN] [--tag TAG]... [--ref REF]
              [--said-by ACTOR] [--asked-by ACTOR] [--author ACTOR]
              [--capture authored|verbatim|checkpoint] [--source TOKEN]
              [--session ID] [--event UUID --observed-at TIME] [--personal] [--dry-run]
@@ -160,7 +183,8 @@ pbrain store (--text TEXT | --stdin | --from-last-response | --fact FACT)
 - **Who.** `--said-by` is who said the text, default the recorder. `--asked-by` is who asked for it to be kept; leave it out when the recorder decided by itself. `--author` is the recorder, resolved as `add` resolves it; with no author it fails with `invalid`.
 - **`--dry-run`** checks a **selection** and admits nothing. It is for the command line only, in a session that an adapter has bound; it is not in the tool's schema. It applies the limits of 3.5 and the secret scan to the text, finds the message the text comes from, and prints a **selection line** in place of a receipt: the session, the message, the byte range in it, the length and the SHA-256, and no part of the text (in JSON, an object `selection` with those fields). It does not choose or open a section, does not open or create any memory, checks no quota and no duplicate, and spends nothing: the store that follows does all of that. It accepts `--from-last-response`, and `--text` or `--stdin` when the text is a part of the request's own message. With no bound session, or with text that is not part of that message, it fails with `no_source`; with `--fact` it is a usage error. The skill puts the line into its one dialog question (6.2), so that what the person approves is tied to the exact bytes without their being repeated.
 - **Section.** Shared unless `--personal` is given. The command prints a `destination` notice naming the section. This default is a rule for `store` alone and borrows nothing from an item's audience rules. A store never moves text from the personal section to the shared one by itself.
-- **Session.** `--session`, else the environment variable `PBRAIN_SESSION` that an adapter sets; absent otherwise.
+- **Session.** `--session`, else the environment variable `PBRAIN_SESSION` that an adapter sets; absent otherwise. pbrain never invents a session: a memory stored with none has no session, and is grouped with the others that have neither a session nor a run (5.6).
+- **Run and tags.** `--run`, else the environment variable `PBRAIN_RUN` that a supervisor sets for its agents; absent otherwise. `--tag` may be given up to 8 times, with any text source. Both are part of what a keyed store is compared by (4.3): the same event with other tags or another run is `conflict`.
 
 It prints a receipt and exits 0:
 
@@ -179,7 +203,8 @@ A refused store writes nothing, prints nothing on standard output and exits 1 wi
 ### 5.2 `pbrain recall`
 
 ```
-pbrain recall [QUERY] [--task TASK] [--session ID] [--kind KIND]... [--retention TERM]
+pbrain recall [QUERY] [--task TASK] [--session ID] [--run RUN] [--tag TAG]...
+              [--kind KIND]... [--retention TERM]
               [--id MEM_ID] [--page] [--banked]
               [--limit N] [--max-chars N] [--offset N] [--personal]
 ```
@@ -188,7 +213,7 @@ Recall returns memories only. It reads the store as it is at that moment, so a f
 
 | Mode | Selected by | Other flags it takes |
 | --- | --- | --- |
-| A page of memories | at least one of a query, `--task`, `--session` or `--retention`; `--kind` narrows any of them | `--limit`, `--max-chars`, `--offset`, `--personal`, and `--banked` with a query |
+| A page of memories | at least one of a query, `--task`, `--session`, `--run`, `--tag` or `--retention`; `--kind` narrows any of them | `--limit`, `--max-chars`, `--offset`, `--personal`, and `--banked` with a query |
 | One memory in full | `--id MEM_ID` | `--offset`, `--max-chars`, `--personal` |
 | The task page | `--page --task TASK` | none |
 
@@ -200,7 +225,8 @@ With none of these it is a usage error.
 - **`--id`** returns one memory with every provenance field and its basis, and its text from `--offset` within `--max-chars` (default 6,000), paged as `get` pages a body (pbrain spec 6.1): `more` and `next` say how many characters are left and where to continue. "In full" means retrievable across pages: in JSON, `text` holds exactly the characters of that page, line endings and trailing spaces included, so that the pages joined in order are the stored text byte for byte. In text output the body is printed as stored. An id that is missing, expired or in the other section is `not_found`, the same answer in each case.
 - **`--page`** prints the task page (section 8.1): shared memories of the task, at most 3 rows and 1,200 characters. The flag and its output exist from the first phase; what arrives in the third phase is the hook that injects the page.
 - **`--banked`** adds a second, separately labelled page of banked knowledge for the same query: the results of `search`, or of `docs search` once a document folder is enrolled. That read is by words only: no model, no index, no catch-up. It uses the same section as the recall (`--personal` applies to both), at most 5 results, and its notices, such as `skipped_files`, are printed. The two pages share the one `--max-chars` limit, at least half of it kept for the banked page, and their scores are never merged. With memory not enabled, the memory page is empty with its notice and the banked page is still returned. A document search never returns a memory.
-- **`--retention long-term`** with no query lists the long-term memories, newest first, for a person to prune.
+- **`--tag`** keeps the memories that carry the label as a tag or as a keyword (3.6); it narrows and never ranks. A row shows its tags and its keywords on separate lines, and in JSON as `tags` and `keywords`.
+- **`--retention long-term`** with no query lists the long-term memories, newest first, for a person to prune. `pbrain memory log` (5.5) is the fuller way to do that.
 
 A row in text:
 
@@ -220,6 +246,104 @@ In JSON each row carries the fields of 3.1 that are present, `text` (cut as abov
 ### 5.4 `pbrain promote`
 
 Section 10.
+
+### 5.5 `pbrain memory log` and `pbrain memory show`
+
+Agents add memories on their own, and the person looks afterwards. `recall` is an agent's read: a few ranked rows inside a budget. `memory log` is a person's read: everything, in the order it arrived, a page at a time.
+
+```
+pbrain memory log [--since WHEN] [--until WHEN] [--tag TAG]... [--agent ACTOR] [--task TASK]
+                  [--session ID | --run RUN | --bucket SELECTOR] [--kind KIND]... [--retention TERM]
+                  [--limit N] [--after CURSOR] [--personal]
+pbrain memory show MEM_ID [--offset N] [--max-chars N] [--personal]
+```
+
+- **What it lists.** Every live memory of the section that passes the filters, typed reports and checkpoints included, each labelled as what it is. With no filter it lists them all. Nothing forgotten or expired is ever listed.
+- **Order.** Newest `received` first, then id, descending. Arrival is the order that answers "what was added while I was away".
+- **Filters**, all of which must hold: `--since` and `--until` on `received`, in the forms of pbrain spec 7.1 (`12h`, `3d`, `yesterday`, a date, an instant); `--tag` (3.6); `--agent`, an actor that recorded the memory or said its text, where a bare name means `agent:<name>`; `--task`; `--session`, every memory of that session, or `--run`, every memory of that run, or `--bucket`, exactly one row of `memory sessions` (5.6); `--kind`; `--retention`.
+- **A page** is 50 rows by default (`--limit` 1 to 200). Each row shows when it arrived, the id, kind, the learned mark, term, capture when it is not authored, who recorded it, who said it and who asked when they differ, the task, run and session, the tags and the keywords on separate lines, and the first 160 characters of the text on one line with the full length. Control characters in a text are never sent to the terminal as they are (5.7).
+- **A list is fixed when its first page is asked for.** The first page settles two things: the time window, as instants, and what had been stored up to that moment. The output ends with a cursor that carries both, with the position of the last row: `next: --after <cursor>`. A page asked for with `--after` continues strictly after that row and never includes a memory stored after the first page, wherever that memory would sort: one that arrived in the same second, one that belongs to an earlier group of highlights, or one stamped earlier because the clock was set back. So nothing is repeated and nothing new slips in; new arrivals are seen by asking for the list afresh. What has been forgotten or has expired since is left out of later pages all the same.
+- **A cursor belongs to its list:** the section, log or highlights, and the filters. With `--after` the same filters are given again, except `--since` and `--until`, which the cursor carries and which are a usage error beside it. A cursor used with other filters, in the other section or in the other kind of list is refused with `usage`.
+- **When a limit dropped memories** in the period shown, the notice `memory_dropped` says how many short-term memories that arrived in it were dropped by a count or byte limit before they were seven days old (7.1). It carries numbers and nothing of their content. The count is kept by the hour of arrival and for 14 days, and the notice says so: it covers the whole hours that the period touches, within those 14 days, and it is for the section and the period whatever the other filters, also when no live memory matches them.
+- **`memory show MEM_ID`** is `recall --id` (5.2) under the name a person expects: the same output, the same paging of a long text, the same `not_found`.
+- From a row a person goes on with the existing commands: `pbrain forget MEM_ID` (5.3) and `pbrain promote MEM_ID…` (section 10), each with its own confirmation. `memory log` changes nothing.
+
+```
+2026-11-27 03:12  mem_3f9a…c2  statement · learned · long-term · agent:lead-dev · task 83 · run night-1127
+  tags: sqlite          keywords: snapshot, checkpoint, reader
+  A reader that holds an old snapshot stops the log from being reset, so short transa…  [812 characters]
+```
+
+In JSON: `memories`, each with the fields of 3.1 that are present, `text` (cut as above), `text_chars` and `basis`, and `next` with the cursor when there is another page. With memory not enabled the list is empty and the notice `memory_not_enabled` is printed.
+
+### 5.6 `pbrain memory sessions` and `pbrain memory highlights`
+
+```
+pbrain memory sessions   [--since WHEN] [--until WHEN] [--limit N] [--after CURSOR] [--personal]
+pbrain memory highlights [--run RUN | --session ID | --bucket SELECTOR] [--since WHEN] [--until WHEN] [--tag TAG]...
+                         [--limit N] [--after CURSOR] [--personal]
+```
+
+**Every memory carries where it came from**, so that a night's work can be looked at as one thing. The session is recorded by the adapter whenever the host session is bound, and that includes a "remember" typed by a person in that session (6.2). The run and the task come from the supervisor. None of the three is a tag, none is derived from the text, and pbrain never invents one.
+
+**`memory sessions`** is the list of buckets. Every live memory received in the period (the last 7 days by default) is in exactly one:
+
+| Bucket | Which memories | Selector |
+| --- | --- | --- |
+| A run | Every memory with that run, whatever its session | `run:<run>` |
+| A session on its own | The memories with that session and no run | `session:<id>` |
+| Neither | The memories with no run and no session | `none` |
+
+A row gives the bucket and its selector, the first and the last arrival, how many memories, how many of them learned, blockers and long-term, and up to five of the agents and of the tasks involved. Newest last arrival first, then by selector; 50 rows a page, continued with `--after`. Like a log, later pages leave out memories stored after the first page. Unlike a log, a bucket's place can move while a person reads, because its latest arrival becomes an earlier one when that memory is forgotten, expires or is dropped. So the promise is this: no bucket is missed, and a bucket whose latest memory went meanwhile can be shown a second time, further down, with its figures as they then are. The screen replaces the earlier row in that case. Each row ends with the command that opens it, which names the selector and the period as instants: `pbrain memory highlights --bucket run:night-1127 --since … --until …`. The count on a row is the number of memories that command's `memory log` lists. `--bucket` is exact where `--session` is broad: a session that worked partly inside a run has its other memories in `session:<id>` and all of them under `--session <id>`. A session that happens to be named `none` or `unassigned` is an ordinary session, `session:none` or `session:unassigned`. These buckets are a way of looking; they are not the buckets of 7.1, which limit short-term memory.
+
+**`memory highlights`** answers "what is worth my reading from that run". It is a fixed filter over attributed memories. It makes no judgment of usefulness, gives no score and writes no summary (section 18).
+
+- **The period.** One run, one session, or a time window; with none of them, the last 12 hours. A span such as `12h`, and this default, is turned into an instant when the first page is asked for, and the cursor carries it: later pages of the same list use the same window, however long the person takes.
+- **What is selected.** Memories whose capture is authored or verbatim, that are not handoffs, and that are one of these. A memory is listed once, in the first group it fits.
+
+| Group | What | Why it is here |
+| --- | --- | --- |
+| 1 | Learned: a statement with the learned mark | What an agent or a person says was learned; always long-term |
+| 2 | Blockers | What stopped work and may still need a person |
+| 3 | Every other long-term memory | What someone chose to keep |
+
+- **What is left out**, and stays in `memory log`: typed reports, checkpoints, every handoff whatever its term, and short-term outcomes and statements.
+- **Order.** Group 1, then 2, then 3; inside a group, newest `received` first, then id. Paged as `memory log` is, 50 rows by default.
+- **Each row** is a row of `memory log` that also says which group it is in. Any of them can be banked with `pbrain promote`; nothing is promoted from here without the preview and confirmation of section 10.
+- **The first line** counts the three groups and all the memories of the period, and names the command that lists them all. The `memory_dropped` notice of 5.5 applies: highlights are taken from what is still in memory, and a blocker, being short-term, can have been dropped by a count or byte limit before anyone looked.
+
+```
+Highlights of run night-1127: 4 learned, 1 blocker, 7 other long-term, of 212 memories (pbrain memory log --run night-1127)
+```
+
+### 5.7 `pbrain memory browse`
+
+```
+pbrain memory browse [--highlights] [--since WHEN] [--until WHEN] [--tag TAG]... [--agent ACTOR]
+                     [--task TASK] [--session ID | --run RUN | --bucket SELECTOR] [--personal]
+```
+
+The same lists as a screen, for a person at a terminal. It opens on the log, or on the highlights with `--highlights`, with the filters given.
+
+- **The list** scrolls through the rows of 5.5, newest first, and fetches further pages as the person goes down. A key refreshes it; new arrivals appear at the top.
+- **Expanding a row** shows the whole memory: every provenance field with its basis, the labels, and the text. The text is shown formatted as Markdown. One key switches to the exact view, because a formatted answer is not the verbatim one: every character of the stored text in order, with each control character shown as a visible escape (such as `\x1b`) and never sent to the terminal, so that what is stored can be read off the screen without loss. The stored bytes themselves, unchanged, are what `memory show --json` returns.
+- **Filters** can be changed on the screen: tag, agent, task, session, run and period. The three views are Log, Highlights and Sessions; choosing a row in Sessions opens the highlights of exactly that bucket, for the same period.
+- **Forget** asks for confirmation, naming the id and the first line, and then does what `pbrain forget` does.
+- **Promote**, for the row or for several marked rows, asks for the kind and a title, and for a decision who decided it; shows the preview that `pbrain promote` prints, a page at a time when it is long; and writes the item only on the explicit confirmation of section 10. A preview that is not confirmed leaves no item; its token lapses as any preview's does. Anything a preview cannot settle on the screen (a body of one's own, quotes, a target document) is done with the command.
+- The keys are listed on the screen. It needs a terminal on standard input and output of at least 80 columns and 24 lines.
+
+**What the screen must never do:**
+
+1. Show, count, suggest or filter by anything of the personal section in the shared view, or the reverse. One run of the command shows one section; there is no switch inside it.
+2. Let a memory's text act on the terminal. Texts are stored byte for byte and may hold control sequences. In the list and in the formatted view they are removed before anything is drawn; in the exact view they are shown as visible escapes; in no view does one reach the terminal, and no link or image that a text describes is turned into a terminal link or image. Nothing of this changes what is stored.
+3. Act on a row without reading it again by its id. A memory forgotten or expired meanwhile is reported as gone and disappears from the list.
+4. Forget or promote without the confirmation the commands require, or promote by itself.
+5. Keep the memory database busy while a person reads or decides.
+6. Write anything by looking: listing, expanding, filtering and switching views write no file and no row of pbrain's (SQLite's own side files, which reading can create, are its bookkeeping: section 12.6). Only what the person asks for is written, as the commands write it: a preview records its token, and a confirmed forget or promote has its usual effect. It never keeps a history of what was looked at or searched for, never loads a model, never uses the network.
+7. Change a memory because it was looked at: not its rank, not its term, not its expiry.
+8. Run without a terminal, or as a tool. With no terminal it fails with `usage` and names `memory log`; `--json` is a usage error; it is not in the tool catalog.
+
+Everything the screen does can be done with `memory log`, `memory show`, `memory sessions`, `memory highlights`, `forget` and `promote`; it adds no ability.
 
 ## 6. Explicit capture
 
@@ -256,6 +380,8 @@ No supported host tells pbrain who typed a prompt: the same input can carry a pe
 
 An agent whose context holds private or unlabelled input (section 8.3) still stores explicitly, and must leave out of a shared memory anything that came from that input.
 
+**The session goes with it.** A "remember" typed in a session whose host is bound is recorded with that session by the adapter, with no flag and no tag from the agent, and with the run and the task where a supervisor set them. So what a person asked to keep during a night's run shows up in that run's highlights (5.6).
+
 ### 6.3 The previous answer, verbatim
 
 `pbrain store --from-last-response` stores the immediately preceding complete, visible answer of the main agent in that session: its text, Markdown, whitespace and line endings as delivered, excluding tool output and hidden reasoning. The agent names the selection and never retypes it.
@@ -287,18 +413,28 @@ Agents tell each other what they learned, and that goes into long-term memory.
 
 ### 7.1 Short-term
 
-A short-term memory lives seven days from `observed`, whatever its kind. In addition, short-term memories are capped by count: the newest 32 per task; for a memory with no task, the newest 32 per enrolled recording agent; and for a manual memory with neither, one shared "unassigned" bucket of 32 per section. Whichever limit is reached first drops the oldest, by `received` and then id. A claimed author name or an invented tag never opens a fresh budget. A dropped memory leaves nothing readable behind, and a replay of it is refused (4.3). There is a hard ceiling of 10,000 short-term memories per section.
+A short-term memory goes when the first of three limits is reached (the counts are the owner's of 2026-11-27):
 
-The number 32 is a starting value. The pilot (section 17.3) counts how many memories a task really collects in a week, and the number is set from that.
+1. **Age.** Seven days from `observed`, whatever its kind.
+2. **Its bucket.** The newest 32 per task; for a memory with no task, the newest 32 per enrolled recording agent; and for a manual memory with neither, one shared "unassigned" bucket of 32 per section.
+3. **The section.** The newest 1,000 short-term memories, and 8 MiB of their text.
+
+Limits 2 and 3 drop the oldest, by `received` and then id; a short-term store is never refused for want of room. So seven days is the longest a short-term memory lives, not a promise: a section that takes in more than about 140 a day drops some sooner, and 1,000 is 31 tasks at their full 32. One busy task cannot take more than 32 places from the others. A claimed author name, an invented tag, a session or a run never opens a fresh budget. A dropped memory leaves nothing readable behind, and a replay of it is refused (4.3).
+
+**Dropped memories are counted.** For each section pbrain keeps, for 14 days, how many short-term memories each of limits 2 and 3 dropped, by the hour in which they had arrived: numbers only, nothing of the memories. Limit 3 counts as one reason, "the section's rows or bytes". `memory log` and `memory highlights` report them for the period they show (`memory_dropped`), so that a morning's review is never mistaken for the whole night, and the pilot can see which limit bites.
+
+One consequence is for the owner to weigh (section 20): a person or an assistant working with no tasks and no enrolled agent has only the "unassigned" bucket, and so keeps at most 32 short-term memories in a section, whatever the section's limit. Long-term memories are not affected. The number 32 is a starting value. The pilot (section 17.3) counts how many memories a task and a night really collect, and it is set from that.
 
 ### 7.2 Long-term
 
-A long-term memory stays until someone forgets it or until the date its requester chose with `--until`. It is never dropped to make room, never removed by promotion, and untouched by a cache purge. Each section holds at most 500 long-term memories and 16 MiB of their text, split in two allocations (the owner's answer of 2026-11-26):
+A long-term memory stays until someone forgets it or until the date its requester chose with `--until`. It is never dropped to make room, never removed by promotion, and untouched by a cache purge. Each section holds at most 10,000 long-term memories (the owner's count of 2026-11-27) and 320 MiB of their text, split in two allocations:
 
-- **The person's allocation:** 200 memories and 6 MiB, for memories that a person asked for. It counts only a requester the adapter observed as a person (3.4). "A person" here means a human being: the factory's operator agent is an agent, and a memory it stores by its own choice does not count.
-- **The ordinary allocation:** 300 memories and 10 MiB, for everything else: what agents learned or chose to keep, and any memory whose `asked_by` is only claimed.
+- **The person's allocation:** 2,000 memories and 64 MiB, for memories that a person asked for. It counts only a requester the adapter observed as a person (3.4). "A person" here means a human being: the factory's operator agent is an agent, and a memory it stores by its own choice does not count.
+- **The ordinary allocation:** 8,000 memories and 256 MiB, for everything else: what agents learned or chose to keep, and any memory whose `asked_by` is only claimed.
 
-The allocation is decided once, when the memory is admitted, by who asked for it, whoever said the text and whoever recorded it: an answer that an agent gave and stored at a person's observed request is in the person's allocation. A duplicate store returns its original receipt and is not counted again. When the allocation a store belongs to is full in either measure, that store is refused with `quota_full`; the message says how to list the long-term memories (`pbrain recall --retention long-term`), and `forget` still works. A full ordinary allocation never refuses a request that was observed to come from a person; a request whose `asked_by` is only claimed is ordinary and can meet `quota_full`. A short-term store is never refused for this reason.
+Agents write nearly everything, so most of the room is theirs; the reserve exists so that a person's request is never refused because agents filled the store. A memory may be up to 65,536 bytes, but notes run to a few hundred bytes or a few thousand, so the count is what fills in ordinary use; the bytes stop bulk copying of long answers, at 1,024 of the longest in the person's allocation and 4,096 in the ordinary one. Neither allocation ever borrows from the other.
+
+The allocation is decided once, when the memory is admitted, by who asked for it, whoever said the text and whoever recorded it: an answer that an agent gave and stored at a person's observed request is in the person's allocation. A duplicate store returns its original receipt and is not counted again. When the allocation a store belongs to is full in either measure, that store is refused with `quota_full`; the message says how to list the long-term memories (`pbrain memory log --retention long-term`), and `forget` still works. A full ordinary allocation never refuses a request that was observed to come from a person; a request whose `asked_by` is only claimed is ordinary and can meet `quota_full`. A short-term store is never refused for this reason.
 
 ### 7.3 What neither limit touches
 
@@ -342,7 +478,7 @@ In the owner's factory: the owner types a confidential note into the operator's 
 | pbrain | A supervisor (the factory) |
 | --- | --- |
 | `store`, `recall`, `forget`, `promote`; the task page; the session-start and compaction hooks (section 9) | The labelled team channel, and the label on every delivery before it is delivered |
-| Admission into memory: size, secret scan, section, quota, replay | The task token of each agent, and the page injected with a new assignment (it calls `recall --page`) |
+| Admission into memory: size, secret scan, section, quota, replay | The task token of each agent and the run token of each stretch of work (`PBRAIN_TASK`, `PBRAIN_RUN`), and the page injected with a new assignment (it calls `recall --page`) |
 | `capture: checkpoint` and its 2,048-byte limit | The checkpoint trigger, the grant, eligibility and the pause |
 | The same answer to every caller: no caller is trusted more for the `--source` it claims | Writing a restricted worker's checkpoint for it: such a worker has no write access to the state folder, so it cannot go round the pause |
 | | A neutral, enrolled name for the recorder of an automatic write, never a person's Git identity |
@@ -386,7 +522,7 @@ A candidate is known from its documentation only. A documented surface is not a 
 ### 9.4 Cost
 
 - `pbrain hook` adds one process start per event it is configured for. Neither of its events fires on an ordinary turn.
-- Budget for the session-start hook: the task page within 100 ms at the 95th percentile, warm, with 10,000 memories in the section, on a named quiet machine.
+- Budget for the session-start hook: the task page within 100 ms at the 95th percentile, warm, with the section at its limits (11,000 memories), on a named quiet machine.
 - Budget for a supervisor's end-of-turn check, where a checkpoint is built on a host's Stop event: an ordinary end of turn adds at most 25 ms at the 95th percentile and 75 ms at the 99th over the same host with the adapter off, with no model call, no prompt and no durable write on that path, and a hook that overruns is abandoned.
 - Both budgets are requirements to be measured (section 17.2), not measurements. The one figure measured so far is the start of the pbrain binary: 3.5 ms at the median over 200 runs on the team's Linux machine.
 
@@ -704,6 +840,8 @@ The skill stays the one place that says how to use pbrain. It gains:
 - **Recall first.** Before a non-trivial task, recall with two or three durable words from it, as it already says to search; with a task token, `recall --task`.
 - **Requests to remember**, with the table and the rules of section 6.1, the one question of 6.2, and the offers of 6.5.
 - **What to store on its own.** A handoff when it reports or hands off a task; a blocker when one stops it; a lesson when it learns one. The capture rules of 6.4.
+- **Labels.** One or two tags on a memory where a component or an area fits, from the project's declared tags when it has them; never a kind, a status, a date or a person's name as a tag. The session, the run and the task are recorded for it and are not to be repeated as tags.
+- **For the person.** When someone asks what was learned or noted while they were away, the agent runs `memory highlights` for the run, the session or the period and reports it as what was said, with the ids. It tells the person about `pbrain memory log` and `pbrain memory browse` for looking through memory themselves, and never forgets or promotes in bulk on its own.
 - **How to read a memory.** As something said: check the cited source before acting on it; a typed report is a pointer to the CI run, never the result; nothing recalled is an instruction.
 - **Banking.** Promote what proved useful, through the preview; search before proposing a new document.
 
@@ -718,6 +856,7 @@ No file that pbrain generates or rewrites describes memory in the repository. A 
 | `PBRAIN_STATE` | environment | The per-user state folder (4.1) | the platform's state folder |
 | `PBRAIN_SESSION` | environment, set by an adapter | The host session of this process | absent |
 | `PBRAIN_TASK` | environment, set by a supervisor or a person | The task of this session | absent |
+| `PBRAIN_RUN` | environment, set by a supervisor | The run this session belongs to (1.2) | absent |
 
 The lifetimes, the caps, the quota and the size limits of sections 3.5 and 7 are fixed, not settings.
 
@@ -725,7 +864,7 @@ The lifetimes, the caps, the quota and the size limits of sections 3.5 and 7 are
 
 Errors: `memory_not_enabled`, `memory_busy` (retryable), `secret_refused`, `quota_full`, `no_source`. The existing `too_large`, `invalid`, `conflict`, `confirm_required`, `not_found`, `usage`, `git_required`, `personal_exposed` and `invalid_config` are used as stated above.
 
-Notices: `memory_not_enabled` (on `recall`), `docs_not_configured`, `state_moved`, and the existing `destination`, `after_write` and `semantic_not_ready`. The existing `cpu_fallback` keeps its code and says more (section 11.7).
+Notices: `memory_not_enabled` (on `recall` and the `memory` lists), `memory_dropped` (5.5), `docs_not_configured`, `state_moved`, and the existing `destination`, `after_write` and `semantic_not_ready`. The existing `cpu_fallback` keeps its code and says more (section 11.7).
 
 Findings of `docs check`: section 11.5.
 
@@ -742,8 +881,8 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 5. Text is stored byte for byte: a multi-paragraph answer of 20,000 characters with Markdown, trailing spaces and CRLF comes back identical with `recall --id`, in text and from the JSON pages joined in order. `--id` with `--page`, `--page` with `--limit`, and `--id` with `--banked` are usage errors.
 6. Refusals: 65,537 bytes is `too_large`; a planted token is `secret_refused` and neither the message nor any file holds it; invalid UTF-8 is `invalid`. Nothing is written in any of them.
 7. A short-term memory, a blocker included, is gone after seven days; a long-term one is there after fifteen days, a restart, quota pressure and a cache purge, and gone after `forget`. A long-term one with `--until` survives the same pressure and is gone at its date, not before.
-8. The 33rd short-term memory of a task drops the oldest; a long-term memory of the same task stays; a replay of the dropped one is refused. Thirty-three no-task stores across two worktrees under different claimed authors leave 32, and leave the personal section untouched.
-9. The quota's two allocations: with the ordinary allocation full by count, and separately full by bytes, an agent's long-term store is `quota_full`, a short-term store still works, and a store at a person's observed request is still admitted; a store that only claims `--asked-by human:owner` is counted as ordinary; the 201st observed person's request is `quota_full`; a duplicate is not counted twice; after one `forget` a store works again. Run with concurrent writers.
+8. The 33rd short-term memory of a task drops the oldest; a long-term memory of the same task stays; a replay of the dropped one is refused. Thirty-three no-task stores across two worktrees under different claimed authors, tags, sessions and runs leave 32, and leave the personal section untouched. With 32 tasks at 32 memories each the section holds 1,000, the 24 oldest having gone though none is a day old; a store that would pass 8 MiB of short-term text drops the oldest until it fits. After each of these, `memory log` for the period prints `memory_dropped` with the number dropped and nothing of their content, and a period with no drop prints no such notice.
+9. The quota's two allocations: with the ordinary allocation full by count, and separately full by bytes, an agent's long-term store is `quota_full`, a short-term store still works, and a store at a person's observed request is still admitted; a store that only claims `--asked-by human:owner` is counted as ordinary; the 2,001st observed person's request is `quota_full`, and so is the 8,001st ordinary store; a duplicate is not counted twice; after one `forget` a store works again. Run with concurrent writers.
 10. Private data: with and without planted personal memories, every shared result, count, message and file is identical.
 11. Without `memory init`: `store` fails with `memory_not_enabled`; `recall` returns an empty page with the notice and exit 0.
 12. `--learned --retention short-term` and `--learned --kind outcome` are usage errors; `--learned` with no other flag makes a long-term statement marked learned.
@@ -800,6 +939,11 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 48. Database files, for memory and for each index: a link at the database's name or at either side file's name is refused with `io` and nothing is opened; a real pbrain database of another project, checkout or section put in its place is refused before any of its rows is returned or anything is written to it by pbrain; with the folder read-only and the side files absent, `recall` and `sync` fail with `io` naming the folder, and a search with `--semantic` returns its lexical results with `semantic_not_ready`; five writers and readers at once, on Linux and macOS; a process killed before and after a commit leaves a database that passes SQLite's integrity check; for the index, on each of three branches (a first build, an incremental `sync` for the same profile, and a build for another profile): what a search and `sync --status` report after the first commit, after the writer is killed, and after a successful resume, with a reader running throughout; and a half-built index for another profile never answers in place of a usable one. After a build for another profile completes, the superseded index is gone from the same database in the same step, there is still one index file for that checkout and kind after repeated changes of profile, a search that began earlier finishes on what it was reading, and another checkout's index is byte for byte untouched; a damaged index is removed and rebuilt by an ordinary `sync` once no search is reading it.
 49. Sandbox (and, for the rule of 12.5, two processes that resolve one state folder, also through a link to it, taking turns on one checkout): with only the working tree writable, `add`, `verify`, `import`, `store` and `recall` each fail with `io` naming the state folder, and no item is created, changed or removed; `search`, `get` and `list` work. With the state folder writable as well and the cache not, `add` and `verify` succeed. A shared write succeeds when nothing of the personal section can be opened. With no setting at all, every command works on Linux and on macOS.
 50. Indexing on the processor, with a test model that has a GPU path, a list of devices made for the test and a processor rate set for the test. With the GPUs made unusable, `sync` exits 0 and prints `cpu_fallback` once for the shared index, before its first passage, as a warning with the reason, a count equal to the number of passages the test model is then asked to embed, on a fixture that also holds a damaged cached vector (counted), a vector that exists only under another item that this run replaces (counted as the build treats it) and a passage that occurs three times (counted once), and the estimate that count and rate give; with the shared cache filled by another checkout after the warning, the model is asked for fewer; with `--json` the notice carries `section`, `reason`, `passages`, `passages_per_second` and `estimated_seconds`, it is valid under the catalog's description of a notice, and the same call made through the tool catalog returns the same notice. Each reason is shown in its case: `--device cpu` and `PBRAIN_DEVICE=cpu`, each named as the source; a build with no GPU support; no usable GPU; a GPU that cannot be started; too little free memory; and, under `auto`, a GPU that runs out during the run, in the middle and in the last group: the warning follows `embedding_device` when that group is done and counts only what is planned after it, which in the last group is nothing, said without an estimate. A run that fails or is cancelled after the warning ends with the error and exit code it would have had without it. A run that resolves its device and then finds nothing to embed prints no warning. A run with shared and personal items to embed prints one warning for each, with its own count; `docs sync` prints its own. Passages whose vectors are in the cache are not counted, and a run that embeds nothing prints no warning. A model with no measured rate gives the count and no estimate, and its JSON has no `estimated_seconds`. `search --semantic` and `docs search --semantic`, with and without a catch-up, never print `cpu_fallback`. And the record of 12.6: after a build, the index's own database names the model, the vector size, the profile, the asked precision and the form, and no file beside it does; with another model named in `pbrain.toml`, and separately with the precision setting changed to one that today's check rejects for that index, `search --semantic` returns its lexical results with `semantic_not_ready` and compares no vector, and `sync --status` says why; a precision change that today's check accepts changes nothing; with the item index matching and the document index built for another model, `docs search --semantic` still answers from the items by meaning, compares no vector of the document index and prints `semantic_partial`; a shared index built with fp16 on a GPU and a personal index built on the processor under the same setting both answer one search; none of these asks a device; after `sync` and `docs sync` every search answers by meaning again.
+51. Labels. A store with two tags, one given in capitals and one twice, keeps two lower-case tags; a ninth tag and a malformed one are `usage` and store nothing; a tag that the secret scan flags is `secret_refused` without being echoed. Keywords: for a fixed text in a fixed store, the five keywords are the ones the rule of 3.6 gives, common words, short words and numbers left out, ties by the alphabet; the same store repeated with its event returns the same keywords after 100 other memories have arrived; a typed report has none; a shared memory's keywords are the same whether or not the personal section holds its words a thousand times. `recall --tag` and `memory log --tag` return a memory by its tag and by its keyword, a keyword with an accented letter and one of 32 characters that is longer than 32 bytes included, given in any case, from the command line and through the tool alike; a value that is neither a tag nor one word is `usage`; with two `--tag` only those that carry both, and the order of `recall` with a query is what it is without the labels. A keyed store repeated with another tag or another run is `conflict`. After `forget` the memory's labels are in no list.
+52. The log. With memories received at known times, three of them in the same second: `memory log` lists all of them newest first with ids settling the tie; `--since 12h`, `--until`, `--agent`, `--task`, `--session`, `--run`, `--bucket`, `--kind` and `--retention` each narrow it, and together all must hold. Paging with `--after` returns every remaining memory of the first page's list exactly once and no later one, while these happen between pages: two listed memories are forgotten; a memory arrives in the same second as the cursor's row with an id that sorts after it; the clock is set back an hour and a memory arrives; ten more arrive. A fresh `memory log` shows all the arrivals at the top. A cursor used with another filter, with `--personal`, or with `memory highlights` is `usage`. A list begun with `--since 12h` and continued an hour later with its cursor covers the window of its first page; `--since` given with `--after` is `usage`. A memory that arrived at 08:01 and was dropped is counted by `memory log --since 08:55` of that day, and the notice says that it counts whole hours; the notice is printed for a filter that no live memory matches; a count older than 14 days is not reported, with no store in between. A row cuts its text at 160 characters and gives the full length; a text holding terminal control sequences reaches the terminal with none of them active. `memory show ID` prints what `recall --id ID` prints, byte for byte. Without `--personal` no personal memory is listed, counted or hinted at; with it only personal ones are.
+53. Sessions and highlights. A "remember" typed in a bound session is stored with that session with no flag from the agent; with `PBRAIN_RUN` and `PBRAIN_TASK` set it carries the run and the task; a manual store with none of them has no session and gets no invented id. With a run of three sessions, a session that has two memories in that run and one outside it, a session literally named `unassigned`, and memories with neither run nor session: `memory sessions` shows one row for the run, one for each session's memories outside any run, and one for `none`; every memory is in exactly one row; the count on each row equals the number of memories that `memory log --bucket` with its selector and period lists; `--session` with the mixed session's id lists all three of its memories. With more buckets than a page, three of them sharing their last second, `--after` reaches each once. With run A holding arrivals at 30 and 10 and run B one at 20, a page of one row shows A; after the memory at 30 is forgotten, the next pages show B and then A again with its one remaining memory, and no bucket is missed. In `memory highlights`, a blocker stored after the learned rows were paged does not appear on a later page of that list, and appears in a fresh one. `memory highlights --run R` lists the learned memories, then the blockers, then the other long-term ones, each newest first, each once, each saying its group; it leaves out typed reports, checkpoints, handoffs, a long-term handoff among them, and short-term outcomes, which `memory log --run R` still shows, and it lists a long-term outcome in the third group; its first line counts the groups and the whole. With no argument it covers the last 12 hours by a fixed clock. A blocker dropped by a count limit is absent and `memory_dropped` is printed.
+54. The screen, driven through a simulated terminal: the log opens newest first, scrolls past the first page, expands a memory with its provenance and its formatted text, and on the key for it shows the exact view, in which a text holding an escape, an OSC sequence and other control bytes appears with each of them as a visible escape while `memory show --json` returns the stored bytes unchanged; a filter by tag, by run and by period narrows the list; Highlights and Sessions show what 53 lists. Forget removes the row only after the confirmation; promote of two marked rows writes the item only after the preview and its confirmation, a decision asking who decided, and the result equals what `pbrain promote` writes for the same choices; a preview that is then cancelled leaves no item. A memory forgotten by another process while it is selected is reported as gone when acted on. A text holding control sequences, a terminal link and an image reference draws as inert text in both views. In the shared view nothing personal appears in a row, a count, a filter suggestion or a session list. During a minute of idle display another process stores a memory without waiting. A run that only lists, expands and filters changes no memory, no item, nothing in the cache and no record of pbrain's, keeps no history, and reads no model; SQLite's own side files beside a database it reads may come and go, as section 12.6 says. This is a separate test from the one that confirms changes. A failure forced inside the screen restores the terminal, prints nothing of any memory and leaves no file, whatever debugging variables of the libraries are set. With no terminal the command fails with `usage` naming `memory log`; it is absent from `pbrain schema`.
+55. The new limits. A long-term store is refused only where its own allocation is full in rows or in bytes (scenario 9), and with the ordinary allocation full in both, a store at a person's observed request still succeeds; 1,000 short-term memories and 8 MiB as in scenario 8; with the section at its limits, a store, a recall, the task page and a page of `memory log` meet their budgets (17.5).
 
 ## 17. Constraints and delivery order
 
@@ -807,13 +951,15 @@ Each is a test or a scripted run. Linux and macOS unless one is named.
 
 Each phase can be released separately; nothing is tagged without the owner's word.
 
-1. **Explicit memory.** `memory init`, `store`, `recall`, `forget`, on an on-disk database; the two terms, the caps and the quota; provenance; the skill's handling of requests to remember. Then the adapter for Claude Code, so that `--from-last-response` and observed provenance work: `pbrain hook session-start`, which in this phase only notes the session, and `hooks install`.
+1. **Explicit memory.** `memory init`, `store`, `recall`, `forget`, on an on-disk database; the two terms, the caps and the quota; provenance, with session, run, tags and keywords; the lists a person reviews with, `memory log`, `memory show`, `memory sessions` and `memory highlights`; the skill's handling of requests to remember. Then the adapter for Claude Code, so that `--from-last-response` and observed provenance work: `pbrain hook session-start`, which in this phase only notes the session, and `hooks install`.
 2. **Promotion** into a learning or a decision, one memory and then several.
 3. **Long sessions.** The task page, returned by the session-start hook, and the `pre-compact` hook; then, in the factory's repository, the labelled channel, the checkpoint and the pause. Automatic checkpoints are on by default only after the pilot of 17.3 passes.
 4. **Out of the working tree.** No `.pbrain/` in the repository: originals and locks to the state folder, the semantic index as an on-disk database in the per-checkout cache, and the move of existing brains (section 12).
 5. **Documents.** `[docs]`, the `docs` commands, the document index, and a document as a promotion target.
 
-Phases 3 and 4 do not depend on phases 1 and 2 or on each other. Phase 5 needs phase 4.
+6. **The screen.** `memory browse`, on the lists of phase 1 and the promotion of phase 2.
+
+Phases 3 and 4 do not depend on phases 1 and 2 or on each other. Phase 5 needs phase 4. Phase 6 needs phases 1 and 2 only and can follow them directly; it is numbered last so that the other numbers stay as they were.
 
 ### 17.2 Hook cost
 
@@ -860,7 +1006,7 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 
 ### 17.5 Other constraints
 
-- Memory needs no model, no network and no index. Warm lexical recall is within 100 ms at the 95th percentile with 10,000 memories.
+- Memory needs no model, no network and no index. Warm lexical recall, and a page of `memory log` or `memory highlights`, is within 100 ms at the 95th percentile with the section at its limits (11,000 memories with their tags and keywords).
 - Supported sharing is one operating-system user on one machine with a local file system.
 - Linux and macOS on Apple Silicon, as for pbrain today.
 
@@ -868,7 +1014,9 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 
 - Harvesting transcripts, tool output or direct messages; a memory written on every turn; a copy of every answer kept in case someone asks; a background process that writes memories, documents or skills.
 - Copying unreviewed memories between machines or accounts. A live handoff between machines before review is a separate requirement if the owner names it.
-- Semantic recall of memories, an importance score, ranking by how often something was read, and an LLM that summarizes memories.
+- Semantic recall of memories, an importance score, ranking by how often something was read, and an LLM that summarizes memories. Highlights (5.6) are a fixed filter and none of these.
+- **A map of memory, for a later phase** (the owner's decision of 2026-11-27). The smallest version the team agreed on, when it comes: `memory map` for a tag, a task, a session or a run, at most 50 live memories, drawn through what they share (a tag, a keyword, the task, the session, the run, the cited source) as an indented list and as DOT; a shared label claims no relation beyond the match, and the section, `forget` and expiry are applied before anything is linked or counted. Not planned at all: facts extracted from text as subject, predicate and object; what was true as of a date, which is what Mnemosyne's triple store offers; links by meaning; relations such as "replaces"; ranking recall by the graph.
+- Changing a memory's tags after it is stored; keywords chosen by a model; a mark for "already reviewed".
 - A pattern or hook that decides from a prompt's text that something should be remembered.
 - An in-memory helper that holds the latest answer for hosts with no record to read, and any staging file on disk for it.
 - A setting that treats whatever is typed into a pane as team-visible.
@@ -880,7 +1028,7 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 
 ## 19. The basis of this spec
 
-**The owner's decisions.** D1 to D20 of `proposal.md`, all as recommended, with later ones that replace D5's and D10's detail: nothing of pbrain's in the working tree; on-disk SQLite for memory and the indexes; and no lock files, with SQLite transactions for taking turns (section 12). Answers of 2026-11-26: a standing rule is offered for banking (6.5); one dialog question settles who and where, and the wording sets the term, with "learned" always long-term, for agents too (6.1, 6.2, 6.4), except that the round 1 fallback for a host with no dialog is replaced, which the owner confirmed (section 20); the long-term quota is 500 memories and 16 MiB (7.2); `statement` is the kind of a remembered statement (3.2); `pbrain.toml` stays in the brain folder (11.1); `docs search` orders by match class with items ahead of documents inside one class (11.5).
+**The owner's decisions.** D1 to D20 of `proposal.md`, all as recommended, with later ones that replace D5's and D10's detail: nothing of pbrain's in the working tree; on-disk SQLite for memory and the indexes; and no lock files, with SQLite transactions for taking turns (section 12). Answers of 2026-11-26: a standing rule is offered for banking (6.5); one dialog question settles who and where, and the wording sets the term, with "learned" always long-term, for agents too (6.1, 6.2, 6.4), except that the round 1 fallback for a host with no dialog is replaced, which the owner confirmed (section 20); the long-term quota, then 500 memories and 16 MiB and raised since (7.2); `statement` is the kind of a remembered statement (3.2); `pbrain.toml` stays in the brain folder (11.1); `docs search` orders by match class with items ahead of documents inside one class (11.5).
 
 **Settled in this spec, and accepted by the owner in round 1:** the flag `--retention` with `--until`; `--said-by`, `--asked-by` and `--author`; `recall`'s `--banked`, `--id`, `--page` and `--retention`; a task as a token; `memory_not_enabled`; `PBRAIN_STATE`; a document's address as its path; `docs inventory` and no rewriting of `pbrain.toml`; shared-only document folders; `hooks install` writing the untracked settings file by default; the document quality gate, which round 1 left as a shape and which is now a frozen fixture with pinned hashes, at the reviewer's request (17.4).
 
@@ -893,7 +1041,7 @@ A failure of 1 or 2 is a defect. A failure of 3 on a single question is brought 
 - `secret_refused`, `quota_full`, `no_source` and `memory_busy` as new codes.
 - That pbrain ships two hooks, `session-start` and `pre-compact`, and that the checkpoint's end-of-turn hook belongs to the supervisor (8.4, 9.1). D20 said every host calls `pbrain hook`; that holds for the events pbrain owns.
 - That a change to an existing document is returned as a review-only patch and is not recorded as a promotion (10.4); `promote --show`; `docs get --path`; `docs_not_configured`; `--capture checkpoint`; the `recorded_` and `source_commit` fields; and that no personal row is injected in the first version (8.1).
-- The ceilings: 16 folders, 16 sources in one promotion, 10,000 short-term memories per section.
+- The ceilings: 16 folders, 16 sources in one promotion.
 
 ## 20. Questions the owner answered, and what is left for the architecture
 
@@ -915,5 +1063,14 @@ The owner's last two answers:
 - **Data of a worktree that no longer exists:** its index and its originals stay behind. The layout is documented, pbrain never deletes another checkout's data, and a command that lists and removes such data is a later addition.
 
 **Asked by the owner on 2026-11-27, and added:** that indexing on the processor is announced as a clear warning with the reason and an estimated duration (11.7), while a search on the processor stays silent; and, stated outright, that each index records its model, profile and settings in its own database and that a search refuses an index that does not match (12.6).
+
+**Asked by the owner on 2026-11-27, for memory that agents fill on their own and a person reviews afterwards:** ways for a person to look through memory, `memory log`, `memory show` and the screen `memory browse` (5.5, 5.7), the screen built on the Charm libraries the owner named; tags from the caller and keywords that pbrain derives with no model (3.6); the session, the run and the task on every memory, with `memory sessions` and `memory highlights` (5.6); a map of memory, deferred to a later phase (18); and larger limits, 10,000 long-term and 1,000 short-term memories per section (7).
+
+**Proposed with these, and awaiting the owner's word:**
+
+1. The bytes and the split that go with those counts: 320 MiB of long-term text, of which 2,000 memories and 64 MiB are reserved for a person's requests, and 8 MiB of short-term text (7.1, 7.2).
+2. No invented id for a memory stored with no host session; such memories are grouped under the bucket `none` (5.1, 5.6).
+3. **Short-term memory without tasks.** As approved, a memory with no task and no enrolled agent shares one bucket of 32 per section, so standalone and assistant use keeps at most 32 short-term memories. Option A: leave it, and let the pilot set the number. Option B (@architect's recommendation): keep 32 per task and give the buckets with no task 250, a quarter of the section. The spec is written as A until the owner says otherwise.
+4. **The screen and the release audit.** The Charm libraries read environment variables when the program starts, in every command, and can write a trace or a crash file when certain variables are set; the release audit of today allows neither (architecture 5.5). The audit stays as it is. The choice is how the screen is shipped: inside pbrain once those reads and files are gone from the libraries, by changes upstream or patches pbrain carries (@lead-dev's recommendation), or as a second executable that pbrain starts with an environment it controls (@architect's). It holds up phase 6 only.
 
 For the team, to settle in the architecture step: the schema of the on-disk indexes and how a build stays complete or unused; how the adapter reads the previous answer and the effort from each host; how a supervisor gives a long-lived agent a clean context for its next task; and the byte limits on a section's stored memory and on its replay receipts, which must be exact.
